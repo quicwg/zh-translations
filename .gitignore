@@ -1,0 +1,14 @@
+*.redxml
+*.txt
+*.html
+*.pdf
+*~
+*.swp
+/*-[0-9][0-9].xml
+.refcache
+venv/
+issues.json
+pulls.json
+lib
+.targets.mk
+*.upload
