@@ -284,122 +284,92 @@ QUIC的实现**应该**提供方法，
 该实现**应该**使用应用程序提供的信息。
 
 
-# Stream States {#stream-states}
+# 流转状态 {#stream-states}
 
-This section describes streams in terms of their send or receive components.
-Two state machines are described: one for the streams on which an endpoint
-transmits data ({{stream-send-states}}), and another for streams on which an
-endpoint receives data ({{stream-recv-states}}).
+本节介绍流的发送和接收组件。描述两个状态机：一个是流传输中在需要传输数据的终端的
+（{{stream-send-states}}），另一个是在流传输当中需要接受数据的终端的
+（{{stream-recv-states}}）。
 
-Unidirectional streams use the applicable state machine directly.  Bidirectional
-streams use both state machines.  For the most part, the use of these state
-machines is the same whether the stream is unidirectional or bidirectional.  The
-conditions for opening a stream are slightly more complex for a bidirectional
-stream because the opening of either send or receive sides causes the stream
-to open in both directions.
+单向流直接使用合适的状态机。双向流使用两个状态机。大部分情况下，在单向和双向下状态机的用法是相同的。
+在双向流下打开流时的情况会稍微复杂一点，因为无论是在发送方还是接收方的打开过程都会让流在两个方向上打开。
 
-An endpoint MUST open streams of the same type in increasing order of stream ID.
+一个终端再打开相同类型的流的时候必须使用增序的流传输ID。
 
-Note:
-
-: These states are largely informative.  This document uses stream states to
-  describe rules for when and how different types of frames can be sent and the
-  reactions that are expected when different types of frames are received.
-  Though these state machines are intended to be useful in implementing QUIC,
-  these states aren't intended to constrain implementations.  An implementation
-  can define a different state machine as long as its behavior is consistent
-  with an implementation that implements these states.
+注意：
+: 这些状态是主要的信息。这篇文档使用流状态来描述何时以及如何发送不同类型的帧的规则，以及在接收到不同
+类型的帧时所期望的反应。尽管这些这些状态机在实现QUIC时是有用的，但这些状态不是为了约束实现。一个实
+现可以定义一个不同的状态机，只要它和实现了这些状态的实现的行为一致。
 
 
-## Sending Stream States {#stream-send-states}
+## 发送流数据的状态 {#stream-send-states}
 
-{{fig-stream-send-states}} shows the states for the part of a stream that sends
-data to a peer.
+{{fig-stream-send-states}} 展示了流当中发送数据到对端部分的状态
 
 ~~~
        o
-       | Create Stream (Sending)
-       | Peer Creates Bidirectional Stream
+       | 创建流 (发送)
+       | 对端创建双向流
        v
    +-------+
-   | Ready | Send RESET_STREAM
+   | Ready | 发送 RESET_STREAM
    |       |-----------------------.
    +-------+                       |
        |                           |
-       | Send STREAM /             |
-       |      STREAM_DATA_BLOCKED  |
+       | 发送 STREAM /              |
+       |     STREAM_DATA_BLOCKED   |
        |                           |
-       | Peer Creates              |
-       |      Bidirectional Stream |
+       | 对端创建                    |
+       |      双向流                |
        v                           |
    +-------+                       |
-   | Send  | Send RESET_STREAM     |
+   | Send  | 发送 RESET_STREAM      |
    |       |---------------------->|
    +-------+                       |
        |                           |
-       | Send STREAM + FIN         |
+       | 发送 STREAM + FIN          |
        v                           v
    +-------+                   +-------+
-   | Data  | Send RESET_STREAM | Reset |
+   | Data  | 发送 RESET_STREAM  | Reset |
    | Sent  |------------------>| Sent  |
    +-------+                   +-------+
        |                           |
-       | Recv All ACKs             | Recv ACK
+       | 接收 All ACKs              | 接收 ACK
        v                           v
    +-------+                   +-------+
    | Data  |                   | Reset |
    | Recvd |                   | Recvd |
    +-------+                   +-------+
 ~~~
-{: #fig-stream-send-states title="States for Sending Parts of Streams"}
+{: #fig-stream-send-states title="流发送部分的状态"}
 
-The sending part of stream that the endpoint initiates (types 0
-and 2 for clients, 1 and 3 for servers) is opened by the application.  The
-"Ready" state represents a newly created stream that is able to accept data from
-the application.  Stream data might be buffered in this state in preparation for
-sending.
+流发送部分的初始化（客户端使用类型0和2，服务端使用类型1和3）是由应用程序发起的。“Ready”状态意味着
+一个新创建的流能够接受来自应用的数据。准备发送的流数据可能在这个状态被缓存。
 
-Sending the first STREAM or STREAM_DATA_BLOCKED frame causes a sending part of a
-stream to enter the "Send" state.  An implementation might choose to defer
-allocating a stream ID to a stream until it sends the first frame and enters
-this state, which can allow for better stream prioritization.
+发送第一个STREAM或STREAM_DATA_BLOCKED帧导致流发送部分进入“Send”状态。一个实现可能将为流分配
+流ID延迟到发送第一个帧并且进入这个状态之后，这样可以更好的确定流的优先级。
 
-The sending part of a bidirectional stream initiated by a peer (type 0 for a
-server, type 1 for a client) enters the "Ready" state then immediately
-transitions to the "Send" state if the receiving part enters the "Recv" state
-({{stream-recv-states}}).
+双向流发送部在对端进入“Ready”部分时被初始化（服务端使用类型0，客户端使用类型1）并在接受部分进入
+“Recv”状态（{{stream-recv-states}}）时马上转到“Send”状态。
 
-In the "Send" state, an endpoint transmits - and retransmits as necessary -
-stream data in STREAM frames.  The endpoint respects the flow control limits set
-by its peer, and continues to accept and process MAX_STREAM_DATA frames.  An
-endpoint in the "Send" state generates STREAM_DATA_BLOCKED frames if it is
-blocked from sending by stream or connection flow control limits
-{{data-flow-control}}.
+在“Send”状态，一个终端以STREAM帧的方式传输 -在必要的时候重新传输- 数据。终端遵循对端设置的流量
+控制，并且持续等待接收MAX_STREAM_DATA帧。一个处于“Send”状态的终端会在流发送过程被阻塞或受到流
+量控制的时候生成STREAM_DATA_BLOCKED{{data-flow-control}}。
 
-After the application indicates that all stream data has been sent and a STREAM
-frame containing the FIN bit is sent, the sending part of the stream enters the
-"Data Sent" state.  From this state, the endpoint only retransmits stream data
-as necessary.  The endpoint does not need to check flow control limits or send
-STREAM_DATA_BLOCKED frames for a stream in this state.  MAX_STREAM_DATA frames
-might be received until the peer receives the final stream offset. The endpoint
-can safely ignore any MAX_STREAM_DATA frames it receives from its peer for a
-stream in this state.
+当应用程序表明所有的流数据都发送完了且发送了一个包含FIN位的STREAM帧，流发送部分进入“Data Sent”
+状态。在这个状态，终端只会在必要的时候重新传输流数据。在这个状态终端不用考虑这条流的流量控制或发送
+STREAM_DATA_BLOCKED帧。当对端收到最后的流数据之后终端可能会收到MAX_STREAM_DATA帧。终端可以
+安全的忽略任何在这个状态的流的对端发送的MAX_STREAM_DATA帧。
 
-Once all stream data has been successfully acknowledged, the sending part of the
-stream enters the "Data Recvd" state, which is a terminal state.
+一旦所有的流数据都被成功的接收，流发送部分进入被称为“Data Recvd”的最终状态。
 
-From any of the "Ready", "Send", or "Data Sent" states, an application can
-signal that it wishes to abandon transmission of stream data. Alternatively, an
-endpoint might receive a STOP_SENDING frame from its peer.  In either case, the
-endpoint sends a RESET_STREAM frame, which causes the stream to enter the "Reset
-Sent" state.
+在“Ready”，“Send”或“Data Sent”状态，应用程序可以发出希望中断流数据发送的信号。同样的，一个
+终端可能从对端收到一个STOP_SENDING帧。在两种情况下，这个终端发送一个会流进入“Reset Sent”状态
+的RESET_STREAM帧。
 
-An endpoint MAY send a RESET_STREAM as the first frame that mentions a stream;
-this causes the sending part of that stream to open and then immediately
-transition to the "Reset Sent" state.
+一个终端 *可能* 会将RESET_STREAM做为流创建之后的第一个帧；
+这导致流发送端打开并马上进入“Reset Sent”状态。
 
-Once a packet containing a RESET_STREAM has been acknowledged, the sending part
-of the stream enters the "Reset Recvd" state, which is a terminal state.
+一旦一个包含RESET_STREAM的包被识别出来，流发送部分进入被称为“Reset Recvd”的最终状态。
 
 
 ## 接收流的状态(Receiving Stream States) {#stream-recv-states}
