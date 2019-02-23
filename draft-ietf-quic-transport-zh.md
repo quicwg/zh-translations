@@ -675,143 +675,60 @@ can terminate one direction by sending a RESET_STREAM, and it can encourage
 prompt termination in the opposite direction by sending a STOP_SENDING frame.
 
 
-# Flow Control {#flow-control}
+# Flow Control {#flow-control} 流量控制
 
-It is necessary to limit the amount of data that a receiver could buffer, to
-prevent a fast sender from overwhelming a slow receiver, or to prevent a
-malicious sender from consuming a large amount of memory at a receiver.  To
-enable a receiver to limit memory commitment to a connection and to apply back
-pressure on the sender, streams are flow controlled both individually and as an
-aggregate.  A QUIC receiver controls the maximum amount of data the sender can
-send on a stream at any time, as described in {{data-flow-control}} and
-{{fc-credit}}
+接收方的数据缓冲大小需要被限制，这样避免发生快速发送方碾压慢速接收方的情况以及恶意发送者来消耗接收终端的内存大小。为了使接收方能够将内存开销限制在一个连接上，并对发送方施加反压力，流是单独控制的，也可以作为一个聚合来控制。Quic接收方可以随时控制发送方在流上发送的最大数据量(如第4.1节和4.2节所述)。
 
-Similarly, to limit concurrency within a connection, a QUIC endpoint controls
-the maximum cumulative number of streams that its peer can initiate, as
-described in {{controlling-concurrency}}.
+同样，为了限制连接内的并发，Quic终端控制其对等设备可以发起的最大累计数据流数(如4.5节所述)。
 
-Data sent in CRYPTO frames is not flow controlled in the same way as stream
-data.  QUIC relies on the cryptographic protocol implementation to avoid
-excessive buffering of data, see {{QUIC-TLS}}.  The implementation SHOULD
-provide an interface to QUIC to tell it about its buffering limits so that there
-is not excessive buffering at multiple layers.
+在加密帧中发送的数据不像流数据那样受到流控制。Quic依赖于密码协议实现来避免数据的过度缓冲，请参见[Quic-TLS]。该实现应该提供一个到Quic的接口，告诉它的缓冲限制，以便在多个层上不会有过多的缓冲。
 
 
-## Data Flow Control {#data-flow-control}
+## Data Flow Control {#data-flow-control} 数据流控制
 
-QUIC employs a credit-based flow-control scheme similar to that in HTTP/2
-{{?HTTP2}}, where a receiver advertises the number of bytes it is prepared to
-receive on a given stream and for the entire connection.  This leads to two
-levels of data flow control in QUIC:
+Quic采用类似于HTTP/2[HTTP2]中的基于信用的流量控制方案，在该方案中，接收方设定它准备在给定流上和整个连接上接收的字节数，这也是Quic中的两种数据流控制：
 
-* Stream flow control, which prevents a single stream from consuming the entire
-  receive buffer for a connection by limiting the amount of data that can be
-  sent on any stream.
+* 流控制，通过限制在任何流上发送的数据量，防止单个流占用连接的整个接收缓冲区。
 
-* Connection flow control, which prevents senders from exceeding a receiver's
-  buffer capacity for the connection, by limiting the total bytes of stream data
-  sent in STREAM frames on all streams.
+* 连接流控制，通过限制所有流在流帧中发送的流数据的总字节数，防止接收方用于连接的缓冲区容量被发送端消耗殆尽。
 
-A receiver sets initial credits for all streams by sending transport parameters
-during the handshake ({{transport-parameters}}).  A receiver sends
-MAX_STREAM_DATA ({{frame-max-stream-data}}) or MAX_DATA ({{frame-max-data}})
-frames to the sender to advertise additional credit.
+接收方通过在握手期间发送传输参数来设置所有流的初始信用(第7.3节)。接收方向发送方发送MAX_STREAM_DATA(第19.10节)或MAX_DATA(第19.9节)帧，以通告额外信用。
 
-A receiver advertises credit for a stream by sending a MAX_STREAM_DATA frame
-with the Stream ID field set appropriately.  A MAX_STREAM_DATA frame indicates
-the maximum absolute byte offset of a stream.  A receiver could use the current
-offset of data consumed to determine the flow control offset to be advertised.
-A receiver MAY send MAX_STREAM_DATA frames in multiple packets in order to make
-sure that the sender receives an update before running out of flow control
-credit, even if one of the packets is lost.
+接收方通过适当发送设置了流ID字段的MAX_STREAM_DATA帧来通告流的信用。MAX_STREAM_DATA帧设置流的最大绝对字节偏移量。接收方可以使用数据消费的当前偏移量来确定要通告的流量控制偏移量。接收方可以在多个数据包中发送MAX_STREAM_DATA帧，以确保发送方在流控制信用用完之前收到更新，即使其中一个数据包丢失也是如此。
 
-A receiver advertises credit for a connection by sending a MAX_DATA frame, which
-indicates the maximum of the sum of the absolute byte offsets of all streams.  A
-receiver maintains a cumulative sum of bytes received on all streams, which is
-used to check for flow control violations. A receiver might use a sum of bytes
-consumed on all streams to determine the maximum data limit to be advertised.
+接收方通过发送MAX_DATA帧来通告连接的信用，该帧指示所有流的绝对字节偏移量之和的最大值。接收方维护在所有流上接收的字节之和，用于检查是否违反流控制。接收方可以使用在所有流上消耗的字节总和来确定要通告的最大数据限制。
 
-A receiver can advertise a larger offset by sending MAX_STREAM_DATA or MAX_DATA
-frames at any time during the connection.  A receiver cannot renege on an
-advertisement however.  That is, once a receiver advertises an offset, it MAY
-advertise a smaller offset, but this has no effect.
+接收方可以通过在连接期间随时发送MAX_STREAM_DATA或MAX_DATA帧来通告较大的偏移量。然而，接收方不能违背自己发送的通告。也就是说，一旦接收方通告了一个偏移量，它就可以通告一个较小的偏移量，这没有影响。
 
-A receiver MUST close the connection with a FLOW_CONTROL_ERROR error
-({{error-handling}}) if the sender violates the advertised connection or stream
-data limits.
+如果发送方违反已通告的连接或流的数据限制，接收方必须关闭连接并返回flow_control_error错误(第11节)。
 
-A sender MUST ignore any MAX_STREAM_DATA or MAX_DATA frames that do not increase
-flow control limits.
+发送方必须忽略任何不会增加流控制限制的MAX_STREAM_DATA或MAX_DATA帧。
 
-If a sender runs out of flow control credit, it will be unable to send new data
-and is considered blocked.  A sender SHOULD send STREAM_DATA_BLOCKED or
-DATA_BLOCKED frames to indicate it has data to write but is blocked by flow
-control limits.  These frames are expected to be sent infrequently in common
-cases, but they are considered useful for debugging and monitoring purposes.
+如果发送方超出了流控制信用，它将无法发送新数据，并被禁止。如果发送方有被流控制限制阻止写入的数据，应发送STREAM_DATA_BLOCKED或DATA_BLOCKED帧。在常见情况下，这些帧不建议频繁发送。如果是调试和监控则另当别论。
 
-A sender sends a single STREAM_DATA_BLOCKED or DATA_BLOCKED frame only once when
-it reaches a data limit.  A sender SHOULD NOT send multiple STREAM_DATA_BLOCKED
-or DATA_BLOCKED frames for the same data limit, unless the original frame is
-determined to be lost.  Another STREAM_DATA_BLOCKED or DATA_BLOCKED frame can be
-sent after the data limit is increased.
+发送方仅在数据限制时发送单个STREAM_DATA_BLOCKED或DATA_BLOCKED帧一次。发送方不应发送具有相同数据限制的多个STREAM_DATA_BLOCKED或DATA_BLOCKED帧，除非确定原始帧丢失。增加数据限制后，可以发送另一个STREAM_DATA_BLOCKED或DATA_BLOCKED帧。
 
 
-## Flow Credit Increments {#fc-credit}
+## Flow Credit Increments {#fc-credit} 流信用增量
 
-This document leaves when and how many bytes to advertise in a MAX_STREAM_DATA
-or MAX_DATA frame to implementations, but offers a few considerations.  These
-frames contribute to connection overhead.  Therefore frequently sending frames
-with small changes is undesirable.  At the same time, larger increments to
-limits are necessary to avoid blocking if updates are less frequent, requiring
-larger resource commitments at the receiver.  Thus there is a trade-off between
-resource commitment and overhead when determining how large a limit is
-advertised.
+ 本文档把MAX_STREAM_DATA或MAX_DATA帧中通告的时间和字节数留给实现，但需要了解一些注意事项。这些特殊帧会增加连接开销。因此，经常发送小更改的帧是不可取的。同时，如果更新频率较低，则需要对限制进行更大的增量，以避免阻塞，这需要接收方做出更大的资源承诺。因此，在确定公布的限制有多大时，在资源承诺和间接费用之间存在权衡。
 
-A receiver can use an autotuning mechanism to tune the frequency and amount of
-advertised additional credit based on a round-trip time estimate and the rate at
-which the receiving application consumes data, similar to common TCP
-implementations.  As an optimization, sending frames related to flow control
-only when there are other frames to send or when a peer is blocked ensures that
-flow control doesn't cause extra packets to be sent.
+接收方可以使用自动调优机制基于往返时间估计和接收应用程序消耗数据的速率来调整通告的附加信用的频率和数量，这与常见的TCP实现类似。作为一种优化，仅当有其他帧要发送或对等设备被阻止时，才发送与流量控制相关的帧，以确保流量控制不会导致发送额外的数据包。
 
-If a sender runs out of flow control credit, it will be unable to send new data
-and is considered blocked.  It is generally considered best to not let the
-sender become blocked.  To avoid blocking a sender, and to reasonably account
-for the possibility of loss, a receiver should send a MAX_DATA or
-MAX_STREAM_DATA frame at least two round trips before it expects the sender to
-get blocked.
+如果发送方超出了流控制信用，它将无法发送新数据并被认为被阻止。一般认为，最好不要让发件人被阻止。为了避免阻塞发送方，并合理地考虑丢失的可能性，接收方应在期望发送方被阻止之前至少发送两次MAX_DATA或MAX_STREAM_DATA帧。
 
-A receiver MUST NOT wait for a STREAM_DATA_BLOCKED or DATA_BLOCKED frame before
-sending MAX_STREAM_DATA or MAX_DATA, since doing so will mean that a sender will
-be blocked for at least an entire round trip, and potentially for longer if the
-peer chooses to not send STREAM_DATA_BLOCKED or DATA_BLOCKED frames.
+接收方在发送MAX_STREAM_DATA或MAX_DATA之前，不能等待STREAM_DATA_BLOCKED或DATA_BLOCKED帧，因为这样做将意味着发送方至少在整个往返过程中被阻止，如果对等设备选择不发送STREAM_DATA_BLOCKED或DATA_BLOCKED帧，则可能会阻塞更长的时间。
 
 
-## Handling Stream Cancellation {#stream-cancellation}
+## Handling Stream Cancellation {#stream-cancellation} 流终止处理
 
-Endpoints need to eventually agree on the amount of flow control credit that has
-been consumed, to avoid either exceeding flow control limits or deadlocking.
+接受两端最终需要就已消耗的流量控制信用的数量达成一致，以避免超出流量控制限制或出现死锁。
 
-On receipt of a RESET_STREAM frame, an endpoint will tear down state for the
-matching stream and ignore further data arriving on that stream.  If a
-RESET_STREAM frame is reordered with stream data for the same stream, the
-receiver's estimate of the number of bytes received on that stream can be lower
-than the sender's estimate of the number sent.  As a result, the two endpoints
-could disagree on the number of bytes that count towards connection flow
-control.
+收到RESET_STREAM帧后，端点将关闭匹配流的状态，并忽略到达该流的其他数据。如果RESET_STREAM帧与同一流的流数据一起重新排序，则接收方对该流上接收到的字节数的估计可能低于发送方对发送的字节数的估计。因此，这两个端点在连接流控制的字节数上可能不一致。
 
-To remedy this issue, a RESET_STREAM frame ({{frame-reset-stream}}) includes the
-final size of data sent on the stream.  On receiving a RESET_STREAM frame, a
-receiver definitively knows how many bytes were sent on that stream before the
-RESET_STREAM frame, and the receiver MUST use the final size of the stream to
-account for all bytes sent on the stream in its connection level flow
-controller.
+这个问题通过RESET_STREAM帧(第19.4节)设置在流上发送的数据的最终大小来解决。在接收RESET_STREAM帧时，接收方明确知道在RESET_STREAM帧之前在该流上发送了多少字节，并且接收方必须使用流的最终大小来计算在其连接级别流控制器中发送的流上的所有字节。
 
-RESET_STREAM terminates one direction of a stream abruptly.  For a bidirectional
-stream, RESET_STREAM has no effect on data flow in the opposite direction.  Both
-endpoints MUST maintain flow control state for the stream in the unterminated
-direction until that direction enters a terminal state, or until one of the
-endpoints sends CONNECTION_CLOSE.
+RESET_STREAM突然终止流的一个方向。对于双向流，RESET_STREAM对相反方向的数据流没有影响。两个终端都必须在未终止的方向上保持流的流控制状态，直到该方向进入终止状态，或者直到其中一个端点发送CONNECTION_CLOSE为止。
 
 
 ## Stream Final Size {#final-size}
@@ -3852,7 +3769,7 @@ short packet header.
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Protected Payload (*)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-~~~~~
+​~~~~~
 {: #fig-short-header title="Short Header Packet Format"}
 
 The short header can be used after the version and 1-RTT keys are negotiated.
@@ -5853,3 +5770,5 @@ Hamilton, Jana Iyengar, Fedor Kouranov, Charles Krasic, Jo Kulik, Adam Langley,
 Jim Roskind, Robbie Shade, Satyam Shekhar, Cherie Shi, Ian Swett, Raman Tenneti,
 Victor Vasiliev, Antonio Vicente, Patrik Westin, Alyssa Wilk, Dale Worley, Fan
 Yang, Dan Zhang, Daniel Ziegler.
+
+~~~
