@@ -109,136 +109,94 @@ code and issues list for this draft can be found at
 
 --- middle
 
-# Introduction
+# 简介
 
-QUIC is a multiplexed and secure general-purpose transport protocol that
-provides:
+QUIC 是一个安全通用的多路复用的传输协议，它提供了：
 
-* Stream multiplexing
+* 流多路复用
 
-* Stream and connection-level flow control
+* 流和链接级别的流量控制
 
-* Low-latency connection establishment
+* 低延迟的链接建立
 
-* Connection migration and resilience to NAT rebinding
+* 链接迁移和 NAT 重新绑定的恢复能力
 
-* Authenticated and encrypted header and payload
+* 认证加密的报头和数据
 
-QUIC uses UDP as a substrate to avoid requiring changes to legacy client
-operating systems and middleboxes.  QUIC authenticates all of its headers and
-encrypts most of the data it exchanges, including its signaling, to avoid
-incurring a dependency on middleboxes.
+QUIC 使用了 UDP 作为底层协议来避免需要对旧的终端操作系统或中间层进行修改。为了避免对中间层的依赖, QUIC 验证所有的报头和加密大部分他交换的数据，包括 QUIC 自身的信号。
 
 
-## Document Structure
+## 文档结构
 
-This document describes the core QUIC protocol and is structured as follows.
+这个文档描述了 QUIC 协议的核心部分，如下结构所构建
 
-* Streams are the basic service abstraction that QUIC provides.
-  - {{streams}} describes core concepts related to streams,
-  - {{stream-states}} provides a reference model for stream states, and
-  - {{flow-control}} outlines the operation of flow control.
+* 流是 QUIC 提供的基础服务抽象。
+  - {{streams}} 描述了关于流的核心概念，
+  - {{stream-states}} 提供了一个流状态的参考模型，
+  - {{flow-control}} 概述了流量控制的运作方式。
 
-* Connections are the context in which QUIC endpoints communicate.
-  - {{connections}} describes core concepts related to connections,
-  - {{version-negotiation}} describes version negotiation,
-  - {{handshake}} details the process for establishing connections,
-  - {{address-validation}} specifies critical denial of service mitigation
-    mechanisms,
-  - {{migration}} describes how endpoints migrate a connection to a new
-    network path,
-  - {{termination}} lists the options for terminating an open connection, and
-  - {{error-handling}} provides general guidance for error handling.
+* 链接是 QUIC 协议终端数据通信的上下文环境
+  - {{connections}} 描述了关于链接的核心概念，
+  - {{version-negotiation}} 描述了版本协商，
+  - {{handshake}} 详细描述了建立链接的过程，
+  - {{address-validation}} 指定了关键的拒绝服务的缓解机制，
+  - {{migration}} 描述了终端如何将一个链接迁移到一个新的网络路径，
+  - {{termination}} 列举了关闭一个链接的选项，
+  - {{error-handling}} 提供了异常处理的通用指引。
 
-* Packets and frames are the basic unit used by QUIC to communicate.
-  - {{packets-frames}} describes concepts related to packets and frames,
-  - {{packetization}} defines models for the transmission, retransmission, and
-    acknowledgement of data, and
-  - {{packet-size}} specifies rules for managing the size of packets.
+* 包和帧是 QUIC 通信的基本单元。
+  - {{packets-frames}} 描述了关于包与帧概念。
+  - {{packetization}} 定义了传输、重传和确认数据的模型，
+  - {{packet-size}} 制定了管理数据包大小的规则。
 
-* Finally, encoding details of QUIC protocol elements are described in:
-  - {{versions}} (Versions),
-  - {{integer-encoding}} (Integer Encoding),
-  - {{packet-formats}} (Packet Headers),
-  - {{transport-parameter-encoding}} (Transport Parameters),
-  - {{frame-formats}} (Frames), and
-  - {{error-codes}} (Errors).
+* 最后， QUIC 协议各元素编码细节：
+  - {{versions}} （版本），
+  - {{integer-encoding}} （数字编码），
+  - {{packet-formats}} （包头），
+  - {{transport-parameter-encoding}} （传输参数），
+  - {{frame-formats}} （帧），
+  - {{error-codes}} （异常）。
 
-Accompanying documents describe QUIC's loss detection and congestion control
-{{QUIC-RECOVERY}}, and the use of TLS for key negotiation {{QUIC-TLS}}.
+附带文档描述了 QUIC 的丢包检测和拥塞控制{{QUIC-RECOVERY}}，以及 TLS 在密钥协商中的使用{{QUIC-TLS}}。
 
-This document defines QUIC version 1, which conforms to the protocol invariants
-in {{QUIC-INVARIANTS}}.
+此文档定义了 QUIC 版本 1，它符合定义在{{QUIC-INVARIANTS}}中的协议非变量。
 
 
-## Terms and Definitions
+## 术语和定义
 
-The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词 **"必须(MUST)”， "必须不(MUST NOT)"， "必需(REQUIRED)"， "让我们(SHALL)"， "让我们不(SHALL NOT)"， "应该(SHOULD)"， "应该不(SHOULD NOT)"， "推荐(RECOMMENDED)"，"不推荐(NOT RECOMMENDED)"， "可能(MAY)"， "可选(OPTIONAL)"** 在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，当且仅当他们如此例子显示的以加粗的形式出现时。
+文档中常用的术语在下方描述。
 
-Commonly used terms in the document are described below.
-
-QUIC:
-
-: The transport protocol described by this document. QUIC is a name, not an
-  acronym.
-
-QUIC packet:
-
-: The smallest unit of QUIC that can be encapsulated in a UDP datagram. Multiple
-  QUIC packets can be encapsulated in a single UDP datagram.
-
-Endpoint:
-
-: An entity that can participate in a QUIC connection by generating,
-  receiving, and processing QUIC packets. There are only two types of endpoint
-  in QUIC: client and server.
-
-Client:
-
-: The endpoint initiating a QUIC connection.
-
-Server:
-
-: The endpoint accepting incoming QUIC connections.
-
-Connection ID:
-
-: An opaque identifier that is used to identify a QUIC connection at an
-  endpoint.  Each endpoint sets a value for its peer to include in packets sent
-  towards the endpoint.
-
-Stream:
-
-: A unidirectional or bidirectional channel of ordered bytes within a QUIC
-  connection. A QUIC connection can carry multiple simultaneous streams.
-
-Application:
-
- : An entity that uses QUIC to send and receive data.
+术语 | 解释
+---- | ----
+QUIC | 此文档所描述的传输协议。QUIC 是一个名字，不是一个首字母缩写。
+QUIC 包 | 在一个 UDP 报文中可封装的 QUIC 最小单元。多个 QUIC 包可以被封装在单个 UDP 报文中。
+终端 | 可以通过生成，接收，处理 QUIC 包参与 QUIC 链接生成的实体。在 QUIC 中仅有两种类型的终端，客户端与服务端。
+客户端 | 创建 QUIC 链接的终端。
+服务端 | 接收到来的 QUIC 链接的终端。
+链接 ID | 一种不透明的标识符，用于标识终端上的 QUIC 链接。每个终端都为其对端设置一个值，以便将其包含在发送到该终端的数据包中。
+流 | QUIC 链接中有序字节的单向或双向通道。一个 QUIC 链接可以同时传输多个流。
+应用 | 可以使用 QUIC 发送与接收数据的实体。
 
 
-## Notational Conventions
+## 注解公约
 
-Packet and frame diagrams in this document use the format described in Section
-3.1 of {{?RFC2360}}, with the following additional conventions:
+本文档中的包和帧的示意图使用在{{?RFC2360}}章节3.1中的格式进行描述，并加上了如下额外的公约。
 
 \[x\]:
-: Indicates that x is optional
+: 表示 x 是可选的
 
 x (A):
-: Indicates that x is A bits long
+: 表示 x 长度为 A 比特
 
 x (A/B/C) ...:
-: Indicates that x is one of A, B, or C bits long
+: 表示 x 长度为 A 或 B 或 C 比特中的一种
 
 x (i) ...:
-: Indicates that x uses the variable-length encoding in {{integer-encoding}}
+: 表示 x 使用了在{{integer-encoding}}中描述的可变长度编码
 
 x (*) ...:
-: Indicates that x is variable-length
+: 表示 x 是可变长度的
 
 
 # Streams {#streams}
