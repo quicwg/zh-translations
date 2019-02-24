@@ -549,9 +549,9 @@ STREAM ({{frame-stream}})，
 STREAM_DATA_BLOCKED
 ， RESET_STREAM({{frame-reset-stream}})。
 
-发送者禁止在终结状态 ("Data Recvd"
+发送者**禁止**在终结状态 ("Data Recvd"
 或者 "Reset Recvd") 发送上面的三种帧类型。
-发送者禁止在发送一个RESET_STREAM后
+发送者**禁止**在发送一个RESET_STREAM后
 发送STREAM或者STREAM_DATA_BLOCKED。
 这指的是在终止状态和重置发送状态。
 接收者可以在任何状态下接收任何这三种帧类型，
@@ -574,7 +574,7 @@ STOP_SENDING是没有意义的，
 ## 双向流状态(Bidirectional Stream States) {#stream-bidi-states}
 
 双向流由发送和接收部分组成。
-实现中可以将发送和接收流的状态
+实现中**可以**将发送和接收流的状态
 作为依据表示双向流的状态。
 最简单的模型是当发送或接收部分
 处于非终止状态时将流表示为“开放”，
@@ -611,7 +611,7 @@ STOP_SENDING是没有意义的，
 ## 请求的状态转换(solicited-state-transitions)
 
 如果终端不再对它在流上接收的数据感兴趣，
-它可以发送一个STOP_SENDING来
+它**可以**发送一个STOP_SENDING来
 标识该流，以推动对端关闭流。
 通常表示接收应用程序不再读取它从流中接收的数据
 ，但这不是传入的数据将被忽略的保证。
@@ -621,19 +621,19 @@ STOP_SENDING是没有意义的，
 
 一个STOP_SENDING请求接收端发送RESET_STREAM帧。
 如果流处于就绪或发送状态，
-则接收STOP_SENDING帧的终端必须发送RESET_STREAM帧。
+则接收STOP_SENDING帧的终端**必须**发送RESET_STREAM帧。
 如果流处于数据发送状态并且任何未完成的数据被声明丢失
 ，则终端应该发送RESET_STREAM帧代替重传。
 
 终端应该将错误代码从STOP_SENDING帧
 复制到它发送的RESET_STREAM帧，
-但是可以使用任何应用程序错误代码。
-发送STOP_SENDING帧的终端可以忽略它接收的
+但是**可以**使用任何应用程序错误代码。
+发送STOP_SENDING帧的终端**可以**忽略它接收的
 任何RESET_STREAM帧中携带的错误代码。
 
 如果在已经处于“已发送数据”状态的流上接收到STOP_SENDING
 帧，则希望停止在该流上重传先前发送的STREAM帧的终端
-必须首先发送RESET_STREAM帧。
+**必须**首先发送RESET_STREAM帧。
 
 STOP_SENDING 应该仅针对未被对方重置的流发送。
 STOP_SENDING对于“Recv”或“Size Known”状态的流最有用。
