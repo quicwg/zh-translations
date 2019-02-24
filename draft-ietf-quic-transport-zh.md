@@ -241,7 +241,7 @@ x (*) ...:
 : Indicates that x is variable-length
 
 
-# Streams {#streams} 流
+# 流(Streams)
 
 QUIC中的流向应用提供一个有序的轻量级字节流的抽象。QUIC流可以近似的看成一条长度可变的信息。
 
@@ -255,7 +255,7 @@ QUIC允许同时操作任意数量的流，并且可在任何流上发送任意�
 但受流量控制约束{{flow-control}}和流限制。
 
 
-## Stream Types and Identifiers {#stream-id} 流的种类和识别
+## 流的种类和识别(Stream Types and Identifiers)
 
 
 流可选单向或双向。
@@ -284,7 +284,7 @@ QUIC允许同时操作任意数量的流，并且可在任何流上发送任意�
 
 客户端打开的第一个双向流的流ID约定为0。
 
-## Sending and Receiving Data 收发数据
+## 收发数据(Sending and Receiving Data)
 
 STREAM帧（第19.8节）封装了应用程序发送的数据。
 终端使用STREAM帧中的流ID和Offset字段来排序数据。
@@ -305,7 +305,7 @@ STREAM帧的封装边界在丢失重传或传递给接收的应用程序时不�
 终端**禁止**在任何未确认通信双方已建立流量控制的流中发送数据。流量控制将在第4节中详细描述
 
 
-## Stream Prioritization {#stream-prioritization} 流的优先级
+## 流的优先级(Stream Prioritization)
 
 如果分配给流的资源正确设置了优先级，则多路复用流可以给应用的性能带来显著影响。
 
