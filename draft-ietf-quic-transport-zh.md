@@ -210,106 +210,78 @@ x (*) ...:
 : 表示 x 是可变长度的
 
 
-# Streams {#streams}
+# Streams {#streams} 流
 
-Streams in QUIC provide a lightweight, ordered byte-stream abstraction to an
-application. An alternative view of QUIC streams is as an elastic "message"
-abstraction.
+QUIC中的流向应用提供一个有序的轻量级流的抽象。QUIC流可以近似的看成一条长度可变的信息。
 
-Streams can be created by sending data. Other processes associated with stream
-management - ending, cancelling, and managing flow control - are all designed to
-impose minimal overheads. For instance, a single STREAM frame ({{frame-stream}})
-can open, carry data for, and close a stream. Streams can also be long-lived and
-can last the entire duration of a connection.
+流可以通过发送数据创建。流管理相关的其他流程均以最小开销来设计，包含结束、取消和流量控制。
+举例来说，在单一STREAM帧（参见19节第8项）内可以完成以下操作：开启一个流，在流中传送数据，然后关闭它。
+但流也可以是长寿，甚至在连接期间一直持续。
+任意终端均可创建、关闭流，以及使用它发送数据（可与其他流共存）。
+且任意终端均可发起一个流。但QUIC不提供任何方法确保不同流上的字节之间的有序。
 
-Streams can be created by either endpoint, can concurrently send data
-interleaved with other streams, and can be cancelled. QUIC does not provide any
-means of ensuring ordering between bytes on different streams.
-
-QUIC allows for an arbitrary number of streams to operate concurrently and for
-an arbitrary amount of data to be sent on any stream, subject to flow control
-constraints (see {{flow-control}}) and stream limits.
+QUIC允许同时操作任意数量的流，并且可在任何流上发送任意数量的数据。
+但受流量控制约束（参见第4节）和流限制
 
 
-## Stream Types and Identifiers {#stream-id}
+## Stream Types and Identifiers {#stream-id} 流的种类和识别
 
-Streams can be unidirectional or bidirectional.  Unidirectional streams carry
-data in one direction: from the initiator of the stream to its peer.
-Bidirectional streams allow for data to be sent in both directions.
 
-Streams are identified within a connection by a numeric value, referred to as
-the stream ID.  Stream IDs are unique to a stream. A QUIC endpoint MUST NOT
-reuse a stream ID within a connection.  Stream IDs are encoded as
-variable-length integers (see {{integer-encoding}}).
+流可选单向或双向。
+单向流从发起方向目标单向传送数据，双向流则允许双方互相发送数据。
 
-The least significant bit (0x1) of the stream ID identifies the initiator of the
-stream.  Client-initiated streams have even-numbered stream IDs (with the bit
-set to 0), and server-initiated streams have odd-numbered stream IDs (with the
-bit set to 1).
+一个连接中的流通过流ID的数值来识别。
+该值为可变长整数，在一个连接内唯一且不可复用！（参见第16节）
 
-The second least significant bit (0x2) of the stream ID distinguishes between
-bidirectional streams (with the bit set to 0) and unidirectional streams (with
-the bit set to 1).
+流ID的最低有效位（0x1）标识流的发起者。 
+客户端发起的流具有偶数编号的流ID（此时该位设置为0），服务器启动的流具有奇数编号的流ID（此时该位设置为1）。
 
-The least significant two bits from a stream ID therefore identify a stream as
-one of four types, as summarized in {{stream-id-types}}.
+流ID的第二个最低有效位（0x2）区分双向流（该位设置为0）和单向流（该位设置为1）。
+
+由此，通过流ID的2个最低有效位可以把流分为4种，如表1所示。
 
 | Bits | Stream Type                      |
 |:-----|:---------------------------------|
-| 0x0  | Client-Initiated, Bidirectional  |
-| 0x1  | Server-Initiated, Bidirectional  |
-| 0x2  | Client-Initiated, Unidirectional |
-| 0x3  | Server-Initiated, Unidirectional |
+| 0x0  | Client-Initiated 客户端发起, Bidirectional 双向 |
+| 0x1  | Server-Initiated 服务器发起, Bidirectional 双向 |
+| 0x2  | Client-Initiated 客户端发起, Unidirectional 单向 |
+| 0x3  | Server-Initiated 服务器发起, Unidirectional 单向 |
 {: #stream-id-types title="Stream ID Types"}
 
-Within each type, streams are created with numerically increasing stream IDs.  A
-stream ID that is used out of order results in all streams of that type with
-lower-numbered stream IDs also being opened.
+在每种类型中，流创建时都伴随有序递增的流ID。
+不按顺序使用的流ID将导致该类型的所有具有较低编号的流ID的流也被开启。
 
-The first bidirectional stream opened by the client has a stream ID of 0.
+客户端打开的第一个双向流的流ID约定为0。
 
-## Sending and Receiving Data
+## Sending and Receiving Data 收发数据
 
-STREAM frames ({{frame-stream}}) encapsulate data sent by an application. An
-endpoint uses the Stream ID and Offset fields in STREAM frames to place data in
-order.
+STREAM帧（第19.8节）封装了应用程序发送的数据。
+终端使用STREAM帧中的流ID和Offset字段来排序数据。
 
-Endpoints MUST be able to deliver stream data to an application as an ordered
-byte-stream.  Delivering an ordered byte-stream requires that an endpoint buffer
-any data that is received out of order, up to the advertised flow control limit.
+终端必须能将流数据转换有序字节流传递给应用程序。
+这要求终端能接收并缓冲所有无序数据直到受申明的流量控制限制。
 
-QUIC makes no specific allowances for delivery of stream data out of
-order. However, implementations MAY choose to offer the ability to deliver data
-out of order to a receiving application.
+QUIC本身没有对无序传输的流数据做出具体限制。 
+但是在实际的协议实现中，可允许传递无序数据给应用程序。
 
-An endpoint could receive data for a stream at the same stream offset multiple
-times.  Data that has already been received can be discarded.  The data at a
-given offset MUST NOT change if it is sent multiple times; an endpoint MAY treat
-receipt of different data at the same offset within a stream as a connection
-error of type PROTOCOL_VIOLATION.
+终端可以从流中多次接收有相同流offset的数据，此时之前收到的数据可以被丢弃。
+如果一个数据需要多次发送，那么给定的offset不得改变，
+否则终端可能将同一流中有相同offset但内容不同的该次接收视为PROTOCOL_VIOLATION类型的连接错误
 
-Streams are an ordered byte-stream abstraction with no other structure that is
-visible to QUIC. STREAM frame boundaries are not expected to be preserved when
-data is transmitted, when data is retransmitted after packet loss, or when data
-is delivered to the application at a receiver.
+流对于QUIC来说仅是有序字节流的抽象，没有其他可见结构。
+STREAM帧的封装边界在丢失重传或传递给接收的应用程序时不会被保留。
 
-An endpoint MUST NOT send data on any stream without ensuring that it is within
-the flow control limits set by its peer.  Flow control is described in detail in
-{{flow-control}}.
+终端不得在任何未确认通信双方已建立流量控制的流中发送数据。流量控制将在第4节中详细描述
 
 
-## Stream Prioritization {#stream-prioritization}
+## Stream Prioritization {#stream-prioritization} 流的优先级
 
-Stream multiplexing can have a significant effect on application performance if
-resources allocated to streams are correctly prioritized.
+如果分配给流的资源正确设置了优先级，则多路复用流可以给应用的性能带来显著影响。
 
-QUIC does not provide frames for exchanging prioritization information.  Instead
-it relies on receiving priority information from the application that uses QUIC.
+QUIC本身不提供优先级信息交互。相反，它依赖于使用QUIC的程序提供的优先级信息。
 
-A QUIC implementation SHOULD provide ways in which an application can indicate
-the relative priority of streams.  When deciding which streams to dedicate
-resources to, the implementation SHOULD use the information provided by the
-application.
+QUIC的实现应该提供方法，用于应用程序指示流的相对优先级。 
+在决定哪些流专用于某种资源时，该实现应该使用应用程序提供的信息。
 
 
 # Stream States {#stream-states}
