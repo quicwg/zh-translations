@@ -133,32 +133,32 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
 
 这个文档描述了 QUIC 协议的核心部分，如下结构所构建
 
-* 流是 QUIC 提供的基础服务抽象。
-  - {{streams}} 描述了关于流的核心概念，
-  - {{stream-states}} 提供了一个流状态的参考模型，
-  - {{flow-control}} 概述了流量控制的运作方式。
+* 流是 QUIC 提供的基础服务抽象
+  - {{streams}} 描述了关于流的核心概念
+  - {{stream-states}} 提供了一个流状态的参考模型
+  - {{flow-control}} 概述了流量控制的运作方式
 
 * 链接是 QUIC 协议终端数据通信的上下文环境
-  - {{connections}} 描述了关于链接的核心概念，
-  - {{version-negotiation}} 描述了版本协商，
-  - {{handshake}} 详细描述了建立链接的过程，
-  - {{address-validation}} 指定了关键的拒绝服务的缓解机制，
-  - {{migration}} 描述了终端如何将链接迁移到新的网络路径，
-  - {{termination}} 列举了关闭一个链接的选项，
-  - {{error-handling}} 提供了异常处理的通用指引。
+  - {{connections}} 描述了关于链接的核心概念
+  - {{version-negotiation}} 描述了版本协商
+  - {{handshake}} 详细描述了建立链接的过程
+  - {{address-validation}} 指定了关键的拒绝服务的缓解机制
+  - {{migration}} 描述了终端如何将链接迁移到新的网络路径
+  - {{termination}} 列举了关闭一个链接的选项
+  - {{error-handling}} 提供了异常处理的通用指引
 
-* 包和帧是 QUIC 通信的基本单元。
-  - {{packets-frames}} 描述了关于包与帧概念。
-  - {{packetization}} 定义了传输、重传和确认数据的模型，
-  - {{packet-size}} 制定了管理数据包大小的规则。
+* 包和帧是 QUIC 通信的基本单元
+  - {{packets-frames}} 描述了关于包与帧概念
+  - {{packetization}} 定义了传输、重传和确认数据的模型
+  - {{packet-size}} 制定了管理数据包大小的规则
 
 * 最后， QUIC 协议各元素编码细节：
-  - {{versions}} （版本），
-  - {{integer-encoding}} （数字编码），
-  - {{packet-formats}} （包头），
-  - {{transport-parameter-encoding}} （传输参数），
-  - {{frame-formats}} （帧），
-  - {{error-codes}} （异常）。
+  - {{versions}} （版本）
+  - {{integer-encoding}} （数字编码）
+  - {{packet-formats}} （包头）
+  - {{transport-parameter-encoding}} （传输参数）
+  - {{frame-formats}} （帧）
+  - {{error-codes}} （异常）
 
 附带文档描述了 QUIC 的丢包检测和拥塞控制{{QUIC-RECOVERY}}
 ，以及 TLS 在密钥协商中的使用{{QUIC-TLS}}。
