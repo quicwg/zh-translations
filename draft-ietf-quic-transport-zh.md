@@ -99,136 +99,105 @@ code and issues list for this draft can be found at
 
 --- middle
 
-# Introduction
+# 简介
 
-QUIC is a multiplexed and secure general-purpose transport protocol that
-provides:
+QUIC 是一个安全通用的多路复用的传输协议，它提供了：
 
-- Stream multiplexing
+* 流多路复用
 
-- Stream and connection-level flow control
+* 流和链接级别的流量控制
 
-- Low-latency connection establishment
+* 低延迟的链接建立
 
-- Connection migration and resilience to NAT rebinding
+* 链接迁移和 NAT 重新绑定的恢复能力
 
-- Authenticated and encrypted header and payload
+* 认证加密的报头和数据
 
-QUIC uses UDP as a substrate to avoid requiring changes to legacy client
-operating systems and middleboxes. QUIC authenticates all of its headers and
-encrypts most of the data it exchanges, including its signaling, to avoid
-incurring a dependency on middleboxes.
+QUIC 使用了 UDP 作为底层协议来避免需要对旧的终端操作系统
+或中间层进行修改。为了避免对中间层的依赖,
+QUIC 验证所有的报头和加密大部分他交换的数据，
+包括 QUIC 自身的信号。
 
-## Document Structure
 
-This document describes the core QUIC protocol and is structured as follows.
+## 文档结构(Introduction)
 
-- Streams are the basic service abstraction that QUIC provides.
+这个文档描述了 QUIC 协议的核心部分，如下结构所构建
 
-  - {{streams}} describes core concepts related to streams,
-  - {{stream-states}} provides a reference model for stream states, and
-  - {{flow-control}} outlines the operation of flow control.
+* 流是 QUIC 提供的基础服务抽象
+  - {{streams}} 描述了关于流的核心概念
+  - {{stream-states}} 提供了一个流状态的参考模型
+  - {{flow-control}} 概述了流量控制的运作方式
 
-- Connections are the context in which QUIC endpoints communicate.
+* 链接是 QUIC 协议终端数据通信的上下文环境
+  - {{connections}} 描述了关于链接的核心概念
+  - {{version-negotiation}} 描述了版本协商
+  - {{handshake}} 详细描述了建立链接的过程
+  - {{address-validation}} 指定了关键的拒绝服务的缓解机制
+  - {{migration}} 描述了终端如何将链接迁移到新的网络路径
+  - {{termination}} 列举了关闭一个链接的选项
+  - {{error-handling}} 提供了异常处理的通用指引
 
-  - {{connections}} describes core concepts related to connections,
-  - {{version-negotiation}} describes version negotiation,
-  - {{handshake}} details the process for establishing connections,
-  - {{address-validation}} specifies critical denial of service mitigation
-    mechanisms,
-  - {{migration}} describes how endpoints migrate a connection to a new
-    network path,
-  - {{termination}} lists the options for terminating an open connection, and
-  - {{error-handling}} provides general guidance for error handling.
+* 包和帧是 QUIC 通信的基本单元
+  - {{packets-frames}} 描述了关于包与帧概念
+  - {{packetization}} 定义了传输、重传和确认数据的模型
+  - {{packet-size}} 制定了管理数据包大小的规则
 
-- Packets and frames are the basic unit used by QUIC to communicate.
+* 最后， QUIC 协议各元素编码细节：
+  - {{versions}} （版本）
+  - {{integer-encoding}} （数字编码）
+  - {{packet-formats}} （包头）
+  - {{transport-parameter-encoding}} （传输参数）
+  - {{frame-formats}} （帧）
+  - {{error-codes}} （异常）
 
-  - {{packets-frames}} describes concepts related to packets and frames,
-  - {{packetization}} defines models for the transmission, retransmission, and
-    acknowledgement of data, and
-  - {{packet-size}} specifies rules for managing the size of packets.
+附带文档描述了 QUIC 的丢包检测和拥塞控制{{QUIC-RECOVERY}}
+，以及 TLS 在密钥协商中的使用{{QUIC-TLS}}。
 
-- Finally, encoding details of QUIC protocol elements are described in:
-  - {{versions}} (Versions),
-  - {{integer-encoding}} (Integer Encoding),
-  - {{packet-formats}} (Packet Headers),
-  - {{transport-parameter-encoding}} (Transport Parameters),
-  - {{frame-formats}} (Frames), and
-  - {{error-codes}} (Errors).
+此文档定义了 QUIC 版本 1，
+它符合定义在{{QUIC-INVARIANTS}}中的协议非变量。
 
-Accompanying documents describe QUIC's loss detection and congestion control
-{{QUIC-RECOVERY}}, and the use of TLS for key negotiation {{QUIC-TLS}}.
 
-This document defines QUIC version 1, which conforms to the protocol invariants
-in {{QUIC-INVARIANTS}}.
+## 术语和定义(Document Structure)
 
-## Terms and Definitions
+关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
+"让我们(SHALL)"， "让我们不(SHALL NOT)"， "应该(SHOULD)"，
+"应该不(SHOULD NOT)"， "推荐(RECOMMENDED)"，
+"不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
+在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
+当且仅当他们如此例子显示的以加粗的形式出现时。
+文档中常用的术语在下方描述。
 
-The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+|术语 | 解释 |
+|:---- |: ----|
+|QUIC | 此文档所描述的传输协议。QUIC是一个名字，不是一个首字母缩写。|
+|QUIC 包 | 在一个 UDP 报文中可封装的 QUIC 最小单元。多个 QUIC 包可以被封装在单个 UDP 报文中。|
+|终端 | 可以通过生成，接收，处理 QUIC 包参与 QUIC 链接生成的实体。在 QUIC 中仅有两种类型的终端，客户端与服务端。|
+|客户端 | 创建 QUIC 链接的终端。|
+|服务端 | 接收到来的 QUIC 链接的终端。|
+|链接 ID | 一种不透明的标识符，用于标识终端上的 QUIC 链接。每个终端都为其对端设置一个值，以便将其包含在发送到该终端的数据包中。|
+|流 | QUIC 链接中有序字节的单向或双向通道。一个 QUIC 链接可以同时传输多个流。|
+|应用 | 可以使用 QUIC 发送与接收数据的实体。|
 
-Commonly used terms in the document are described below.
 
-QUIC:
+## 注解公约(Terms and Definitions)
 
-: The transport protocol described by this document. QUIC is a name, not an
-acronym.
-
-QUIC packet:
-
-: The smallest unit of QUIC that can be encapsulated in a UDP datagram. Multiple
-QUIC packets can be encapsulated in a single UDP datagram.
-
-Endpoint:
-
-: An entity that can participate in a QUIC connection by generating,
-receiving, and processing QUIC packets. There are only two types of endpoint
-in QUIC: client and server.
-
-Client:
-
-: The endpoint initiating a QUIC connection.
-
-Server:
-
-: The endpoint accepting incoming QUIC connections.
-
-Connection ID:
-
-: An opaque identifier that is used to identify a QUIC connection at an
-endpoint. Each endpoint sets a value for its peer to include in packets sent
-towards the endpoint.
-
-Stream:
-
-: A unidirectional or bidirectional channel of ordered bytes within a QUIC
-connection. A QUIC connection can carry multiple simultaneous streams.
-
-Application:
-
-: An entity that uses QUIC to send and receive data.
-
-## Notational Conventions
-
-Packet and frame diagrams in this document use the format described in Section
-3.1 of {{?RFC2360}}, with the following additional conventions:
+本文档中的包和帧的示意图使用在{{?RFC2360}}
+章节3.1中的格式进行描述，并加上了如下额外的公约。
 
 \[x\]:
-: Indicates that x is optional
+: 表示 x 是可选的
 
 x (A):
-: Indicates that x is A bits long
+: 表示 x 长度为 A 比特
 
 x (A/B/C) ...:
-: Indicates that x is one of A, B, or C bits long
+: 表示 x 长度为 A 或 B 或 C 比特中的一种
 
 x (i) ...:
-: Indicates that x uses the variable-length encoding in {{integer-encoding}}
+: 表示 x 使用了在{{integer-encoding}}中描述的可变长度编码
 
-x (\*) ...:
-: Indicates that x is variable-length
+x (*) ...:
+: 表示 x 是可变长度的
 
 # Streams {#streams}
 
@@ -558,43 +527,53 @@ Once the application has been delivered the signal indicating that the stream
 was reset, the receiving part of the stream transitions to the "Reset Read"
 state, which is a terminal state.
 
-## Permitted Frame Types
 
-The sender of a stream sends just three frame types that affect the state of a
-stream at either sender or receiver: STREAM ({{frame-stream}}),
-STREAM_DATA_BLOCKED ({{frame-stream-data-blocked}}), and RESET_STREAM
-({{frame-reset-stream}}).
+## 允许的帧类型(Permitted Frame Types)
 
-A sender MUST NOT send any of these frames from a terminal state ("Data Recvd"
-or "Reset Recvd"). A sender MUST NOT send STREAM or STREAM_DATA_BLOCKED after
-sending a RESET_STREAM; that is, in the terminal states and in the "Reset Sent"
-state. A receiver could receive any of these three frames in any state, due to
-the possibility of delayed delivery of packets carrying them.
+流的发送者只发送三种帧类型，
+这三种帧类型会影响发送者和接收者的流状态：分别为
+STREAM ({{frame-stream}})，
+STREAM_DATA_BLOCKED
+， RESET_STREAM({{frame-reset-stream}})。
 
-The receiver of a stream sends MAX_STREAM_DATA ({{frame-max-stream-data}}) and
-STOP_SENDING frames ({{frame-stop-sending}}).
+发送者禁止在终结状态 ("Data Recvd"
+或者 "Reset Recvd") 发送上面的三种帧类型。
+发送者禁止在发送一个RESET_STREAM后
+发送STREAM或者STREAM_DATA_BLOCKED。
+这指的是在终止状态和重置发送状态。
+接收者可以在任何状态下接收任何这三种帧类型，
+这是因为带着它们的包存在延迟抵达的可能性。
 
-The receiver only sends MAX_STREAM_DATA in the "Recv" state. A receiver can
-send STOP_SENDING in any state where it has not received a RESET_STREAM frame;
-that is states other than "Reset Recvd" or "Reset Read". However there is
-little value in sending a STOP_SENDING frame in the "Data Recvd" state, since
-all stream data has been received. A sender could receive either of these two
-frames in any state as a result of delayed delivery of packets.
+流的接收者发送MAX_STREAM_DATA({{frame-max-stream-data}})
+和STOP_SENDING ({{frame-stop-sending}}).
 
-## Bidirectional Stream States {#stream-bidi-states}
+接收者只有在“Recv”状态发送MAX_STREAM_DATA。
+在没有接收到一个RESET_STREAM的任意一个状态下，
+接收者可以发送STOP_SENDING。
+这是不同于 "Reset Recvd" 或者 "Reset Read" 的状态。
+但是在“Data Recvd”状态传输一个
+STOP_SENDING是没有意义的，
+因为所有的流数据都已经被接收了。
+发送者可以在数据包延迟抵达的情况下
+接收这两个帧的任何一个。
 
-A bidirectional stream is composed of sending and receiving parts.
-Implementations may represent states of the bidirectional stream as composites
-of sending and receiving stream states. The simplest model presents the stream
-as "open" when either sending or receiving parts are in a non-terminal state and
-"closed" when both sending and receiving streams are in terminal states.
 
-{{stream-bidi-mapping}} shows a more complex mapping of bidirectional stream
-states that loosely correspond to the stream states in HTTP/2
-{{?HTTP2=RFC7540}}. This shows that multiple states on sending or receiving
-parts of streams are mapped to the same composite state. Note that this is just
-one possibility for such a mapping; this mapping requires that data is
-acknowledged before the transition to a "closed" or "half-closed" state.
+## 双向流状态(Bidirectional Stream States) {#stream-bidi-states}
+
+双向流由发送和接收部分组成。
+实现中可以将发送和接收流的状态
+作为依据表示双向流的状态。
+最简单的模型是当发送或接收部分
+处于非终止状态时将流表示为“开放”，
+当发送和接收流都处于终结状态时，将流表示为“关闭”。
+
+{{stream-bidi-mapping}} 展示了一个更加复杂的与HTTP/2
+{{?HTTP2=RFC7540}} 中的流状态松散对应的双向流状态的映射表。
+这表明发送或接收部分流的
+多个状态被映射到相同的复合状态。
+请注意，这只是这种映射的一种可能性;
+此映射要求在转换到“closed”
+或“half-closed”状态之前确认数据。
 
 | Sending Part           | Receiving Part         | Composite State      |
 | :--------------------- | :--------------------- | :------------------- |
@@ -608,56 +587,54 @@ acknowledged before the transition to a "closed" or "half-closed" state.
 | Reset Sent/Reset Recvd | Reset Recvd/Reset Read | closed               |
 | Data Recvd             | Data Recvd/Data Read   | closed               |
 | Data Recvd             | Reset Recvd/Reset Read | closed               |
+{: #stream-bidi-mapping title="HTTP/2流状态的可能映射"}
 
-{: #stream-bidi-mapping title="Possible Mapping of Stream States to HTTP/2"}
+注 (*1):
 
-Note (\*1):
+: 还没有被创建的流，或者流的接收部分在“Recv”
+状态中没有收到任何帧，将被视为“空闲(idle)”状态。
 
-: A stream is considered "idle" if it has not yet been created, or if the
-receiving part of the stream is in the "Recv" state without yet having
-received any frames.
 
-## Solicited State Transitions
+## 请求的状态转换(solicited-state-transitions)
 
-If an endpoint is no longer interested in the data it is receiving on a stream,
-it MAY send a STOP_SENDING frame identifying that stream to prompt closure of
-the stream in the opposite direction. This typically indicates that the
-receiving application is no longer reading data it receives from the stream, but
-it is not a guarantee that incoming data will be ignored.
+如果终端不再对它在流上接收的数据感兴趣，
+它可以发送一个STOP_SENDING来
+标识该流，以推动对端关闭流。
+通常表示接收应用程序不再读取它从流中接收的数据
+，但这不是传入的数据将被忽略的保证。
 
-STREAM frames received after sending STOP_SENDING are still counted toward
-connection and stream flow control, even though these frames will be discarded
-upon receipt.
+发送STOP_SENDING后收到的STREAM
+仍计入连接和流量控制，即使这些帧在接收时将被丢弃。
 
-A STOP_SENDING frame requests that the receiving endpoint send a RESET_STREAM
-frame. An endpoint that receives a STOP_SENDING frame MUST send a RESET_STREAM
-frame if the stream is in the Ready or Send state. If the stream is in the Data
-Sent state and any outstanding data is declared lost, an endpoint SHOULD send a
-RESET_STREAM frame in lieu of a retransmission.
+一个STOP_SENDING请求接收端发送RESET_STREAM帧。
+如果流处于就绪或发送状态，
+则接收STOP_SENDING帧的终端必须发送RESET_STREAM帧。
+如果流处于数据发送状态并且任何未完成的数据被声明丢失
+，则终端应该发送RESET_STREAM帧代替重传。
 
-An endpoint SHOULD copy the error code from the STOP_SENDING frame to the
-RESET_STREAM frame it sends, but MAY use any application error code. The
-endpoint that sends a STOP_SENDING frame MAY ignore the error code carried in
-any RESET_STREAM frame it receives.
+终端应该将错误代码从STOP_SENDING帧
+复制到它发送的RESET_STREAM帧，
+但是可以使用任何应用程序错误代码。
+发送STOP_SENDING帧的终端可以忽略它接收的
+任何RESET_STREAM帧中携带的错误代码。
 
-If the STOP_SENDING frame is received on a stream that is already in the
-"Data Sent" state, an endpoint that wishes to cease retransmission of
-previously-sent STREAM frames on that stream MUST first send a RESET_STREAM
-frame.
+如果在已经处于“已发送数据”状态的流上接收到STOP_SENDING
+帧，则希望停止在该流上重传先前发送的STREAM帧的终端
+必须首先发送RESET_STREAM帧。
 
-STOP_SENDING SHOULD only be sent for a stream that has not been reset by the
-peer. STOP_SENDING is most useful for streams in the "Recv" or "Size Known"
-states.
+STOP_SENDING 应该仅针对未被对方重置的流发送。
+STOP_SENDING对于“Recv”或“Size Known”状态的流最有用。
 
-An endpoint is expected to send another STOP_SENDING frame if a packet
-containing a previous STOP_SENDING is lost. However, once either all stream
-data or a RESET_STREAM frame has been received for the stream - that is, the
-stream is in any state other than "Recv" or "Size Known" - sending a
-STOP_SENDING frame is unnecessary.
+如果包含先前STOP_SENDING帧的数据包已经丢失，
+终端应该发送另一个新的STOP_SENDING帧。
+但是，一旦为流接收到所有流数据或RESET_STREAM帧 -
+也就是说，流处于“Recv”或“Size Known”以外的任何状态 -
+发送STOP_SENDING帧是不必要的。
 
-An endpoint that wishes to terminate both directions of a bidirectional stream
-can terminate one direction by sending a RESET_STREAM, and it can encourage
-prompt termination in the opposite direction by sending a STOP_SENDING frame.
+希望断开双向流的终端，可以通过发送一个
+RESET_STREAM帧来终止一个方向，
+并且它可以通过发送STOP_SENDING帧
+来鼓励相反方向的快速终止。
 
 # Flow Control {#flow-control}
 
