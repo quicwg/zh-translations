@@ -266,10 +266,10 @@ QUIC本身没有对无序传输的流数据做出具体限制。
 offset的数据，此时之前收到的数据可以被丢弃。
 如果一个数据需要多次发送，那么给定的offset不得改变，
 否则终端**可以**将同一流中有相同offset但内容
-不同的该次接收视为PROTOCOL_VIOLATION类型的连接错误
+不同的该次接收视为PROTOCOL_VIOLATION类型的连接错误。
 
 终端**禁止**在任何未确认通信双方已建立流量
-控制的流中发送数据。流量控制将在第4节中详细描述
+控制的流中发送数据。流量控制将在第4节中详细描述。
 
 
 ## 流的优先级(Stream Prioritization)
@@ -815,120 +815,111 @@ signal before advertising additional credit, since doing so will mean that the
 peer will be blocked for at least an entire round trip, and potentially for
 longer if the peer chooses to not send STREAMS_BLOCKED frames.
 
+# 连接(Connections) {#connections}
 
-# Connections {#connections}
+如 {{handshake}}所述，QUIC 的连接建立将版本协商与加密、
+传输握手结合以减少链接建立延迟。连接一旦建立，就
+可以迁移到任一终端上的不同 IP 或端口，详细
+说明在{{migration}}。最后，如 {{termination}}所述，
+连接可被任一终端终止。
 
-QUIC's connection establishment combines version negotiation with the
-cryptographic and transport handshakes to reduce connection establishment
-latency, as described in {{handshake}}.  Once established, a connection
-may migrate to a different IP or port at either endpoint as
-described in {{migration}}.  Finally, a connection may be terminated by either
-endpoint, as described in {{termination}}.
+## 连接 ID(Connection ID) {#connection-id}
 
+每个连接都有一组连接标识符或连接 ID，每个标识符或 ID 都
+可以标识连接。连接 ID 由终端独立选择，
+每个终端选择其对端使用的连接 ID。
 
-## Connection ID {#connection-id}
+连接 ID 的主要功能是确保较低协议层（UDP，IP）的寻址
+改变不会导致 QUIC 连接的包被传递到错误的终端。每个终端
+使用特定于实现的（也可能是特定于部署的）方法选择
+连接 ID 该方法将允许具有该连接 ID 的包被路由
+回该终端，并在收到时由该终端标识。
 
-Each connection possesses a set of connection identifiers, or connection IDs,
-each of which can identify the connection.  Connection IDs are independently
-selected by endpoints; each endpoint selects the connection IDs that its peer
-uses.
+连接 ID**禁止**包含任何可由外部观察者用于将其与
+同一连接的其他连接 ID 相关联的信息。作为一个简单的
+示例，这意味着同一个连接中**禁止**多次发出同一个
+连接 ID。
 
-The primary function of a connection ID is to ensure that changes in addressing
-at lower protocol layers (UDP, IP) don't cause packets for a QUIC
-connection to be delivered to the wrong endpoint.  Each endpoint selects
-connection IDs using an implementation-specific (and perhaps
-deployment-specific) method which will allow packets with that connection ID to
-be routed back to the endpoint and identified by the endpoint upon receipt.
+具有长头部的包包括源连接 ID 和目标连接 ID 字段。
+这些字段用于设置新连接的连接 ID，有关详细信息，
+请参见 {{negotiating-connection-ids}}。
 
-Connection IDs MUST NOT contain any information that can be used by an external
-observer to correlate them with other connection IDs for the same connection.
-As a trivial example, this means the same connection ID MUST NOT be issued more
-than once on the same connection.
+具有短头部的包({{short-header}})仅包含目标
+连接 ID 并忽略显式长度。目标连接 ID 字段的长度应该是所有
+终端都知道的。使用基于终端连接 ID 进行
+路由的负载均衡器的终端也可以使用固定长度或确定
+编码方案的链接 ID 的负载平衡器。固定部分可以
+对显式长度进行编码，从而允许整个连接 ID 的长度
+各不相同，并且仍然可被负载平衡器使用。
 
-Packets with long headers include Source Connection ID and Destination
-Connection ID fields.  These fields are used to set the connection IDs for new
-connections, see {{negotiating-connection-ids}} for details.
+版本协商({{packet-version}}) 包回显客户端选择
+的连接 ID，以确保到客户端的路由正确，并允许客户端
+验证包是否响应初始包。
 
-Packets with short headers ({{short-header}}) only include the Destination
-Connection ID and omit the explicit length.  The length of the Destination
-Connection ID field is expected to be known to endpoints.  Endpoints using a
-load balancer that routes based on connection ID could agree with the load
-balancer on a fixed length for connection IDs, or agree on an encoding scheme.
-A fixed portion could encode an explicit length, which allows the entire
-connection ID to vary in length and still be used by the load balancer.
+当路由不需要连接 ID 且包的地址/端口元组足以识别
+连接时，**可以**使用零长度连接 ID。一个对端已
+选择零长度连接 ID 的终端在连接生存期内**必须**（MUST）
+继续使用零长度连接 ID，并且**禁止**发送从任何
+其他本地地址收到的包。
 
-A Version Negotiation ({{packet-version}}) packet echoes the connection IDs
-selected by the client, both to ensure correct routing toward the client and to
-allow the client to validate that the packet is in response to an Initial
-packet.
+当一个终端请求了一个非 0 长度的连接 ID，这个终端
+需要确保对端有充足的连接 ID 供发送返回到终端的
+包使用。这些连接 ID 由使用 NEW_CONNECTION_ID 帧
+的终端提供 ({{frame-new-connection-id}})。
 
-A zero-length connection ID MAY be used when the connection ID is not needed for
-routing and the address/port tuple of packets is sufficient to identify a
-connection. An endpoint whose peer has selected a zero-length connection ID MUST
-continue to use a zero-length connection ID for the lifetime of the connection
-and MUST NOT send packets from any other local address.
+### 发布连接 ID（Issuing Connection IDs） {#issue-cid}
 
-When an endpoint has requested a non-zero-length connection ID, it needs to
-ensure that the peer has a supply of connection IDs from which to choose for
-packets sent to the endpoint.  These connection IDs are supplied by the endpoint
-using the NEW_CONNECTION_ID frame ({{frame-new-connection-id}}).
+每个连接 ID 都有一个关联的序列号，以帮助消除重复消息。
+在握手过程中终端发布的初始连接 ID 会在
+长数据包头部({{long-header}})的源连接 ID 字段中
+发送出去。初始连接 ID 的序列号是 0。如果
+发送了 preferred_address
+（首选地址）传输参数，则提供的连接 ID 的序列号为 1。
 
+附加连接 ID 通过 NEW_CONNECTION_ID 帧被传送给
+对端({{frame-new-connection-id}})。 每个新发布的
+连接 ID 上的序列号**必须**增加 1。除非服务器
+选择保留初始连接 ID，否则不会为客户端在初始包中
+随机选择的连接 ID 和重试包提供的任何连接 ID
+分配序列号。
 
-### Issuing Connection IDs {#issue-cid}
+当终端分配了一个连接 ID 时，它**必须**接受
+在连接期间携带此连接 ID 的包，或者直到其对端通过
+RETIRE_CONNECTION_ID 帧使连接 ID 无效({{frame-retire-connection-id}})。
 
-Each Connection ID has an associated sequence number to assist in deduplicating
-messages.  The initial connection ID issued by an endpoint is sent in the Source
-Connection ID field of the long packet header ({{long-header}}) during the
-handshake.  The sequence number of the initial connection ID is 0.  If the
-preferred_address transport parameter is sent, the sequence number of the
-supplied connection ID is 1.
+终端存储已接收的连接 ID 以供将来使用。
+接收过多连接 ID 的终端**可能**在
+不发送 RETIRE_CONNECTION_ID帧的情况下丢弃
+那些无法存储的连接 ID。 发布了连接 ID 的终端
+不能指望其对端存储和使用所有已发布的连接 ID。
 
-Additional connection IDs are communicated to the peer using NEW_CONNECTION_ID
-frames ({{frame-new-connection-id}}).  The sequence number on each newly-issued
-connection ID MUST increase by 1. The connection ID randomly selected by the
-client in the Initial packet and any connection ID provided by a Retry packet
-are not assigned sequence numbers unless a server opts to retain them as its
-initial connection ID.
+终端**应该**确保其对端具有足够数量的
+可用和未使用的连接 ID。 虽然每个终端独立选择要发布的
+连接 ID 数，但终端**应该**提供并维护
+至少八个连接 ID。 为此，终端**应该**通过
+在对端收回某个连接 ID 时或者当终端接收到具有先前
+未使用的连接 ID 的包时始终提供新的连接 ID。 发起迁移
+并要求非零长度连接 ID 的终端**应该**在
+迁移之前为其对端提供新的连接 ID，否则可能会使对端
+关闭连接。
 
-When an endpoint issues a connection ID, it MUST accept packets that carry this
-connection ID for the duration of the connection or until its peer invalidates
-the connection ID via a RETIRE_CONNECTION_ID frame
-({{frame-retire-connection-id}}).
+### 消费和收回连接ID(Consuming & Retiring Connection IDs {#retiring-cids}
 
-Endpoints store received connection IDs for future use.  An endpoint that
-receives excessive connection IDs MAY discard those it cannot store without
-sending a RETIRE_CONNECTION_ID frame.  An endpoint that issues connection IDs
-cannot expect its peer to store and use all issued connection IDs.
+终端可以在连接期间随时将其用于对端的连接 ID 更改为
+另一个可用的连接 ID。 终端消费连接 ID 以响应
+迁移中的对端，有关更多信息，参见 {{migration-linkability}} 。
 
-An endpoint SHOULD ensure that its peer has a sufficient number of available and
-unused connection IDs.  While each endpoint independently chooses how many
-connection IDs to issue, endpoints SHOULD provide and maintain at least eight
-connection IDs.  The endpoint SHOULD do this by always supplying a new
-connection ID when a connection ID is retired by its peer or when the endpoint
-receives a packet with a previously unused connection ID.  Endpoints that
-initiate migration and require non-zero-length connection IDs SHOULD provide
-their peers with new connection IDs before migration, or risk the peer closing
-the connection.
+终端维护从对端接收的一组连接 ID，在发送包时可以使用
+其中的任何一个连接 ID。 当终端希望移除使用中的
+连接 ID 时，它会向其对端发送 RETIRE_CONNECTION_ID 帧。
+发送一个 RETIRE_CONNECTION_ID 帧表示当前连接 ID 将
+不再使用，并且使用 NEW_CONNECTION_ID 帧请求对端将
+当前连接 ID 替换为新的连接 ID。
 
-
-### Consuming and Retiring Connection IDs {#retiring-cids}
-
-An endpoint can change the connection ID it uses for a peer to another available
-one at any time during the connection.  An endpoint consumes connection IDs in
-response to a migrating peer, see {{migration-linkability}} for more.
-
-An endpoint maintains a set of connection IDs received from its peer, any of
-which it can use when sending packets.  When the endpoint wishes to remove a
-connection ID from use, it sends a RETIRE_CONNECTION_ID frame to its peer.
-Sending a RETIRE_CONNECTION_ID frame indicates that the connection ID won't be
-used again and requests that the peer replace it with a new connection ID using
-a NEW_CONNECTION_ID frame.
-
-As discussed in {{migration-linkability}}, each connection ID MUST be used on
-packets sent from only one local address.  An endpoint that migrates away from a
-local address SHOULD retire all connection IDs used on that address once it no
-longer plans to use that address.
-
+如{{migration-linkability}}所述，每个连接 ID**必须**只
+用于从一个本地地址发送的包。从本地地址迁移的终端在
+不再计划使用该地址后，应停用该地址上使用的
+所有连接 ID。
 
 ## Matching Packets to Connections {#packet-handling}
 
