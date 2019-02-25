@@ -398,115 +398,120 @@ Once a packet containing a RESET_STREAM has been acknowledged, the sending part
 of the stream enters the "Reset Recvd" state, which is a terminal state.
 
 
-## Receiving Stream States {#stream-recv-states}
+## 接收流的状态(Receiving Stream States) {#stream-recv-states}
 
-{{fig-stream-recv-states}} shows the states for the part of a stream that
-receives data from a peer.  The states for a receiving part of a stream mirror
-only some of the states of the sending part of the stream at the peer.  The
-receiving part of a stream does not track states on the sending part that cannot
-be observed, such as the "Ready" state.  Instead, the receiving part of a stream
-tracks the delivery of data to the application, some of which cannot be observed
-by the sender.
+{{fig-stream-recv-states}} 展示了流从对端接收数据部分的状态
+。流接收部分的状态只反映了部分对端发送时的状态。
+流的接收部分不会跟踪发送部分无法观察的状态，
+例如 ‘Ready’（准备）状态。
+相反，流的接收部分会跟踪交付给应用
+的数据，其中一部分是发送方无法观察到的。
 
 ~~~
        o
-       | Recv STREAM / STREAM_DATA_BLOCKED / RESET_STREAM
-       | Create Bidirectional Stream (Sending)
-       | Recv MAX_STREAM_DATA / STOP_SENDING (Bidirectional)
-       | Create Higher-Numbered Stream
+       | 接收Recv STREAM(接收流) / STREAM_DATA_BLOCKED(流数据阻塞)/ RESET_STREAM(重置流)
+       | 创建双向传输流(发送)
+       | 接收 MAX_STREAM_DATA (最大流数据) / STOP_SENDING（停止发送）(双向传输流限定)
+       | 创建更高编号的流
        v
    +-------+
-   | Recv  | Recv RESET_STREAM
+   | Recv  | 接收 RESET_STREAM （重置流）
    |       |-----------------------.
    +-------+                       |
        |                           |
-       | Recv STREAM + FIN         |
+       | 接收 STREAM +  FIN         |
        v                           |
    +-------+                       |
-   | Size  | Recv RESET_STREAM     |
+   | Size  | 接收  RESET_STREAM     |
    | Known |---------------------->|
    +-------+                       |
        |                           |
-       | Recv All Data             |
+       | 接收所有数据                |
        v                           v
-   +-------+ Recv RESET_STREAM +-------+
-   | Data  |--- (optional) --->| Reset |
-   | Recvd |  Recv All Data    | Recvd |
-   +-------+<-- (optional) ----+-------+
+   +-------+ 接收 RESET_STREAM +-------+
+   | Data  |---   (可能)   --->| Reset |
+   | Recvd |     接收所有数据   | Recvd |
+   +-------+<--   (可能)   ----+-------+
        |                           |
-       | App Read All Data         | App Read RST
+       | 应用读取所有数据             | 应用读取RST
        v                           v
    +-------+                   +-------+
    | Data  |                   | Reset |
    | Read  |                   | Read  |
    +-------+                   +-------+
 ~~~
-{: #fig-stream-recv-states title="States for Receiving Parts of Streams"}
+{: #fig-stream-recv-states title="流接收部分的状态"}
 
-The receiving part of a stream initiated by a peer (types 1 and 3 for a client,
-or 0 and 2 for a server) is created when the first STREAM, STREAM_DATA_BLOCKED,
-or RESET_STREAM is received for that stream.  For bidirectional streams
-initiated by a peer, receipt of a MAX_STREAM_DATA or STOP_SENDING frame for the
-sending part of the stream also creates the receiving part.  The initial state
-for the receiving part of stream is "Recv".
+由对端（客户端的类型是1和3，服务端的类型是0和2）
+发起的流的接收部分在接收到该流的第一个 STREAM，
+STREAM_DATA_BLOCKED,或RESET_STREAM时完成创建。
+对于由对端发起的双向传输流，在确认接收到由流
+的发送部分发出的MAX_STREAM_DATA或STOP_SENDING帧
+时也会创建接收部分。
+流的接收部分初始状态是“Recv”(接收)。
 
-The receiving part of a stream enters the "Recv" state when the sending part of
-a bidirectional stream initiated by the endpoint (type 0 for a client, type 1
-for a server) enters the "Ready" state.
+当端点（客户端是类型0，服务端是类型1）发起的双向传输流
+的发送部分进入“就绪”状态时，
+流的接收部分进入“Recv”状态。
 
-An endpoint opens a bidirectional stream when a MAX_STREAM_DATA or STOP_SENDING
-frame is received from the peer for that stream.  Receiving a MAX_STREAM_DATA
-frame for an unopened stream indicates that the remote peer has opened the
-stream and is providing flow control credit.  Receiving a STOP_SENDING frame for
-an unopened stream indicates that the remote peer no longer wishes to receive
-data on this stream.  Either frame might arrive before a STREAM or
-STREAM_DATA_BLOCKED frame if packets are lost or reordered.
+终端在收到来自流的对端发出的MAX_STREAM_DATA或者
+STOP_SENDING帧时打开一条双向传输流。
+接收到未开启的流的MAX_STREAM_DATA帧表明远程对端
+已经开启了这个流并且正在提供流量控制的信用值
+（基于信用的流量控制方式（credit- based flow control））。
+接收到未开启的流的STOP_SENDING帧表明远程对端
+不再希望在这个流上接收数据。
+如果数据包被丢失或被重排，
+任何帧都可能在STREAM或者STREAM_DATA_BLOCKED帧前抵达终端。
 
-Before creating a stream, all streams of the same type with lower-numbered
-stream IDs MUST be created.  This ensures that the creation order for streams is
-consistent on both endpoints.
+在创建一个流前，
+所有更低编号的同类型流都**必须**创建完毕。
+这保证了流的创建顺序在两端是一致的。
 
-In the "Recv" state, the endpoint receives STREAM and STREAM_DATA_BLOCKED
-frames.  Incoming data is buffered and can be reassembled into the correct order
-for delivery to the application.  As data is consumed by the application and
-buffer space becomes available, the endpoint sends MAX_STREAM_DATA frames to
-allow the peer to send more data.
+在“Recv”（接收）状态下，
+终端接收STREAM和STREAM_DATA_BLOCKED帧。
+传入的数据会被缓存起来并重新以正确的顺序组装起来，
+以便交付给应用。随着数据被应用消耗缓存空间变得可用，
+终端会发送MAX_STREAM_DATA帧以允许对端发送更多的数据。
 
-When a STREAM frame with a FIN bit is received, the final size of the stream is
-known (see {{final-size}}).  The receiving part of the stream then enters the
-"Size Known" state.  In this state, the endpoint no longer needs to send
-MAX_STREAM_DATA frames, it only receives any retransmissions of stream data.
+当接收到一个带有FIN标志位的STREAM帧时，
+流的最终大小就已知了（详见 {{final-size}}）。
+然后流的接收部分就进入“Size Known”（大小已知）状态。
+在这个状态下，终端不再需要发送MAX_STREAM_DATA帧，
+只接收任何重传的流数据。
 
-Once all data for the stream has been received, the receiving part enters the
-"Data Recvd" state.  This might happen as a result of receiving the same STREAM
-frame that causes the transition to "Size Known".  In this state, the endpoint
-has all stream data.  Any STREAM or STREAM_DATA_BLOCKED frames it receives for
-the stream can be discarded.
+一旦收到流的所有数据，流的接收部分就进入
+“Data Recvd”（数据已接收）状态。
+这可能在接收到会引起状态过渡到
+“Size Known”（大小已知）的STREAM帧时发生。
+在这个状态下，终端拥有所有的流数据。
+从这个流接收到的 STREAM或STREAM_DATA_BLOCKED 帧都可能被丢弃。
 
-The "Data Recvd" state persists until stream data has been delivered to the
-application.  Once stream data has been delivered, the stream enters the "Data
-Read" state, which is a terminal state.
+“Data Recvd”（数据已接收）状态会持续到
+所有流数据都交付给应用。
+一旦流数据传输完成，
+流会进入 “Data Read”（读取数据）这个终点状态。
 
-Receiving a RESET_STREAM frame in the "Recv" or "Size Known" states causes the
-stream to enter the "Reset Recvd" state.  This might cause the delivery of
-stream data to the application to be interrupted.
+在“Recv”(接收)或者“Size Known”（大小已知）状态下接收
+RESET_STREAM帧会使流进入“Rest Recvd”（收到重置）状态。
+这可能中断交付流数据到应用。
 
-It is possible that all stream data is received when a RESET_STREAM is received
-(that is, from the "Data Recvd" state).  Similarly, it is possible for remaining
-stream data to arrive after receiving a RESET_STREAM frame (the "Reset Recvd"
-state).  An implementation is free to manage this situation as it chooses.
-Sending RESET_STREAM means that an endpoint cannot guarantee delivery of stream
-data; however there is no requirement that stream data not be delivered if a
-RESET_STREAM is received.  An implementation MAY interrupt delivery of stream
-data, discard any data that was not consumed, and signal the receipt of the
-RESET_STREAM immediately.  Alternatively, the RESET_STREAM signal might be
-suppressed or withheld if stream data is completely received and is buffered to
-be read by the application.  In the latter case, the receiving part of the
-stream transitions from "Reset Recvd" to "Data Recvd".
+存在收到所有流数据后收到RESET_STREAM帧
+的可能（在“Data Recvd”状态）。
+同样也存在收到RESET_STREAM帧后还有剩余流数据
+到达（在“Reset Recvd”状态）。
+实现可以按照它的选择处理这种情况。
+发送RESET_STREAM意味着一个终端不能保证流数据的传输。
+但是没有要求终端收到RESET_STREAM后不传输数据。
+实现**可能**中断流数据的传输，
+抛弃任何未被消费的数据并立刻示意收到RESET_STREAM。
+或者，当流数据已经完全收到和缓存起来准备被应用读取时
+RESET_STREAM信号可能被抑制或者扣留。
+在后面这种情况下，
+流的接收部分会从“Reset Recvd”转变为“Data Recvd”。
 
-Once the application has been delivered the signal indicating that the stream
-was reset, the receiving part of the stream transitions to the "Reset Read"
-state, which is a terminal state.
+当应用收到流已重置的信号，流的接收部分会过渡到
+“Reset Read”（重置已读）这个终点状态。
 
 
 ## 允许的帧类型(Permitted Frame Types)
@@ -5787,3 +5792,5 @@ Hamilton, Jana Iyengar, Fedor Kouranov, Charles Krasic, Jo Kulik, Adam Langley,
 Jim Roskind, Robbie Shade, Satyam Shekhar, Cherie Shi, Ian Swett, Raman Tenneti,
 Victor Vasiliev, Antonio Vicente, Patrik Westin, Alyssa Wilk, Dale Worley, Fan
 Yang, Dan Zhang, Daniel Ziegler.
+
+~~~
