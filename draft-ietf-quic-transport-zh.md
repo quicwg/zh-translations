@@ -878,32 +878,32 @@ longer if the peer chooses to not send STREAMS_BLOCKED frames.
 
 附加连接 ID 通过 NEW_CONNECTION_ID 帧被传送给
 对端({{frame-new-connection-id}})。 每个新发布的
-连接 ID 上的序列号**必须**（MUST）增加 1。除非服务器
+连接 ID 上的序列号**必须**增加 1。除非服务器
 选择保留初始连接 ID，否则不会为客户端在初始包中
 随机选择的连接 ID 和重试包提供的任何连接 ID
 分配序列号。
 
-当终端分配了一个连接 ID 时，它**必须**（MUST）接受
+当终端分配了一个连接 ID 时，它**必须**接受
 在连接期间携带此连接 ID 的包，或者直到其对端通过
 RETIRE_CONNECTION_ID 帧使连接 ID 无效({{frame-retire-connection-id}})。
 
 终端存储已接收的连接 ID 以供将来使用。
-接收过多连接 ID 的终端**可能**（MAY）在
+接收过多连接 ID 的终端**可能**在
 不发送 RETIRE_CONNECTION_ID帧的情况下丢弃
 那些无法存储的连接 ID。 发布了连接 ID 的终端
 不能指望其对端存储和使用所有已发布的连接 ID。
 
-终端**应该**（SHOULD）确保其对端具有足够数量的
+终端**应该**确保其对端具有足够数量的
 可用和未使用的连接 ID。 虽然每个终端独立选择要发布的
-连接 ID 数，但终端**应该**（SHOULD）提供并维护
-至少八个连接 ID。 为此，终端**应该**（SHOULD）通过
+连接 ID 数，但终端**应该**提供并维护
+至少八个连接 ID。 为此，终端**应该**通过
 在对端收回某个连接 ID 时或者当终端接收到具有先前
 未使用的连接 ID 的包时始终提供新的连接 ID。 发起迁移
-并要求非零长度连接 ID 的终端**应该**（SHOULD）在
+并要求非零长度连接 ID 的终端**应该**在
 迁移之前为其对端提供新的连接 ID，否则可能会使对端
 关闭连接。
 
-### 消费和收回连接ID (Consuming and Retiring Connection IDs) {#retiring-cids}
+### 消费和收回连接ID(Consuming & Retiring Connection IDs {#retiring-cids}
 
 终端可以在连接期间随时将其用于对端的连接 ID 更改为
 另一个可用的连接 ID。 终端消费连接 ID 以响应
@@ -916,7 +916,7 @@ RETIRE_CONNECTION_ID 帧使连接 ID 无效({{frame-retire-connection-id}})。
 不再使用，并且使用 NEW_CONNECTION_ID 帧请求对端将
 当前连接 ID 替换为新的连接 ID。
 
-如{{migration-linkability}}所述，每个连接 ID**必须**（MUST）只
+如{{migration-linkability}}所述，每个连接 ID**必须**只
 用于从一个本地地址发送的包。从本地地址迁移的终端在
 不再计划使用该地址后，应停用该地址上使用的
 所有连接 ID。
