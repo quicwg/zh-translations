@@ -4,10 +4,48 @@
 
 翻译将会基于 IETF-QUIC-draft version 18 的文档并在翻译完成后尽可能的跟进新的版本。
 
+## 在线预览
+点击[draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)在线预览。
+
 ## 翻译格式与翻译相关
 
 * 采用 [IETF Internet Draft 标准格式](https://github.com/martinthomson/i-d-template)
 * 一人翻译一人校对，每周发布校对完成的译文到 master 分支
+
+## 本地构建
+### Linux依赖安装(Ubuntu为例)
+#### xml2rfc
+```
+curl https://bootstrap.pypa.io/get-pip.py | python
+pip install xml2rfc
+```
+#### mmark(与kramdown-rfc2629二选一)
+```
+sudo add-apt-repository ppa:gophers/archive
+sudo apt-get update
+sudo apt-get install golang-1.10-go
+go get github.com/miekg/mmark/mmark
+go build github.com/miekg/mmark/mmark
+```
+#### kramdown-rfc2629(与mmark二选一)
+```
+wget -O ruby-install-0.7.0.tar.gz https://github.com/postmodern/ruby-install/archive/v0.7.0.tar.gz
+tar -xzvf ruby-install-0.7.0.tar.gz
+cd ruby-install-0.7.0/
+sudo make install
+ruby-install ruby
+gem install kramdown-rfc2629
+```
+### OSX依赖安装
+请参考[这里](https://github.com/martinthomson/i-d-template/blob/master/doc/SETUP.md)  
+基本上与Linux一致
+
+### 文档构建
+将`xml2rfc`, `mmark`, `kramdown-rfc2629`等命令确保在当前环境下可执行(自行修改path)后执行
+
+```
+make
+```
 
 ## 欢迎新的贡献者
 
