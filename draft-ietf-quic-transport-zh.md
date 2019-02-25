@@ -508,30 +508,30 @@ of the stream enters the "Reset Recvd" state, which is a terminal state.
 
 终端在收到来自流的对等端发出的MAX_STREAM_DATA或者STOP_SENDING帧时打开一条双向传输流。接收到未开启的流的MAX_STREAM_DATA帧表明远程对等端已经开启了这个流并且正在提供流量控制的信用值（基于信用的流量控制方式（credit- based flow control））。接收到未开启的流的STOP_SENDING帧表明远程对等端不再希望在这个流上接收数据。如果数据包被丢失或被重排，任何帧都可能在STREAM或者STREAM_DATA_BLOCKED帧前抵达终端。
 
-在创建一个流前，所有更低编号的同类型流都必须创建完毕。这保证了流的创建顺序在两端是一致的。
+在创建一个流前，所有更低编号的同类型流都**必须**创建完毕。这保证了流的创建顺序在两端是一致的。
 
 在“Recv”（接收）状态下，终端接收STREAM和STREAM_DATA_BLOCKED帧。传入的数据会被缓存起来并重新以正确的顺序组装起来，以便交付给应用。随着数据被应用消耗，缓存空间变得可用，终端会发送MAX_STREAM_DATA帧以允许对等端发送更多的数据。
 
-当接收到一个带有FIN标志位的STREAM帧时，流的最终大小就已知了（看 4.4节）。然后流的接收部分就进入“Size Known”（大小已知）状态。在这个状态下，终端不再需要发送MAX_STREAM_DATA帧，只接收任何重传的流数据。
+当接收到一个带有FIN标志位的STREAM帧时，流的最终大小就已知了（see {{final-size}}）。然后流的接收部分就进入“Size Known”（大小已知）状态。在这个状态下，终端不再需要发送MAX_STREAM_DATA帧，只接收任何重传的流数据。
 
 一旦收到流的所有数据，流的接收部分就进入“Data Recvd”（数据已接收）状态。这可能在接收到会引起状态过渡到“Size Known”（大小已知）的STREAM帧时发生。在这个状态下，终端拥有所有的流数据。从这个流接收到的 STREAM或STREAM_DATA_BLOCKED 帧都可能被丢弃。
 
-“Data Recvd”（数据已接收）状态会持续到所有流数据都传输给应用。一旦流数据传输完成，流会进入 “Data Read”（读取数据）这个终点状态。
+“Data Recvd”（数据已接收）状态会持续到所有流数据都交付给应用。一旦流数据传输完成，流会进入 “Data Read”（读取数据）这个终点状态。
 
-在“Recv”(接收)或者“Size Known”（大小已知）状态下接收RESET_STREAM帧会使流进入“Rest Recvd”（收到重置）状态。这可能中断传输流数据到应用。
+在“Recv”(接收)或者“Size Known”（大小已知）状态下接收RESET_STREAM帧会使流进入“Rest Recvd”（收到重置）状态。这可能中断交付流数据到应用。
 
-存在收到所有流数据后收到RESET_STREAM帧的可能（这就是说，在“Data Recvd”状态下）。同样也存在收到RESET_STREAM帧后还有剩余流数据到达（在“Reset Recvd”状态）。一个实现可以按照它的选择处理这种情况。发送RESET_STREAM意味着一个终端不能保证流数据的交付。但是没有要求终端收到RESET_STREAM后不交付数据。一个实现**可能**中断流数据的交付，抛弃任何未被消费的数据并立刻示意收到RESET_STREAM。或者，当流数据已经完全收到和缓存起来准备被应用读取时RESET_STREAM信号可能被抑制或者扣留。在后面这种情况下，流的接收部分会从“Reset Recvd”转变为“Data Recvd”。
+存在收到所有流数据后收到RESET_STREAM帧的可能（在“Data Recvd”状态）。同样也存在收到RESET_STREAM帧后还有剩余流数据到达（在“Reset Recvd”状态）。实现可以按照它的选择处理这种情况。发送RESET_STREAM意味着一个终端不能保证流数据的传输。但是没有要求终端收到RESET_STREAM后不传输数据。实现**可能**中断流数据的传输，抛弃任何未被消费的数据并立刻示意收到RESET_STREAM。或者，当流数据已经完全收到和缓存起来准备被应用读取时RESET_STREAM信号可能被抑制或者扣留。在后面这种情况下，流的接收部分会从“Reset Recvd”转变为“Data Recvd”。
 
 当应用收到流已重置的信号，流的接收部分会过渡到“Reset Read”（重置已读）这个终点状态。
 
 
 ## Permitted Frame Types 允许的帧类型
 
-流的发送者只发送下列三种能同时影响到流的发送者和接受者的状态的帧。STREAM（第19.8节），STREAM_DATA_BLOCKED（第19.13节）和RESET_STREAM（第19.4节）。
+流的发送者只发送下列三种能同时影响到流的发送者和接受者的状态的帧：STREAM（{{frame-stream}}），STREAM_DATA_BLOCKED（{{frame-stream-data-blocked}}）和RESET_STREAM（{{frame-reset-stream}}）。
 
 流的发送者**禁止**在处于终点状态（“Data Recvd”或“Reset Recvd”）时发送任何上述的帧。也**禁止**在发送了RESET_STREAM后发送STREAM或STREAM_DATA_BLOCKED。（也就是处于终点状态和“Reset Sent”状态）。流的接受者能够在任何情况下接受任何上述提到的三种帧，因为存在携带这些帧的数据包被延迟交付的可能。
 
-流的接受者发送MAX_STREAM_DATA(19.10章)和STOP_SENDING帧。
+流的接受者发送MAX_STREAM_DATA({{frame-max-stream-data}})和STOP_SENDING帧({{frame-stop-sending}})。
 
 接受者只会在“Recv”状态下发送MAX_STREAM_DATA。接受者可以在所有状态下发送STOP_SENDING(停止发送)，只要未收到“RESET_STREAM”（重置流）帧。也就是在“Reset Recvd”或“Reset Read”状态之外。但是在“Data Recvd”（数据已接收）状态下发送STOP_SENDING（停止发送）帧没有什么价值，因为所有流数据已经收到了。发送者可能在所有状态下收到任何上述提到的两种帧，因为数据包可能被延迟交付。
 
