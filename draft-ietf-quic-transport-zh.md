@@ -419,21 +419,21 @@ of the stream enters the "Reset Recvd" state, which is a terminal state.
    |       |-----------------------.
    +-------+                       |
        |                           |
-       | 接收 STREAM +  FIN         |
+       | 接收 STREAM +  FIN        |
        v                           |
    +-------+                       |
-   | Size  | 接收  RESET_STREAM     |
+   | Size  | 接收  RESET_STREAM    |
    | Known |---------------------->|
    +-------+                       |
        |                           |
-       | 接收所有数据                |
+       | 接收所有数据               |
        v                           v
    +-------+ 接收 RESET_STREAM +-------+
    | Data  |---   (可能)   --->| Reset |
    | Recvd |     接收所有数据   | Recvd |
    +-------+<--   (可能)   ----+-------+
        |                           |
-       | 应用读取所有数据             | 应用读取RST
+       | 应用读取所有数据           | 应用读取RST
        v                           v
    +-------+                   +-------+
    | Data  |                   | Reset |
