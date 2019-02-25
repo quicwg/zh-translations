@@ -461,11 +461,14 @@ Once a packet containing a RESET_STREAM has been acknowledged, the sending part
 of the stream enters the "Reset Recvd" state, which is a terminal state.
 
 
-## Receiving Stream States {#stream-recv-states} 接收流的状态
+## 接收流的状态(Receiving Stream States) {#stream-recv-states}
 
-图2 展示了流从对等端接收数据部分的状态。流接收部分的状态只反映了部分对等端发送时的状态。
-流的接收部分不会跟踪发送部分无法观察的状态，例如 ‘Ready’（准备）状态。相反，流的接收部
-分会跟踪交付给应用的数据，其中一部分是发送方无法观察到的。
+{{fig-stream-recv-states}} 展示了流从对端接收数据部分的状态
+。流接收部分的状态只反映了部分对端发送时的状态。
+流的接收部分不会跟踪发送部分无法观察的状态，
+例如 ‘Ready’（准备）状态。
+相反，流的接收部分会跟踪交付给应用
+的数据，其中一部分是发送方无法观察到的。
 
 ~~~
        o
@@ -500,29 +503,78 @@ of the stream enters the "Reset Recvd" state, which is a terminal state.
    | Read  |                   | Read  |
    +-------+                   +-------+
 ~~~
-{: #fig-stream-recv-states title="States for Receiving Parts of Streams"} 图2 : 流接收部分的状态
+{: #fig-stream-recv-states title="流接收部分的状态"}
 
-由对等端（客户端的类型是1和3，服务端的类型是0和2）发起的流的接收部分在接收到该流的第一个 STREAM，STREAM_DATA_BLOCKED,或RESET_STREAM时完成创建。对于由对等端发起的双向传输流，在确认接收到由流的发送部分发出的MAX_STREAM_DATA或STOP_SENDING帧时也会创建接收部分。流的接收部分初始状态是“Recv”(接收)。
+由对端（客户端的类型是1和3，服务端的类型是0和2）
+发起的流的接收部分在接收到该流的第一个 STREAM，
+STREAM_DATA_BLOCKED,或RESET_STREAM时完成创建。
+对于由对端发起的双向传输流，在确认接收到由流
+的发送部分发出的MAX_STREAM_DATA或STOP_SENDING帧
+时也会创建接收部分。
+流的接收部分初始状态是“Recv”(接收)。
 
-当端点（客户端是类型0，服务端是类型1）发起的双向传输流的发送部分进入“就绪”状态时，流的接收部分进入“Recv”状态。
+当端点（客户端是类型0，服务端是类型1）发起的双向传输流
+的发送部分进入“就绪”状态时，
+流的接收部分进入“Recv”状态。
 
-终端在收到来自流的对等端发出的MAX_STREAM_DATA或者STOP_SENDING帧时打开一条双向传输流。接收到未开启的流的MAX_STREAM_DATA帧表明远程对等端已经开启了这个流并且正在提供流量控制的信用值（基于信用的流量控制方式（credit- based flow control））。接收到未开启的流的STOP_SENDING帧表明远程对等端不再希望在这个流上接收数据。如果数据包被丢失或被重排，任何帧都可能在STREAM或者STREAM_DATA_BLOCKED帧前抵达终端。
+终端在收到来自流的对端发出的MAX_STREAM_DATA或者
+STOP_SENDING帧时打开一条双向传输流。
+接收到未开启的流的MAX_STREAM_DATA帧表明远程对端
+已经开启了这个流并且正在提供流量控制的信用值
+（基于信用的流量控制方式（credit- based flow control））。
+接收到未开启的流的STOP_SENDING帧表明远程对端
+不再希望在这个流上接收数据。
+如果数据包被丢失或被重排，
+任何帧都可能在STREAM或者STREAM_DATA_BLOCKED帧前抵达终端。
 
-在创建一个流前，所有更低编号的同类型流都**必须**创建完毕。这保证了流的创建顺序在两端是一致的。
+在创建一个流前，
+所有更低编号的同类型流都**必须**创建完毕。
+这保证了流的创建顺序在两端是一致的。
 
-在“Recv”（接收）状态下，终端接收STREAM和STREAM_DATA_BLOCKED帧。传入的数据会被缓存起来并重新以正确的顺序组装起来，以便交付给应用。随着数据被应用消耗，缓存空间变得可用，终端会发送MAX_STREAM_DATA帧以允许对等端发送更多的数据。
+在“Recv”（接收）状态下，
+终端接收STREAM和STREAM_DATA_BLOCKED帧。
+传入的数据会被缓存起来并重新以正确的顺序组装起来，以便交付
+给应用。随着数据被应用消耗，缓存空间变得可用，
+终端会发送MAX_STREAM_DATA帧以允许对端发送更多的数据。
 
-当接收到一个带有FIN标志位的STREAM帧时，流的最终大小就已知了（see {{final-size}}）。然后流的接收部分就进入“Size Known”（大小已知）状态。在这个状态下，终端不再需要发送MAX_STREAM_DATA帧，只接收任何重传的流数据。
+当接收到一个带有FIN标志位的STREAM帧时，
+流的最终大小就已知了（详见 {{final-size}}）。
+然后流的接收部分就进入“Size Known”（大小已知）状态。
+在这个状态下，终端不再需要发送MAX_STREAM_DATA帧，
+只接收任何重传的流数据。
 
-一旦收到流的所有数据，流的接收部分就进入“Data Recvd”（数据已接收）状态。这可能在接收到会引起状态过渡到“Size Known”（大小已知）的STREAM帧时发生。在这个状态下，终端拥有所有的流数据。从这个流接收到的 STREAM或STREAM_DATA_BLOCKED 帧都可能被丢弃。
+一旦收到流的所有数据，流的接收部分就进入
+“Data Recvd”（数据已接收）状态。
+这可能在接收到会引起状态过渡到
+“Size Known”（大小已知）的STREAM帧时发生。
+在这个状态下，终端拥有所有的流数据。
+从这个流接收到的 STREAM或STREAM_DATA_BLOCKED 帧都可能被丢弃。
 
-“Data Recvd”（数据已接收）状态会持续到所有流数据都交付给应用。一旦流数据传输完成，流会进入 “Data Read”（读取数据）这个终点状态。
+“Data Recvd”（数据已接收）状态会持续到
+所有流数据都交付给应用。
+一旦流数据传输完成，
+流会进入 “Data Read”（读取数据）这个终点状态。
 
-在“Recv”(接收)或者“Size Known”（大小已知）状态下接收RESET_STREAM帧会使流进入“Rest Recvd”（收到重置）状态。这可能中断交付流数据到应用。
+在“Recv”(接收)或者“Size Known”（大小已知）状态下接收
+RESET_STREAM帧会使流进入“Rest Recvd”（收到重置）状态。
+这可能中断交付流数据到应用。
 
-存在收到所有流数据后收到RESET_STREAM帧的可能（在“Data Recvd”状态）。同样也存在收到RESET_STREAM帧后还有剩余流数据到达（在“Reset Recvd”状态）。实现可以按照它的选择处理这种情况。发送RESET_STREAM意味着一个终端不能保证流数据的传输。但是没有要求终端收到RESET_STREAM后不传输数据。实现**可能**中断流数据的传输，抛弃任何未被消费的数据并立刻示意收到RESET_STREAM。或者，当流数据已经完全收到和缓存起来准备被应用读取时RESET_STREAM信号可能被抑制或者扣留。在后面这种情况下，流的接收部分会从“Reset Recvd”转变为“Data Recvd”。
+存在收到所有流数据后收到RESET_STREAM帧
+的可能（在“Data Recvd”状态）。
+同样也存在收到RESET_STREAM帧后还有剩余流数据
+到达（在“Reset Recvd”状态）。
+实现可以按照它的选择处理这种情况。
+发送RESET_STREAM意味着一个终端不能保证流数据的传输。
+但是没有要求终端收到RESET_STREAM后不传输数据。
+实现**可能**中断流数据的传输，
+抛弃任何未被消费的数据并立刻示意收到RESET_STREAM。
+或者，当流数据已经完全收到和缓存起来准备被应用读取时
+RESET_STREAM信号可能被抑制或者扣留。
+在后面这种情况下，
+流的接收部分会从“Reset Recvd”转变为“Data Recvd”。
 
-当应用收到流已重置的信号，流的接收部分会过渡到“Reset Read”（重置已读）这个终点状态。
+当应用收到流已重置的信号，流的接收部分会过渡到
+“Reset Read”（重置已读）这个终点状态。
 
 
 ## Permitted Frame Types 允许的帧类型
@@ -3792,7 +3844,7 @@ short packet header.
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Protected Payload (*)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-​~~~~~
+~~~~~
 {: #fig-short-header title="Short Header Packet Format"}
 
 The short header can be used after the version and 1-RTT keys are negotiated.
