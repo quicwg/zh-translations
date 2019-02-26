@@ -253,6 +253,9 @@ QUIC允许同时操作任意数量的流，
 | 0x3  | Server-Initiated, Unidirectional |
 {: #stream-id-types title="Stream ID Types"}
 
+在每种类型中，流创建时都伴随有序递增的流ID。
+不按顺序使用的流ID将导致该类型的所有具有较低编号的流ID的流也被开启。
+
 ## 收发数据(Sending and Receiving Data)
 终端**必须**能将流数据转换有序字节流传递给应用程序。
 这要求终端能接收并缓冲所有
