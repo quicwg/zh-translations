@@ -1039,85 +1039,83 @@ suggested structure:
 -->
 
 
-# Version Negotiation {#version-negotiation}
+# 版本协商(Version Negotiation) {#version-negotiation}
 
-Version negotiation ensures that client and server agree to a QUIC version
-that is mutually supported. A server sends a Version Negotiation packet in
-response to each packet that might initiate a new connection, see
-{{packet-handling}} for details.
+版本协商确保了客户端和服务端对某一个双方同时支持的
+QUIC 版本达成了一致。
+服务器对每一个初始化新链接的回包中附带了一个版本协
+商包，详见{{packet-handling}}。
 
-The size of the first packet sent by a client will determine whether a server
-sends a Version Negotiation packet. Clients that support multiple QUIC versions
-SHOULD pad the first packet they send to the largest of the minimum packet sizes
-across all versions they support. This ensures that the server responds if there
-is a mutually supported version.
-
-
-## Sending Version Negotiation Packets {#send-vn}
-
-If the version selected by the client is not acceptable to the server, the
-server responds with a Version Negotiation packet (see {{packet-version}}).
-This includes a list of versions that the server will accept.  An endpoint MUST
-NOT send a Version Negotiation packet in response to receiving a Version
-Negotiation packet.
-
-This system allows a server to process packets with unsupported versions without
-retaining state.  Though either the Initial packet or the Version Negotiation
-packet that is sent in response could be lost, the client will send new packets
-until it successfully receives a response or it abandons the connection attempt.
-
-A server MAY limit the number of Version Negotiation packets it sends.  For
-instance, a server that is able to recognize packets as 0-RTT might choose not
-to send Version Negotiation packets in response to 0-RTT packets with the
-expectation that it will eventually receive an Initial packet.
+客户端第一个发送的包的大小将会决定服务器是否发送一
+个版本协商包。
+支持多个 QUIC 版本的客户端**应该**将第一个包填充
+到在它支持的所有版本中最小包大小中的最大值。
+这确保了服务端在出现一个同时支持的版本时作出响应。
 
 
-## Handling Version Negotiation Packets {#handle-vn}
+## 发送版本协商包(Sending Version Negotiation Packets) {#send-vn}
 
-When a client receives a Version Negotiation packet, it MUST abandon the
-current connection attempt.  Version Negotiation packets are designed to allow
-future versions of QUIC to negotiate the version in use between endpoints.
-Future versions of QUIC might change how implementations that support multiple
-versions of QUIC react to Version Negotiation packets when attempting to
-establish a connection using this version.  How to perform version negotiation
-is left as future work defined by future versions of QUIC.  In particular,
-that future work will need to ensure robustness against version downgrade
-attacks {{version-downgrade}}.
+如果客户端选择的版本服务端不支持，
+服务端会回复一个版本协商包（详见{{packet-version}}）。
+这个包里包括了一个服务端支持的版本列表。
+一个终端**禁止**在收到一个版本协商包后发送版本协商包。
 
+系统允许服务端不保持状态的情况下处理不支持的包版本。
+无论初始化包或者版本协商包都可能在回包中丢失，
+客户端会发送新的包直到它成功收到回复或放弃链接尝试。
 
-### Version Negotiation Between Draft Versions
-
-\[\[RFC editor: please remove this section before publication.]]
-
-When a draft implementation receives a Version Negotiation packet, it MAY use
-it to attempt a new connection with one of the versions listed in the packet,
-instead of abandoning the current connection attempt {{handle-vn}}.
-
-The client MUST check that the Destination and Source Connection ID fields
-match the Source and Destination Connection ID fields in a packet that the
-client sent.  If this check fails, the packet MUST be discarded.
-
-Once the Version Negotiation packet is determined to be valid, the client then
-selects an acceptable protocol version from the list provided by the server.
-The client then attempts to create a new connection using that version. The new
-connection MUST use a new random Destination Connection ID different from the
-one it had previously sent.
-
-Note that this mechanism does not protect against downgrade attacks and
-MUST NOT be used outside of draft implementations.
+服务端**可以**限制它发送的版本协商包数量。
+例如，能辨别出包是 0-RTT 的服务端可能预期它最终会收到一
+个初始化包，选择不发送版本协商包作为 0-RTT 包的回复。
 
 
-## Using Reserved Versions
+## 处理版本协商包(Handling Version Negotiation Packets) {#handle-vn}
 
-For a server to use a new version in the future, clients must correctly handle
-unsupported versions. To help ensure this, a server SHOULD include a reserved
-version (see {{versions}}) while generating a Version Negotiation packet.
+当客户端收到了版本协商包，
+它**必须**丢弃当前的链接企图。
+版本协商包设计旨在协商出终端之间使用的版本
+允许 QUIC 未来版本。
+未来版本的 QUIC 或许当尝试使用这个版本建立链接的时候，
+会改变支持多版本 QUIC 响应版本协商包的实现。
+如何做版本协商留待未来版本的 QUIC 定义。
+特别是的，未来的工作将会需要保证
+对版本降级攻击{{version-downgrade}}有鲁棒性。
 
-The design of version negotiation permits a server to avoid maintaining state
-for packets that it rejects in this fashion.
 
-A client MAY send a packet using a reserved version number.  This can be used to
-solicit a list of supported versions from a server.
+### 草案版本间的版本协商(Version Negotiation Between Draft Versions)
+
+\[\[RFC 编辑者: 请在发布之前删除此章节。]]
+
+当草案实现接收了一个版本协商包，
+它**可能**使用它列举的版本之一来尝试一条新链接，
+而不是丢弃当前的链接尝试 {{handle-vn}}。
+
+客户端**必须**检查目标和源链接ID字段
+与客户端发送的包中匹配。
+如果检查失败，则包**必须**被丢弃。
+
+一但版本协商包决定为有效，
+客户端从服务端提供的列表中选择一个可接受的协议版本，
+尝试使用此版本创建一条新链接。
+新链接**必须**使用一个和之前发送过的不同的
+新的随机的目标链接ID。
+
+注意这个机制并不防卫降级攻击
+而且**禁止**在草案实现之外使用。
+
+
+## 使用保留版本(Using Reserved Versions)
+
+对在未来使用新版本的服务端，
+客户端必须正确的处理不支持的版本。
+为了帮助确保这件事，当生成一个版本协商包时，
+服务端**应该**包括一个保留版本（详见{{versions}}）
+
+版本协商的设计允许服务端用这种方式
+避免维护它拒绝的包的状态。
+
+客户端**可能**使用一个保留版本号发送包。
+这可能用于索要服务端所支持的版本列表。
 
 
 # Cryptographic and Transport Handshake {#handshake}
