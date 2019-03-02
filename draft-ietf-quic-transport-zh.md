@@ -533,9 +533,10 @@ STOP_SENDING帧时打开一条双向传输流。
 
 在“Recv”（接收）状态下，
 终端接收STREAM和STREAM_DATA_BLOCKED帧。
-传入的数据会被缓存起来并重新以正确的顺序组装起来，以便交付
-给应用。随着数据被应用消耗，缓存空间变得可用，
-终端会发送MAX_STREAM_DATA帧以允许对端发送更多的数据。
+传入的数据会被缓存起来并重新以正确的顺序组
+装起来，以便交付给应用。随着数据被应用消耗，
+缓存空间变得可用，终端会发送MAX_STREAM_DATA帧
+以允许对端发送更多的数据。
 
 当接收到一个带有FIN标志位的STREAM帧时，
 流的最终大小就已知了（详见 {{final-size}}）。
@@ -579,13 +580,30 @@ RESET_STREAM信号可能被抑制或者扣留。
 
 ## Permitted Frame Types 允许的帧类型
 
-流的发送者只发送下列三种能同时影响到流的发送者和接受者的状态的帧：STREAM（{{frame-stream}}），STREAM_DATA_BLOCKED（{{frame-stream-data-blocked}}）和RESET_STREAM（{{frame-reset-stream}}）。
+流的发送者只发送下列三种能同时影响到流的发送者
+和接受者的状态的帧：STREAM（{{frame-stream}}），
+STREAM_DATA_BLOCKED（{{frame-stream-data-blocked}}
+和RESET_STREAM（{{frame-reset-stream}}）。
 
-流的发送者**禁止**在处于终点状态（“Data Recvd”或“Reset Recvd”）时发送任何上述的帧。也**禁止**在发送了RESET_STREAM后发送STREAM或STREAM_DATA_BLOCKED。（也就是处于终点状态和“Reset Sent”状态）。流的接受者能够在任何情况下接受任何上述提到的三种帧，因为存在携带这些帧的数据包被延迟交付的可能。
+流的发送者**禁止**在处于终点状态
+（“Data Recvd”或“Reset Recvd”）时
+发送任何上述的帧。也**禁止**在发送了RESET_STREAM后
+发送STREAM或STREAM_DATA_BLOCKED。
+（也就是处于终点状态和“Reset Sent”状态）。流的接受者
+能够在任何情况下接受任何上述提到的三种帧，因为
+存在携带这些帧的数据包被延迟交付的可能。
 
-流的接受者发送MAX_STREAM_DATA({{frame-max-stream-data}})和STOP_SENDING帧({{frame-stop-sending}})。
+流的接受者发送MAX_STREAM_DATA({{frame-max-stream-data}})
+和STOP_SENDING帧({{frame-stop-sending}})。
 
-接受者只会在“Recv”状态下发送MAX_STREAM_DATA。接受者可以在所有状态下发送STOP_SENDING(停止发送)，只要未收到“RESET_STREAM”（重置流）帧。也就是在“Reset Recvd”或“Reset Read”状态之外。但是在“Data Recvd”（数据已接收）状态下发送STOP_SENDING（停止发送）帧没有什么价值，因为所有流数据已经收到了。发送者可能在所有状态下收到任何上述提到的两种帧，因为数据包可能被延迟交付。
+接受者只会在“Recv”状态下发送MAX_STREAM_DATA。
+接受者可以在所有状态下发送STOP_SENDING(停止发送)，
+只要未收到“RESET_STREAM”（重置流）帧。
+也就是在“Reset Recvd”或“Reset Read”状态之外。
+但是在“Data Recvd”（数据已接收）状态下
+发送STOP_SENDING（停止发送）帧没有什么价值，
+因为所有流数据已经收到了。发送者可能在所有状态下
+收到任何上述提到的两种帧，因为数据包可能被延迟交付。
 
 
 ## Bidirectional Stream States {#stream-bidi-states}双向传输流的状态
@@ -1618,119 +1636,115 @@ other supplementary information the server will need to validate the token in
 the future.
 
 
-## Path Validation {#migrate-validate}
+## 路径验证(Path Validation) {#migrate-validate}
 
-Path validation is used during connection migration (see {{migration}} and
-{{preferred-address}}) by the migrating endpoint to verify reachability of a
-peer from a new local address.  In path validation, endpoints test reachability
-between a specific local address and a specific peer address, where an address
-is the two-tuple of IP address and port.
+迁移端点在连接迁移(参考{{migration}} 和
+{{preferred-address}})期间使用路径验证来验证从新的
+本地地址到对端的可达性。在路径验证中，终端测试特定
+本地地址与特定对等地址之间的可达性，其中地址是IP
+地址和端口的两元组。
 
-Path validation tests that packets (PATH_CHALLENGE) can be both sent to and
-received (PATH_RESPONSE) from a peer on the path.  Importantly, it validates
-that the packets received from the migrating endpoint do not carry a spoofed
-source address.
+路径验证会测试包（PATH_CHALLENGE）从路径上的对端
+发送和接收（PATH_RESPONSE）的可行性。更重要的是，
+路径验证确认从迁移的对端接收的包不携带欺骗性的
+源地址。
 
-Path validation can be used at any time by either endpoint.  For instance, an
-endpoint might check that a peer is still in possession of its address after a
-period of quiescence.
+任何端点都可以随时使用路径验证。 例如，端点可能会
+在一段时间的静默后检查对端是否仍然拥有其地址。
 
-Path validation is not designed as a NAT traversal mechanism. Though the
-mechanism described here might be effective for the creation of NAT bindings
-that support NAT traversal, the expectation is that one or other peer is able to
-receive packets without first having sent a packet on that path. Effective NAT
-traversal needs additional synchronization mechanisms that are not provided
-here.
+路径验证不是设计为NAT穿透机制。 虽然这里描述的机制
+可能对创建支持NAT穿透的NAT绑定有效，但是期望一个或
+另一个对端能够在没有先在该路径上发送包的情况下
+接收包。有效的NAT穿透需要路径验证没提供的额外
+同步机制。
 
-An endpoint MAY bundle PATH_CHALLENGE and PATH_RESPONSE frames that are used for
-path validation with other frames.  In particular, an endpoint may pad a packet
-carrying a PATH_CHALLENGE for PMTU discovery, or an endpoint may bundle a
-PATH_RESPONSE with its own PATH_CHALLENGE.
+终端**可能**把用于路径验证的PATH_CHALLENGE和
+PATH_RESPONSE帧和其他帧进行捆绑。 特别地，终端
+可以装配一个携带PATH_CHALLENGE的包用于PMTU探测，
+或者端点可以把一个PATH_RESPONSE和自己的
+PATH_CHALLENGE捆绑起来。
 
-When probing a new path, an endpoint might want to ensure that its peer has an
-unused connection ID available for responses. The endpoint can send
-NEW_CONNECTION_ID and PATH_CHALLENGE frames in the same packet. This ensures
-that an unused connection ID will be available to the peer when sending a
-response.
+在探测新路径时，终端可能希望确保其对端具有可用于
+响应且未使用的连接ID。 终端可以在同一个包中发送
+NEW_CONNECTION_ID和PATH_CHALLENGE帧。 这可
+确保在发送响应时，对端有未使用的连接ID可以使用。
 
 
-## Initiating Path Validation
+## 启动路径验证(Initiating Path Validation)
 
-To initiate path validation, an endpoint sends a PATH_CHALLENGE frame containing
-a random payload on the path to be validated.
+要启动路径验证，终端会在要验证的路径上发送包含随机
+有效负载的PATH_CHALLENGE帧。
 
-An endpoint MAY send multiple PATH_CHALLENGE frames to guard against packet
-loss.  An endpoint SHOULD NOT send a PATH_CHALLENGE more frequently than it
-would an Initial packet, ensuring that connection migration is no more load on a
-new path than establishing a new connection.
+端点**可能**发送多个PATH_CHALLENGE帧以防止丢包。
+终端**应该不**比初始数据包更频繁地
+发送PATH_CHALLENGE，
+从而确保连接迁移到新的路径时负载量和建立一个新连接
+是一样的。
 
-The endpoint MUST use unpredictable data in every PATH_CHALLENGE frame so that
-it can associate the peer's response with the corresponding PATH_CHALLENGE.
-
-
-## Path Validation Responses
-
-On receiving a PATH_CHALLENGE frame, an endpoint MUST respond immediately by
-echoing the data contained in the PATH_CHALLENGE frame in a PATH_RESPONSE frame.
-
-To ensure that packets can be both sent to and received from the peer, the
-PATH_RESPONSE MUST be sent on the same path as the triggering PATH_CHALLENGE.
-That is, from the same local address on which the PATH_CHALLENGE was received,
-to the same remote address from which the PATH_CHALLENGE was received.
+终端**必须**在每个PATH_CHALLENGE帧中使用
+不可预测的数据，以便它可以将对端的响应与相应的
+PATH_CHALLENGE相关联。
 
 
-## Successful Path Validation
+## 路径验证响应(Path Validation Responses)
 
-A new address is considered valid when a PATH_RESPONSE frame is received that
-meets the following criteria:
+在接收到PATH_CHALLENGE帧时，终端**必须**在
+PATH_RESPONSE帧中填入PATH_CHALLENGE帧中包含的
+数据立刻发回。
 
-- It contains the data that was sent in a previous PATH_CHALLENGE. Receipt of an
-  acknowledgment for a packet containing a PATH_CHALLENGE frame is not adequate
-  validation, since the acknowledgment can be spoofed by a malicious peer.
-
-- It was sent from the same remote address to which the corresponding
-  PATH_CHALLENGE was sent. If a PATH_RESPONSE frame is received from a different
-  remote address than the one to which the PATH_CHALLENGE was sent, path
-  validation is considered to have failed, even if the data matches that sent in
-  the PATH_CHALLENGE.
-
-- It was received on the same local address from which the corresponding
-  PATH_CHALLENGE was sent.
-
-Note that receipt on a different local address does not result in path
-validation failure, as it might be a result of a forwarded packet (see
-{{off-path-forward}}) or misrouting. It is possible that a valid PATH_RESPONSE
-might be received in the future.
+为了确保包可以发送到对端和从对端接收，**必须**在与
+触发PATH_CHALLENGE相同的路径上发送PATH_RESPONSE。
+也就是说，从收到PATH_CHALLENGE的同一本地地址发到
+发出这个PATH_CHALLENGE的同一个远程地址。
 
 
-## Failed Path Validation
+## 成功的路径验证（Successful Path Validation）
 
-Path validation only fails when the endpoint attempting to validate the path
-abandons its attempt to validate the path.
+当收到符合以下标准的PATH_RESPONSE帧时，
+新地址才被认为是有效的:
 
-Endpoints SHOULD abandon path validation based on a timer. When setting this
-timer, implementations are cautioned that the new path could have a longer
-round-trip time than the original.  A value of three times the larger of the
-current Probe Timeout (PTO) or the initial timeout (that is, 2*kInitialRtt) as
-defined in {{QUIC-RECOVERY}} is RECOMMENDED.  That is:
+- 帧中包含先前PATH_CHALLENGE中发送的数据。
+收到对收到包含PATH_CHALLENGE帧的包的确认是不充分的验证，
+因为确认可能被恶意对等方欺骗。
+
+- 帧是从发送相应PATH_CHALLENGE的同一远程地址发送的。
+如果从与发送PATH_CHALLENGE的远程地址不同的远程地址
+接收到PATH_RESPONSE帧，则认为路径验证失败，即使数据
+与PATH_CHALLENGE中发送的数据匹配也是如此。
+
+- 帧是在发送相应PATH_CHALLENGE的同一本地地址上收到的。
+
+请注意，在不同的本地地址上接收不会导致路径验证失败，
+因为它可能是转发数据包（请参阅{{off-path-forward}}）
+或错误路由的结果。 将来可能会收到有效的PATH_RESPONSE。
+
+
+## 失败的路径验证（Failed Path Validation）
+
+路径验证只在当尝试验证路径的终端放弃其验证路径的
+尝试时失败。
+
+终端**应该**放弃基于计时器的路径验证。 设置此
+计时器时，协议的实现会警告新路径的往返时间可能
+比原始路径长。 建议使用{{QUIC-RECOVERY}}中
+定义的当前探测超时（PTO）或初始超时（即2 * kInitialRtt）
+中较大者的三倍的值。 就是说：
 
 ~~~
    validation_timeout = max(3*PTO, 6*kInitialRtt)
 ~~~
 
-Note that the endpoint might receive packets containing other frames on the new
-path, but a PATH_RESPONSE frame with appropriate data is required for path
-validation to succeed.
+请注意，终端可能会在新路径上接收包含其他帧的数据包，
+但路径验证成功要求收到具有正确数据的PATH_RESPONSE帧。
 
-When an endpoint abandons path validation, it determines that the path is
-unusable.  This does not necessarily imply a failure of the connection -
-endpoints can continue sending packets over other paths as appropriate.  If no
-paths are available, an endpoint can wait for a new path to become available or
-close the connection.
+当终端放弃路径验证时，等于确定该路径不可用。
+这并不一定意味着连接失败 - 端点可以继续在适当的情况下
+通过其他路径发送数据包。 如果没有可用的路径，
+则终端可以等待一个新路径变为可用或关闭连接。
 
-A path validation might be abandoned for other reasons besides
-failure. Primarily, this happens if a connection migration to a new path is
-initiated while a path validation on the old path is in progress.
+除了失败之外，路径验证也可能因为其他原因被放弃。
+这种情况主要发生于如果在旧路径上的路径验证正在
+进行时启动到新路径的连接迁移。
 
 
 # Connection Migration {#migration}
