@@ -1404,60 +1404,27 @@ New transport parameters can be registered according to the rules in
 {{iana-transport-parameters}}.
 
 
-# Address Validation
+# Address Validation 地址验证
 
-Address validation is used by QUIC to avoid being used for a traffic
-amplification attack.  In such an attack, a packet is sent to a server with
-spoofed source address information that identifies a victim.  If a server
-generates more or larger packets in response to that packet, the attacker can
-use the server to send more data toward the victim than it would be able to send
-on its own.
+QUIC使用地址验证来避免流量放大攻击。在这样的攻击中，带有欺骗性源地址信息的数据包被发送到服务器，并指向受害者。如果服务器生成更多或更大的数据包作为对该数据包的响应，攻击者可以使用该服务器向受害者发送超出其能力的更多的数据。
 
-The primary defense against amplification attack is verifying that an endpoint
-is able to receive packets at the transport address that it claims.  Address
-validation is performed both during connection establishment (see
-{{validate-handshake}}) and during connection migration (see
-{{migrate-validate}}).
+针对放大攻击的主要防御措施是验证端点是否能够在其声称的传输地址接收数据包。地址验证在连接建立期间(see
+{{validate-handshake}}) 和连接迁移期间 (see {{migrate-validate}})执行。
 
 
-## Address Validation During Connection Establishment {#validate-handshake}
+## Address Validation During Connection Establishment {#validate-handshake} 连接建立过程中的地址验证
 
-Connection establishment implicitly provides address validation for both
-endpoints.  In particular, receipt of a packet protected with Handshake keys
-confirms that the client received the Initial packet from the server.  Once the
-server has successfully processed a Handshake packet from the client, it can
-consider the client address to have been validated.
+连接建立隐式地为两个端点提供地址验证。具体地说，就是通过接收由握手密钥保护的数据包来确认客户端从服务器接收到初始数据包。一旦服务器成功地处理了来自客户端的握手数据包，它就可以认为客户端地址已经被验证。
 
-Prior to validating the client address, servers MUST NOT send more than three
-times as many bytes as the number of bytes they have received.  This limits the
-magnitude of any amplification attack that can be mounted using spoofed source
-addresses.  In determining this limit, servers only count the size of
-successfully processed packets.
+在验证客户端地址之前，服务器发送的字节数不能超过其接收字节数的三倍。这就限制了可以使用带欺骗性源地址进行的任何放大攻击的规模。该限制仅计算服务器已经成功处理的数据包的大小。
 
-Clients MUST pad UDP datagrams that contain only Initial packets to at least
-1200 bytes.  Once a client has received an acknowledgment for a Handshake packet
-it MAY send smaller datagrams.  Sending padded datagrams ensures that the server
-is not overly constrained by the amplification restriction.
+客户端**必须**将仅包含初始数据包的UDP数据报填充到至少1200字节。一旦客户端收到握手数据包的确认，它可能会发送较小的数据报。发送填充数据报可确保服务器不受放大限制的过度限制。
 
-Packet loss, in particular loss of a Handshake packet from the server, can cause
-a situation in which the server cannot send when the client has no data to send
-and the anti-amplification limit is reached. In order to avoid this causing a
-handshake deadlock, clients SHOULD send a packet upon a crypto retransmission
-timeout, as described in {{QUIC-RECOVERY}}. If the client has no data to
-retransmit and does not have Handshake keys, it SHOULD send an Initial packet in
-a UDP datagram of at least 1200 bytes.  If the client has Handshake keys, it
-SHOULD send a Handshake packet.
+数据包丢失，特别是来自服务器的握手数据包的丢失，可能导致当客户端没有数据要发送且达到抗放大限制时，服务器无法发送。为了避免造成握手死锁，客户端**应该**在加密重传超时发送数据包，如{{QUIC-RECOVERY}}所述。如果客户端没有要重新传输的数据，并且没有握手密钥，则**应该**在至少1200字节的UDP数据报中发送初始数据包。如果客户端有握手密钥，则**应该**发送握手数据包。
 
-A server might wish to validate the client address before starting the
-cryptographic handshake. QUIC uses a token in the Initial packet to provide
-address validation prior to completing the handshake. This token is delivered to
-the client during connection establishment with a Retry packet (see
-{{validate-retry}}) or in a previous connection using the NEW_TOKEN frame (see
-{{validate-future}}).
+服务器可能希望在开始加密握手之前验证客户端地址。QUIC在完成握手之前使用初始数据包中的令牌来提供地址验证。此令牌在使用重传数据包 (see {{validate-retry}}) 建立连接期间或在使用NEW_TOKEN帧(see {{validate-future}})之前的连接中传递给客户端。
 
-In addition to sending limits imposed prior to address validation, servers are
-also constrained in what they can send by the limits set by the congestion
-controller.  Clients are only constrained by the congestion controller.
+除了地址验证之前施加的发送限制之外，服务器还受到拥塞控制器设置的限制。客户端仅受拥塞控制器的约束。
 
 
 ### 使用重试包进行地址验证(Address Validation using Retry Packets) {#validate-retry}
