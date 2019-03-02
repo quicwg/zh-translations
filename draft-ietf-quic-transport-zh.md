@@ -1271,110 +1271,85 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 {: #tls-0rtt-handshake title="Example 0-RTT Handshake"}
 
 
-## Negotiating Connection IDs {#negotiating-connection-ids}
+## 协商连接IDs （Negotiating Connection IDs） {#negotiating-connection-ids}
 
-A connection ID is used to ensure consistent routing of packets, as described in
-{{connection-id}}.  The long header contains two connection IDs: the Destination
-Connection ID is chosen by the recipient of the packet and is used to provide
-consistent routing; the Source Connection ID is used to set the Destination
-Connection ID used by the peer.
+连接ID用来确保数据包的路由一致性，如 {{connection-id}} 所述。
+长标题包含两种连接ID：目标连接ID是由接收包选中的，用于提供一致的路由;
+源连接ID用于设置对端使用的目标连接ID。
 
-During the handshake, packets with the long header ({{long-header}}) are used to
-establish the connection ID that each endpoint uses.  Each endpoint uses the
-Source Connection ID field to specify the connection ID that is used in the
-Destination Connection ID field of packets being sent to them.  Upon receiving a
-packet, each endpoint sets the Destination Connection ID it sends to match the
-value of the Source Connection ID that they receive.
+在握手过程中，使用长报头({{long-header}})的数据包来建立每个终端使用的连接ID。 
+每个终端使用源连接ID字段指定发送给它们的数据包中目标连接ID字段中使用的连接ID。
+在接收到数据包时，每个终端设置它发送的目标连接ID，
+以匹配它们接收到的源连接ID的值。
 
-When an Initial packet is sent by a client which has not previously received a
-Retry packet from the server, it populates the Destination Connection ID field
-with an unpredictable value.  This MUST be at least 8 bytes in length. Until a
-packet is received from the server, the client MUST use the same value unless it
-abandons the connection attempt and starts a new one. The initial Destination
-Connection ID is used to determine packet protection keys for Initial packets.
+当一个初始数据包由之前没有从服务器接收重试数据包的客户机发送时，
+它将用一个不可预知的值填充目标连接ID字段。
+它的长度**必须**至少为8字节。
+在从服务器接收到数据包之前，客户端**必须**使用相同的值，
+除非它放弃连接尝试并启动新的连接。
+初始目标连接ID用于确定初始数据包的包保护密钥。
 
-The client populates the Source Connection ID field with a value of its choosing
-and sets the SCIL field to indicate the length.
+客户端使用其选择的值填充源连接ID字段，并设置SCIL字段来指示长度。
 
-The first flight of 0-RTT packets use the same Destination and Source Connection
-ID values as the client's first Initial.
+0-RTT数据包的第一次传输使用与客户端第一次初始化相同的目标和源连接ID值。
 
-The Destination Connection ID field in the server's Initial packet contains a
-connection ID that is chosen by the recipient of the packet (i.e., the client);
-the Source Connection ID includes the connection ID that the sender of the
-packet wishes to use (see {{connection-id}}). The server MUST use consistent
-Source Connection IDs during the handshake.
+服务器初始数据包中的目标连接ID字段包含由数据包的接收者(比如客户端)选择的连接ID;
+源连接ID包括数据包的发送方希望使用的连接ID(参见 {{connection-id}})。
+服务器在握手期间**必须**使用一致的源连接id。
 
-On first receiving an Initial or Retry packet from the server, the client uses
-the Source Connection ID supplied by the server as the Destination Connection ID
-for subsequent packets, including any subsequent 0-RTT packets.  That means that
-a client might change the Destination Connection ID twice during connection
-establishment, once in response to a Retry and once in response to the first
-Initial packet from the server. Once a client has received an Initial packet
-from the server, it MUST discard any packet it receives with a different Source
-Connection ID.
+在首次从服务器接收初始或重试数据包时，
+客户端使用服务器提供的源连接ID作为后续数据包(包括任何后续0-RTT数据包)的目标连接ID。
+这意味着客户端可能在连接建立期间两次更改目标连接ID，一次是响应重试，
+一次是响应来自服务器的第一个初始数据包。
+一旦客户端从服务器接收到一个初始数据包，
+它**必须**丢弃它接收到的任何具有不同源连接ID的数据包。
 
-A client MUST only change the value it sends in the Destination Connection ID in
-response to the first packet of each type it receives from the server (Retry or
-Initial); a server MUST set its value based on the Initial packet.  Any
-additional changes are not permitted; if subsequent packets of those types
-include a different Source Connection ID, they MUST be discarded.  This avoids
-problems that might arise from stateless processing of multiple Initial packets
-producing different connection IDs.
+客户端**必须**只更改它在目标连接ID中发送的值，
+以响应它从服务器接收到的每种类型的第一个数据包(重试或初始);
+服务器**必须**根据初始数据包设置其值。不允许有任何其他变更;
+如果这些类型的后续数据包包含不同的源连接ID，则它们**必须**被丢弃。
+这避免了可能产生的对生成不同连接id的多个初始数据包进行无状态处理的问题。
 
-The connection ID can change over the lifetime of a connection, especially in
-response to connection migration ({{migration}}), see {{issue-cid}} for details.
+连接ID可以在连接的生命周期中更改，
+特别是在响应连接迁移时({{migration}})，请参阅{{issue-cid}}了解详细信息。
 
+## 传输参数（Transport Parameters） {#transport-parameters}
 
-## Transport Parameters {#transport-parameters}
+在连接建立期间，两个终端对其传输参数进行身份验证声明。
+这些声明是由每个终端单方面作出的。
+终端必须遵守这些参数隐含的限制;每个参数的描述包括它的处理规则。
 
-During connection establishment, both endpoints make authenticated declarations
-of their transport parameters.  These declarations are made unilaterally by each
-endpoint.  Endpoints are required to comply with the restrictions implied by
-these parameters; the description of each parameter includes rules for its
-handling.
+传输参数的编码详见{{transport-parameter-encoding}}。
 
-The encoding of the transport parameters is detailed in
-{{transport-parameter-encoding}}.
+QUIC包含加密握手中的已编码传输参数。一旦握手完成，对端声明的传输参数就可用了。
+每个终端验证其对端提供的值。
 
-QUIC includes the encoded transport parameters in the cryptographic handshake.
-Once the handshake completes, the transport parameters declared by the peer are
-available.  Each endpoint validates the value provided by its peer.
+每个定义的传输参数的定义都包含在{{transport-parameter-definitions}}中。
+终端**必须**将接收到的具有无效值的传输参数视为
+类型为TRANSPORT_PARAMETER_ERROR的连接错误。
+在给定的传输参数扩展中，任何给定的参数最多只能出现一次。
+终端**必须**将接收到的重复传输参数视为
+类型为TRANSPORT_PARAMETER_ERROR的连接错误。
 
-Definitions for each of the defined transport parameters are included in
-{{transport-parameter-definitions}}.  An endpoint MUST treat receipt of a
-transport parameter with an invalid value as a connection error of type
-TRANSPORT_PARAMETER_ERROR.  Any given parameter MUST appear at most once in a
-given transport parameters extension.  An endpoint MUST treat receipt of
-duplicate transport parameters as a connection error of type
-TRANSPORT_PARAMETER_ERROR.
+如果服务器发送了一个重试包来启用重试的验证，
+如{{packet-retry}}所述，那么它**必须**包含original_connection_id传输参数
+({{transport-parameter-definitions}})，
 
-A server MUST include the original_connection_id transport parameter
-({{transport-parameter-definitions}}) if it sent a Retry packet to enable
-validation of the Retry, as described in {{packet-retry}}.
+### 0-RTT的传输参数值（Values of Transport Parameters for 0-RTT） {#zerortt-parameters}
 
+尝试发送0-RTT数据的客户端**必须**记住服务器使用的传输参数。
+服务器在建立连接期间声明的传输参数适用于在握手期间使用键控材料建立的所有连接。
+应用于新连接的传输参数一直不变，直到握手完成，并且来自服务器的新传输参数可以提供的时候。、
 
-### Values of Transport Parameters for 0-RTT {#zerortt-parameters}
+服务器可以记住它所申明的传输参数，
+或者在票据中存储受完整性保护的值副本，并在接受0-RTT数据时恢复信息。
+服务器使用传输参数来决定是否接受0-RTT数据。
 
-A client that attempts to send 0-RTT data MUST remember the transport parameters
-used by the server.  The transport parameters that the server advertises during
-connection establishment apply to all connections that are resumed using the
-keying material established during that handshake.  Remembered transport
-parameters apply to the new connection until the handshake completes and new
-transport parameters from the server can be provided.
-
-A server can remember the transport parameters that it advertised, or store an
-integrity-protected copy of the values in the ticket and recover the information
-when accepting 0-RTT data.  A server uses the transport parameters in
-determining whether to accept 0-RTT data.
-
-A server MAY accept 0-RTT and subsequently provide different values for
-transport parameters for use in the new connection.  If 0-RTT data is accepted
-by the server, the server MUST NOT reduce any limits or alter any values that
-might be violated by the client with its 0-RTT data.  In particular, a server
-that accepts 0-RTT data MUST NOT set values for the following parameters
-({{transport-parameter-definitions}}) that are smaller
-than the remembered value of those parameters.
+服务器**可以**接受0-RTT，然后为新连接中使用的传输参数提供不同的值。
+如果服务器接受0-RTT数据，则服务器**不能**减少任何限制，
+也不能更改携带0-RTT数据的客户端可能违反的任何值。
+特别是，接受0-RTT数据的服务器**不能**
+为以下参数({{transport-parameter-definitions}}) 设置小于这些参数的记忆值的值。
 
 * initial_max_data
 * initial_max_stream_data_bidi_local
@@ -1383,30 +1358,23 @@ than the remembered value of those parameters.
 * initial_max_streams_bidi
 * initial_max_streams_uni
 
-Omitting or setting a zero value for certain transport parameters can result in
-0-RTT data being enabled, but not usable.  The applicable subset of transport
-parameters that permit sending of application data SHOULD be set to non-zero
-values for 0-RTT.  This includes initial_max_data and either
-initial_max_streams_bidi and initial_max_stream_data_bidi_remote, or
-initial_max_streams_uni and initial_max_stream_data_uni.
+省略或设置某些传输参数的零值可能导致启用0-RTT数据，但不可用。
+对于0-RTT，允许发送应用程序数据的传输参数的适用子集**应该**设置为非零值。
+这包括initial_max_data和initial_max_streams_bidi和
+initial_max_stream_data_bidi_remote，或者initial_max_streams_uni
+和initial_max_stream_data_uni。
 
-The value of the server's previous preferred_address MUST NOT be used when
-establishing a new connection; rather, the client should wait to observe the
-server's new preferred_address value in the handshake.
+在建立新连接时，**不能**使用服务器以前的preferred_address的值;
+相反，客户机应该等待观察在握手时服务器的preferred_address新值。
 
-A server MUST either reject 0-RTT data or abort a handshake if the implied
-values for transport parameters cannot be supported.
+如果传输参数的隐含值不受支持，服务器**必须**要么拒绝0-RTT数据，要么中止握手。
 
+### 新的传输参数（New Transport Parameters）
 
-### New Transport Parameters
+新的传输参数可以用来协商新的协议行为。终端**必须**忽略它不支持的传输参数。
+因此，传输参数的缺少将禁用使用该参数协商的任何可选协议的特性。
 
-New transport parameters can be used to negotiate new protocol behavior.  An
-endpoint MUST ignore transport parameters that it does not support.  Absence of
-a transport parameter therefore disables any optional protocol feature that is
-negotiated using the parameter.
-
-New transport parameters can be registered according to the rules in
-{{iana-transport-parameters}}.
+可以根据{{iana-transport-parameters}}中的规则注册新的传输参数。
 
 
 # Address Validation
