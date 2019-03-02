@@ -1433,28 +1433,19 @@ also constrained in what they can send by the limits set by the congestion
 controller.  Clients are only constrained by the congestion controller.
 
 
-### Address Validation using Retry Packets {#validate-retry}
+### 使用重试数据包进行地址验证(Address Validation using Retry Packets) {#validate-retry}
 
-Upon receiving the client's Initial packet, the server can request address
-validation by sending a Retry packet ({{packet-retry}}) containing a token. This
-token MUST be repeated by the client in all Initial packets it sends for that
-connection after it receives the Retry packet.  In response to processing an
-Initial containing a token, a server can either abort the connection or permit
-it to proceed.
+在接收到客户端的初始数据包后，服务器可以通过发送包含令牌的重试数据包({{packet-retry}})来请求地址验证。客户端在收到重试数据包后，必须在其发送的所有初始数据包中重复此令牌。作为对包含令牌的初始处理的响应，服务器可以中止连接或允许连接继续。
 
-As long as it is not possible for an attacker to generate a valid token for
-its own address (see {{token-integrity}}) and the client is able to return
-that token, it proves to the server that it received the token.
+只要攻击者不可能为其自己的地址生成有效的令牌(请参见{{token-integrity}})，并且客户端能够返回该令牌，它就会向服务器证明它收到了令牌。
 
-A server can also use a Retry packet to defer the state and processing costs
-of connection establishment.  By giving the client a different connection ID to
-use, a server can cause the connection to be routed to a server instance with
-more resources available for new connections.
+服务器还可以使用重试数据包来延迟连接建立的状态和处理成本。通过为客户端提供不同的连接ID，服务器可以将连接路由到具有更多可用于新连接的资源的服务器实例。
 
-A flow showing the use of a Retry packet is shown in {{fig-retry}}.
+{{fig-retry}}中有一个展示重试数据包使用方法的流。
+
 
 ~~~~
-Client                                                  Server
+客户端                                               服务端
 
 Initial[0]: CRYPTO[CH] ->
 
@@ -1466,108 +1457,40 @@ Initial+Token[1]: CRYPTO[CH] ->
                        Handshake[0]: CRYPTO[EE, CERT, CV, FIN]
                                  <- 1-RTT[0]: STREAM[1, "..."]
 ~~~~
-{: #fig-retry title="Example Handshake with Retry"}
+{: #fig-retry title="例子 具有重试的握手"}
 
 
-### Address Validation for Future Connections {#validate-future}
+### 未来连接的地址验证(Address Validation for Future Connections) {#validate-future}
 
-A server MAY provide clients with an address validation token during one
-connection that can be used on a subsequent connection.  Address validation is
-especially important with 0-RTT because a server potentially sends a significant
-amount of data to a client in response to 0-RTT data.
+服务器可在一个连接期间向客户端提供地址验证令牌，该地址验证令牌可用于后续连接。地址验证对于0-RTT尤为重要，因为服务器可能会向客户端发送大量数据以响应0-RTT数据。
 
-The server uses the NEW_TOKEN frame {{frame-new-token}} to provide the client
-with an address validation token that can be used to validate future
-connections.  The client includes this token in Initial packets to provide
-address validation in a future connection.  The client MUST include the token in
-all Initial packets it sends, unless a Retry or NEW_TOKEN frame replaces the
-token with a newer one. The client MUST NOT use the token provided in a Retry
-for future connections. Servers MAY discard any Initial packet that does not
-carry the expected token.
+服务器使用NEW_TOKEN帧{{frame-new-token}}向客户端提供可用于验证未来的连接的地址验证令牌。客户端将此令牌包含在初始数据包中，以便在将来的连接中提供地址验证。除非重试或NEW_TOKEN帧将令牌替换为较新的令牌，否则客户端必须在其发送的所有初始数据包中包含该令牌。客户端不能为将来的连接使用重试中提供的令牌。服务器可能会丢弃不携带预期令牌的任何初始数据包。
 
-Unlike the token that is created for a Retry packet, there might be some time
-between when the token is created and when the token is subsequently used.
-Thus, a token SHOULD include an expiration time.  The server MAY include either
-an explicit expiration time or an issued timestamp and dynamically calculate the
-expiration time.  It is also unlikely that the client port number is the same on
-two different connections; validating the port is therefore unlikely to be
-successful.
+与为重试数据包创建的令牌不同，在创建令牌和随后使用令牌之间可能会有一段时间。因此，令牌应包括过期时间。服务器可以包括显式的过期时间或发布的时间戳，并动态地计算过期时间。在两个不同的连接上，客户端口号也不太可能相同；因此，验证端口不太可能成功。
 
-A token SHOULD be constructed for the server to easily distinguish it from
-tokens that are sent in Retry packets as they are carried in the same field.
+应该为服务器构造一个令牌，以便于将其与在同一字段中传送的重试数据包中发送的令牌区分开来。
 
-If the client has a token received in a NEW_TOKEN frame on a previous connection
-to what it believes to be the same server, it SHOULD include that value in the
-Token field of its Initial packet.  Including a token might allow the server to
-validate the client address without an additional round trip.
+如果客户端在先前的它认为是同一服务器的连接的NEW_TOKEN帧中接收到令牌，则应在其初始数据包的Token字段中包含该值。包含令牌可以让服务器无需额外的往返验证客户端地址。
 
-A token allows a server to correlate activity between the connection where the
-token was issued and any connection where it is used.  Clients that want to
-break continuity of identity with a server MAY discard tokens provided using the
-NEW_TOKEN frame.  A token obtained in a Retry packet MUST be used immediately
-during the connection attempt and cannot be used in subsequent connection
-attempts.
+令牌允许服务器在发出令牌的连接和使用令牌的任何连接之间关联活动。希望中断与服务器的身份连续性的客户端可能会放弃使用NEW_TOKEN帧提供的令牌。在重试数据包中获得的令牌必须在连接尝试过程中立即使用，并且不能在后续连接尝试中使用。
 
-A client SHOULD NOT reuse a token in different connections. Reusing a token
-allows connections to be linked by entities on the network path
-(see {{migration-linkability}}).  A client MUST NOT reuse a token if it
-believes that its point of network attachment has changed since the token was
-last used; that is, if there is a change in its local IP address or network
-interface.  A client needs to start the connection process over if it migrates
-prior to completing the handshake.
+客户端不应在不同的连接中重用令牌。重用令牌允许通过网络路径上的实体链接连接(请参见{{migration-linkability}})。如果客户端认为自上次使用令牌以来其网络附着点发生了更改，即如果其本地IP地址或网络接口发生了更改，则不得重用该令牌。如果客户端在完成握手之前迁移，则需要重新启动连接过程。
 
-When a server receives an Initial packet with an address validation token, it
-MUST attempt to validate the token, unless it has already completed address
-validation.  If the token is invalid then the server SHOULD proceed as if
-the client did not have a validated address, including potentially sending
-a Retry. If the validation succeeds, the server SHOULD then allow the
-handshake to proceed.
+当服务器收到带有地址验证令牌的初始数据包时，它必须尝试验证该令牌，除非它已经完成了地址验证。如果令牌无效，则服务器像客户端没有经过验证的地址一样处理，包括可能发送重试。如果验证成功，服务器应该允许握手继续。
 
-Note:
+注：将客户端视为未验证而不是丢弃数据包的基本原理是，客户端可能已使用NEW_TOKEN帧在以前的连接中接收到令牌，如果服务器已丢失状态，则可能根本无法验证令牌，如果丢弃数据包，则会导致连接失败。服务器应该对NEW_TOKEN帧提供的令牌进行编码，并以不同的方式重试数据包，并对后者进行更严格的验证。
 
-: The rationale for treating the client as unvalidated rather than discarding
-  the packet is that the client might have received the token in a previous
-  connection using the NEW_TOKEN frame, and if the server has lost state, it
-  might be unable to validate the token at all, leading to connection failure if
-  the packet is discarded.  A server SHOULD encode tokens provided with
-  NEW_TOKEN frames and Retry packets differently, and validate the latter more
-  strictly.
+无状态设计中，服务器可以使用加密的和经过身份验证的令牌将信息传递给客户端，然后服务器可以恢复并使用这些令牌来验证客户端地址。令牌未集成到加密握手中，因此不会对其进行身份验证。例如，客户端可能能够重用令牌。为了避免利用此属性的攻击，服务器可以将其令牌的使用限制为仅验证客户端地址所需的信息。
 
-In a stateless design, a server can use encrypted and authenticated tokens to
-pass information to clients that the server can later recover and use to
-validate a client address.  Tokens are not integrated into the cryptographic
-handshake and so they are not authenticated.  For instance, a client might be
-able to reuse a token.  To avoid attacks that exploit this property, a server
-can limit its use of tokens to only the information needed to validate client
-addresses.
+攻击者可以重放令牌，以便在DDoS攻击中将服务器用作放大器。为防止此类攻击，服务器应确保以重试数据包发送的令牌仅在短时间内被接受。NEW_TOKEN帧中提供的令牌(请参见{{frame-new-token}})需要更长时间有效，但不应在短时间内多次接受。鼓励服务器在可能的情况下只允许令牌使用一次。
 
-Attackers could replay tokens to use servers as amplifiers in DDoS attacks. To
-protect against such attacks, servers SHOULD ensure that tokens sent in Retry
-packets are only accepted for a short time. Tokens that are provided in
-NEW_TOKEN frames (see {{frame-new-token}}) need to be valid for longer, but
-SHOULD NOT be accepted multiple times in a short period. Servers are encouraged
-to allow tokens to be used only once, if possible.
+### 地址验证令牌完整性(Address Validation Token Integrity) {#token-integrity}
 
+地址验证令牌必须很难猜测。在令牌中包含足够大的随机值就足够了，但这取决于服务器是否记住它发送给客户端的值。
 
-### Address Validation Token Integrity {#token-integrity}
+基于令牌的方案允许服务器将与验证关联的任何状态卸载到客户端。要使此设计正常工作，必须对令牌进行完整性保护，以防止客户端修改或伪造令牌。如果没有完整性保护，恶意客户端可能会生成或猜测服务器将接受的令牌的值。只有服务器需要访问令牌的完整性保护密钥。
 
-An address validation token MUST be difficult to guess.  Including a large
-enough random value in the token would be sufficient, but this depends on the
-server remembering the value it sends to clients.
-
-A token-based scheme allows the server to offload any state associated with
-validation to the client.  For this design to work, the token MUST be covered by
-integrity protection against modification or falsification by clients.  Without
-integrity protection, malicious clients could generate or guess values for
-tokens that would be accepted by the server.  Only the server requires access to
-the integrity protection key for tokens.
-
-There is no need for a single well-defined format for the token because the
-server that generates the token also consumes it.  A token could include
-information about the claimed client address (IP and port), a timestamp, and any
-other supplementary information the server will need to validate the token in
-the future.
-
+不需要为令牌使用一个定义良好的格式，因为生成令牌的服务器也会使用它。令牌可以包含有关声明的客户端地址(IP和端口)的信息、时间戳以及服务器将来验证令牌所需的任何其他补充信息。
 
 ## Path Validation {#migrate-validate}
 
