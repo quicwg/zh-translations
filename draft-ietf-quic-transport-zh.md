@@ -1747,36 +1747,34 @@ PATH_RESPONSE帧中填入PATH_CHALLENGE帧中包含的
 进行时启动到新路径的连接迁移。
 
 
-# Connection Migration {#migration}
+# 连接迁移(Connection Migration) {#migration}
 
-The use of a connection ID allows connections to survive changes to endpoint
-addresses (that is, IP address and/or port), such as those caused by an endpoint
-migrating to a new network.  This section describes the process by which an
-endpoint migrates to a new address.
+使用连接ID允许连接在终端地址（即IP地址和/或端口）的
+更改中存活，例如由终端迁移到新网络引起的变化。 本节
+介绍终端迁移到新地址的过程。
 
-An endpoint MUST NOT initiate connection migration before the handshake is
-finished and the endpoint has 1-RTT keys.  The design of QUIC relies on
-endpoints retaining a stable address for the duration of the handshake.
+终端**禁止**在握手完成并且终端具有1-RTT密钥之前
+启动连接迁移。QUIC的设计依赖于终端在握手期间保留
+稳定的地址。
 
-An endpoint also MUST NOT initiate connection migration if the peer sent the
-`disable_migration` transport parameter during the handshake.  An endpoint which
-has sent this transport parameter, but detects that a peer has nonetheless
-migrated to a different network MAY treat this as a connection error of type
-INVALID_MIGRATION.
+如果对端在握手期间发送了“disable_migration”传输参数，
+则终端也**禁止**启动连接迁移。 已发送此传输参数但
+检测到对端仍迁移到其他网络的终端**可能**将此
+视为INVALID_MIGRATION类型的连接错误。
 
-Not all changes of peer address are intentional migrations. The peer could
-experience NAT rebinding: a change of address due to a middlebox, usually a NAT,
-allocating a new outgoing port or even a new outgoing IP address for a flow.
-NAT rebinding is not connection migration as defined in this section, though an
-endpoint SHOULD perform path validation ({{migrate-validate}}) if it detects a
-change in the IP address of its peer.
+并非所有对端地址的更改都是对端有意的迁移。 对端可能
+会遇到NAT重新绑定：由于中间件（通常是NAT），为流
+分配新的传出端口或甚至是新的传出IP地址而导致的地址
+更改。 NAT重绑定不是本节中定义的连接迁移，但是如果
+终端检测到其对端的IP地址发生更改，则**应该**执行
+路径验证（{{migrate-validate}}。
 
-This document limits migration of connections to new client addresses, except as
-described in {{preferred-address}}. Clients are responsible for initiating all
-migrations.  Servers do not send non-probing packets (see {{probing}}) toward a
-client address until they see a non-probing packet from that address.  If a
-client receives packets from an unknown server address, the client MUST discard
-these packets.
+除{{preferred-address}}中所述之外，本文档
+限制将连接迁移到新客户端地址。客户负责启动所有
+迁移。 服务器不会向客户端地址发送非
+探测包（请参阅{{probing}}），直到服务器收到
+来自该地址的非探测包。 如果客户端从未知服务器
+地址收到包，则客户端**必须**丢弃这些包。
 
 
 ## Probing a New Path {#probing}
