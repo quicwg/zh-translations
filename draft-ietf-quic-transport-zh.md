@@ -1183,81 +1183,62 @@ A client MAY send a packet using a reserved version number.  This can be used to
 solicit a list of supported versions from a server.
 
 
-# Cryptographic and Transport Handshake {#handshake}
+# 加密与传输握手(Cryptographic and Transport Handshake) {#handshake}
 
-QUIC relies on a combined cryptographic and transport handshake to minimize
-connection establishment latency.  QUIC uses the CRYPTO frame {{frame-crypto}}
-to transmit the cryptographic handshake.  Version 0x00000001 of QUIC uses TLS as
-described in {{QUIC-TLS}}; a different QUIC version number could indicate that a
-different cryptographic handshake protocol is in use.
+QUIC使用结合在一起的加密和传输握手来最小化链接建立延迟。QUIC使用CRYPTO帧{{frame-crypto}}
+来进行加密握手。0x00000001版本的QUIC使用TLS{{QUIC-TLS}}；不同版本的QUIC可能使用
+不同的加密握手协议。
 
-QUIC provides reliable, ordered delivery of the cryptographic handshake
-data. QUIC packet protection is used to encrypt as much of the handshake
-protocol as possible. The cryptographic handshake MUST provide the following
-properties:
+QUIC提供可信的、有序的加密握手数据交付。QUIC数据包保护被用来编码尽可能多的握手协议包。
+加密握手**必须**提供如下特性：
 
-* authenticated key exchange, where
+* 认证密钥交换，当
 
-   * a server is always authenticated,
+  * 服务器总是经过认证的，且
 
-   * a client is optionally authenticated,
+  * 客户端是可能经过认证的，且
 
-   * every connection produces distinct and unrelated keys,
+  * 每一个链接都产生不同且不相关的密钥，且
 
-   * keying material is usable for packet protection for both 0-RTT and 1-RTT
-     packets, and
+  * 密钥可以保护0-RTT和1-RTT的数据包，且
 
-   * 1-RTT keys have forward secrecy
+  * 1-RTT的密钥具有前向保密性
 
-* authenticated values for the transport parameters of the peer (see
-  {{transport-parameters}})
+* 对端传输参数的认证值（参见{{transport-parameters}}）
 
-* authenticated negotiation of an application protocol (TLS uses ALPN
-  {{?RFC7301}} for this purpose)
+* 应用层协议的认证协商（TLS使用ALPN{{?RFC7301}}来达到这个目的）
 
-The first CRYPTO frame from a client MUST be sent in a single packet.  Any
-second attempt that is triggered by address validation (see
-{{validate-handshake}}) MUST also be sent within a single packet. This avoids
-having to reassemble a message from multiple packets.
+客户端的第一个CRYPTO帧**必须**被单独放在一个包中发送。任何由地址验证触发的第二次尝试（参见
+{{validate-handshake}}）也都**必须**被单独放在一个包中发送。这样可以避免从多个数据包重
+新组合消息。
 
-The first client packet of the cryptographic handshake protocol MUST fit within
-a 1232 byte QUIC packet payload.  This includes overheads that reduce the space
-available to the cryptographic handshake protocol.
+加密握手协议的第一个客户端包**必须**长度小于等于1232个字节的QUIC包负载。这包括减少加密握手
+协议可用空间的开销。
 
-An endpoint can verify support for Explicit Congestion Notification (ECN) in the
-first packets it sends, as described in {{ecn-verification}}.
+终端可以在它发送的第一个数据包中验证对现实用塞通知（ECN）的支持，在{{ecn-verification}}
+中介绍。
 
-The CRYPTO frame can be sent in different packet number spaces.  The sequence
-numbers used by CRYPTO frames to ensure ordered delivery of cryptographic
-handshake data start from zero in each packet number space.
+CRYPTO帧可以在不同的数据包编号空间中发送。CRYPTO帧用来保证加密握手数据顺序交付而使用的序号在
+每个数据包序号空间中是从零开始的。
 
-Endpoints MUST explicitly negotiate an application protocol.  This avoids
-situations where there is a disagreement about the protocol that is in use.
+终端**必须**显式的协商应用层协议。这样避免了对正在使用的协议产生分歧的情况。
 
+## 握手流示例(Example Handshake Flows)
 
-## Example Handshake Flows
+{{QUIC-TLS}}中提供了QUIC使用TLS的相关细节，这里提供一些示例。{{validate-retry}}提供了
+一个让次交换支持客户端地址验证的拓展。
 
-Details of how TLS is integrated with QUIC are provided in {{QUIC-TLS}}, but
-some examples are provided here.  An extension of this exchange to support
-client address validation is shown in {{validate-retry}}.
+一旦完成了地址验证，加密握手就被用作协商加密密钥。加密握手在初始(Initial)包
+（{{packet-initial}}）和握手(Handshake)包（{{packet-initial}}）中进行。
 
-Once any address validation exchanges are complete, the
-cryptographic handshake is used to agree on cryptographic keys.  The
-cryptographic handshake is carried in Initial ({{packet-initial}}) and Handshake
-({{packet-handshake}}) packets.
+{{tls-1rtt-handshake}} 提供了有关1-RTT握手的介绍。每一行显示一个QUIC包，首先是包的类型和
+序号，接着是通常包含在包中的帧。例如，第一个包类型为序号为0的“初始（Initial）”，其中包含着承载
+了ClientHello的CRYPTO帧。
 
-{{tls-1rtt-handshake}} provides an overview of the 1-RTT handshake.  Each line
-shows a QUIC packet with the packet type and packet number shown first, followed
-by the frames that are typically contained in those packets. So, for instance
-the first packet is of type Initial, with packet number 0, and contains a CRYPTO
-frame carrying the ClientHello.
-
-Note that multiple QUIC packets -- even of different encryption levels -- may be
-coalesced into a single UDP datagram (see {{packet-coalesce}}), and so this
-handshake may consist of as few as 4 UDP datagrams, or any number more. For
-instance, the server's first flight contains packets from the Initial encryption
-level (obfuscation), the Handshake level, and "0.5-RTT data" from the server at
-the 1-RTT encryption level.
+注意，多个QUIC包 -- 甚至是不同加密级别的 -- 也可能被合并到单个UDP数据报中
+（参见{{packet-coalesce}}），因此这种握手可能只包含4个UDP数据报，也可能包含更多的数据报。
+例如，服务器的第一个数据报包含初始（Initial）加密级别（混淆）的包、握手（Handshake）级别的包
+和服务器使1-RTT加密级别的“0.5-RTT数据”。
 
 ~~~~
 Client                                                  Server
@@ -1275,12 +1256,11 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
                             1-RTT[1]: STREAM[3, "..."], ACK[0]
                                        <- Handshake[1]: ACK[0]
 ~~~~
-{: #tls-1rtt-handshake title="Example 1-RTT Handshake"}
+{: #tls-1rtt-handshake title="1-RTT 握手（Handshake）的示例"}
 
-{{tls-0rtt-handshake}} shows an example of a connection with a 0-RTT handshake
-and a single packet of 0-RTT data. Note that as described in {{packet-numbers}},
-the server acknowledges 0-RTT data at the 1-RTT encryption level, and the
-client sends 1-RTT packets in the same packet number space.
+{{tls-0rtt-handshake}}展示了包含0-RTT握手和单个0-RTT数据包的链接示例。注意，就和
+{{packet-numbers}}中描述的一样，服务端在1-RTT加密级别确认0-RTT数据，客户端在相同的包编号
+空间发送1-RTT包。
 
 ~~~~
 Client                                                  Server
@@ -1299,7 +1279,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
                             1-RTT[1]: STREAM[3, "..."], ACK[1]
                                        <- Handshake[1]: ACK[0]
 ~~~~
-{: #tls-0rtt-handshake title="Example 0-RTT Handshake"}
+{: #tls-0rtt-handshake title="0-RTT 握手（Handshake）的示例"}
 
 
 ## Negotiating Connection IDs {#negotiating-connection-ids}
