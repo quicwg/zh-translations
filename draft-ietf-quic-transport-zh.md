@@ -930,97 +930,73 @@ RETIRE_CONNECTION_ID 帧使连接 ID 无效({{frame-retire-connection-id}})。
 不再计划使用该地址后，应停用该地址上使用的
 所有连接 ID。
 
-## Matching Packets to Connections {#packet-handling}
+## 包匹配至连接(Matching Packets to Connections) {#packet-handling}
 
-Incoming packets are classified on receipt.  Packets can either be associated
-with an existing connection, or - for servers - potentially create a new
-connection.
+传入的数据包在接受时会被分类。
+数据包可以关联至现有连接，或者也可能（对于服务器）创建新连接。
 
-Hosts try to associate a packet with an existing connection. If the packet has a
-Destination Connection ID corresponding to an existing connection, QUIC
-processes that packet accordingly. Note that more than one connection ID can be
-associated with a connection; see {{connection-id}}.
+主机会尝试将数据包关联至现有连接。
+如果数据包有与现有连接相对应的目标连接ID，则QUIC会以此处理该数据包。
+请注意，可以将多个连接ID与一个连接关联{{connection-id}}。
 
-If the Destination Connection ID is zero length and the packet matches the
-address/port tuple of a connection where the host did not require connection
-IDs, QUIC processes the packet as part of that connection.  Endpoints SHOULD
-either reject connection attempts that use the same addresses as existing
-connections, or use a non-zero-length Destination Connection ID so that packets
-can be correctly attributed to connections.
+如果目标连接ID为零长度，且数据包匹配主机不需要连接ID的连接的地址或端口，
+则QUIC会将该数据包作为上述连接的一部分进行处理。
+端点**应该**拒绝以下操作以确保数据包正确地匹配连接：
+1使用与现有连接相同的地址的连接尝试；
+2使用非零长度的目标连接ID。
 
-Endpoints can send a Stateless Reset ({{stateless-reset}}) for any packets that
-cannot be attributed to an existing connection. A stateless reset allows a peer
-to more quickly identify when a connection becomes unusable.
+终端可以为任何无法匹配现有连接的数据包发送无状态重置（{{stateless-reset}}）。
+无状态重置允许对端更快地识别连接何时变得不可用。
 
-Packets that are matched to an existing connection are discarded if the packets
-are inconsistent with the state of that connection.  For example, packets are
-discarded if they indicate a different protocol version than that of the
-connection, or if the removal of packet protection is unsuccessful once the
-expected keys are available.
+如果数据包与该连接的状态不一致，则丢弃该数据包（即使它已经与现有连接匹配）。
+例如，如果数据包指示的协议版本与连接的协议版本不同，或者因为预期密钥可用导致删除数据包保护不成功时，则会丢弃数据包。
 
-Invalid packets without packet protection, such as Initial, Retry, or Version
-Negotiation, MAY be discarded.  An endpoint MUST generate a connection error if
-it commits changes to state before discovering an error.
+无保护的无效数据包，例如Initial，Retry或Version Negotiation**可以**被丢弃。
+如果终端在发现错误之前有提交状态更改，则它**必须**生成一个连接错误。
 
 
-### Client Packet Handling {#client-pkt-handling}
+### 客户端包处理(Client Packet Handling) {#client-pkt-handling}
 
-Valid packets sent to clients always include a Destination Connection ID that
-matches a value the client selects.  Clients that choose to receive
-zero-length connection IDs can use the address/port tuple to identify a
-connection.  Packets that don't match an existing connection are discarded.
+发送到客户端的有效数据包始终包含与客户端选择的值匹配的目标连接ID。
+选择接收零长度连接ID的客户端可以使用地址/端口元组来识别连接。
+与现有连接不匹配的数据包将被丢弃。
 
-Due to packet reordering or loss, clients might receive packets for a connection
-that are encrypted with a key it has not yet computed. Clients MAY drop these
-packets, or MAY buffer them in anticipation of later packets that allow it to
-compute the key.
+由于数据包重新排序或丢失，客户端可能会收到使用尚未计算的密钥加密的连接数据包。
+客户端**可以**丢弃这些数据包，也**可以**缓冲它们用以计算密钥的数据包。
 
-If a client receives a packet that has an unsupported version, it MUST discard
-that packet.
+如果客户端收到的数据包包含不受支持的版本，则**必须**丢弃该数据包。
 
 
-### Server Packet Handling {#server-pkt-handling}
+### 服务器包处理(Server Packet Handling) {#server-pkt-handling}
 
-If a server receives a packet that has an unsupported version, but the packet is
-sufficiently large to initiate a new connection for any version supported by the
-server, it SHOULD send a Version Negotiation packet as described in
-{{send-vn}}. Servers MAY rate control these packets to avoid storms of Version
-Negotiation packets.
+如果服务器收到的数据包包含不受支持的版本，但数据包太大以至于无法为服务器支持的任何版本启动新连接，
+则**应该**按照{{send-vn}}中的说明发送版本协商数据包。
+服务器可以对这些数据包进行速率控制，以避免产生版本协商数据包风暴。
 
-The first packet for an unsupported version can use different semantics and
-encodings for any version-specific field.  In particular, different packet
-protection keys might be used for different versions.  Servers that do not
-support a particular version are unlikely to be able to decrypt the payload of
-the packet.  Servers SHOULD NOT attempt to decode or decrypt a packet from an
-unknown version, but instead send a Version Negotiation packet, provided that
-the packet is sufficiently long.
+不受支持的版本的第一个数据包可以对任何版本特定字段使用不同的语义和编码。
+特别地，不同的分组保护密钥可用于不同的版本。
+不支持特定版本的服务器不太可能解密数据包的有效负载。
+服务器**不应**尝试解码或解密来自未知版本的数据包，而是发送版本协商数据包（前提是数据包足够长）。
 
-Servers MUST drop other packets that contain unsupported versions.
+服务器**必须**丢弃包含不受支持的版本的其他数据包。
 
-Packets with a supported version, or no version field, are matched to a
-connection using the connection ID or - for packets with zero-length connection
-IDs - the address tuple.  If the packet doesn't match an existing connection,
-the server continues below.
+具有受支持版本或无版本字段的数据包与使用连接ID与连接进行匹配，具有零长度连接ID的数据包则使用地址元组进行匹配。
+如果数据包与现有连接不匹配，则服务器继续下发。
 
-If the packet is an Initial packet fully conforming with the specification, the
-server proceeds with the handshake ({{handshake}}). This commits the server to
-the version that the client selected.
+如果数据包是完全符合规范的初始数据包，则服务器继续握手（{{handshake}}）。
+这会将服务器确定为客户端选择的版本。
 
-If a server isn't currently accepting any new connections, it SHOULD send an
-Initial packet containing a CONNECTION_CLOSE frame with error code
-SERVER_BUSY.
+如果服务器当前没有接受任何新连接，它**应该**发送一个包含CONNECTION_CLOSE帧的初始数据包与错误代码SERVER_BUSY。
 
-If the packet is a 0-RTT packet, the server MAY buffer a limited number of these
-packets in anticipation of a late-arriving Initial Packet. Clients are forbidden
-from sending Handshake packets prior to receiving a server response, so servers
-SHOULD ignore any such packets.
+如果该包是0-RTT包，则服务器**可以**缓冲有限数量的此类包并等待延迟的初始数据包。
+在接收服务器响应之前，客户端被禁止发送握手数据包，因此服务器**应该**忽略任何握手数据包。
 
-Servers MUST drop incoming packets under all other circumstances.
+服务器**必须**在所有其他情况下丢弃传入的数据包。
 
 
-## Life of a QUIC Connection {#connection-lifecycle}
+## QUIC连接寿命(Life of a QUIC Connection) {#connection-lifecycle}
 
-TBD.
+待定。
 
 <!-- Goes into how the next few sections are connected. Specifically, one goal
 is to combine the address validation section that shows up below with path
