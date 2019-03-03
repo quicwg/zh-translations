@@ -115,11 +115,11 @@ QUIC 是一个安全通用的多路复用的传输协议，它提供了：
 
 * 流多路复用
 
-* 流和链接级别的流量控制
+* 流和连接级别的流量控制
 
-* 低延迟的链接建立
+* 低延迟的连接建立
 
-* 链接迁移和 NAT 重新绑定的恢复能力
+* 连接迁移和 NAT 重新绑定的恢复能力
 
 * 认证加密的报头和数据
 
@@ -138,13 +138,13 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
   - {{stream-states}} 提供了一个流状态的参考模型
   - {{flow-control}} 概述了流量控制的运作方式
 
-* 链接是 QUIC 协议终端数据通信的上下文环境
-  - {{connections}} 描述了关于链接的核心概念
+* 连接是 QUIC 协议终端数据通信的上下文环境
+  - {{connections}} 描述了关于连接的核心概念
   - {{version-negotiation}} 描述了版本协商
-  - {{handshake}} 详细描述了建立链接的过程
+  - {{handshake}} 详细描述了建立连接的过程
   - {{address-validation}} 指定了关键的拒绝服务的缓解机制
-  - {{migration}} 描述了终端如何将链接迁移到新的网络路径
-  - {{termination}} 列举了关闭一个链接的选项
+  - {{migration}} 描述了终端如何将连接迁移到新的网络路径
+  - {{termination}} 列举了关闭一个连接的选项
   - {{error-handling}} 提供了异常处理的通用指引
 
 * 包和帧是 QUIC 通信的基本单元
@@ -171,7 +171,7 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
 
 关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
 "让我们(SHALL)"， "让我们不(SHALL NOT)"， "应该(SHOULD)"，
-"应该不(SHOULD NOT)"， "推荐(RECOMMENDED)"，
+"不应该(SHOULD NOT)"， "推荐(RECOMMENDED)"，
 "不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
 在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
 当且仅当他们如此例子显示的以加粗的形式出现时。
@@ -181,11 +181,11 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
 |:---- |: ----|
 |QUIC | 此文档所描述的传输协议。QUIC是一个名字，不是一个首字母缩写。|
 |QUIC 包 | 在一个 UDP 报文中可封装的 QUIC 最小单元。多个 QUIC 包可以被封装在单个 UDP 报文中。|
-|终端 | 可以通过生成，接收，处理 QUIC 包参与 QUIC 链接生成的实体。在 QUIC 中仅有两种类型的终端，客户端与服务端。|
-|客户端 | 创建 QUIC 链接的终端。|
-|服务端 | 接收到来的 QUIC 链接的终端。|
-|链接 ID | 一种不透明的标识符，用于标识终端上的 QUIC 链接。每个终端都为其对端设置一个值，以便将其包含在发送到该终端的数据包中。|
-|流 | QUIC 链接中有序字节的单向或双向通道。一个 QUIC 链接可以同时传输多个流。|
+|终端 | 可以通过生成，接收，处理 QUIC 包参与 QUIC 连接生成的实体。在 QUIC 中仅有两种类型的终端，客户端与服务端。|
+|客户端 | 创建 QUIC 连接的终端。|
+|服务端 | 接收到来的 QUIC 连接的终端。|
+|连接 ID | 一种不透明的标识符，用于标识终端上的 QUIC 连接。每个终端都为其对端设置一个值，以便将其包含在发送到该终端的数据包中。|
+|流 | QUIC 连接中有序字节的单向或双向通道。一个 QUIC 连接可以同时传输多个流。|
 |应用 | 可以使用 QUIC 发送与接收数据的实体。|
 
 
@@ -237,7 +237,7 @@ QUIC允许同时操作任意数量的流，
 
 在一个连接中的流通过一个被称为流ID的数值来识别。
 该值为可变长整数({{integer-encoding}})，
-一个QUIC终端 **禁止** 在一个链接中重用流ID。
+一个QUIC终端 **禁止** 在一个连接中重用流ID。
 
 流ID的第二个最低有效位（0x2）区分
 双向流（该位设置为0）和单向流（该位设置为1）。
@@ -827,7 +827,7 @@ longer if the peer chooses to not send STREAMS_BLOCKED frames.
 # 连接(Connections) {#connections}
 
 如 {{handshake}}所述，QUIC 的连接建立将版本协商与加密、
-传输握手结合以减少链接建立延迟。连接一旦建立，就
+传输握手结合以减少连接建立延迟。连接一旦建立，就
 可以迁移到任一终端上的不同 IP 或端口，详细
 说明在{{migration}}。最后，如 {{termination}}所述，
 连接可被任一终端终止。
@@ -857,7 +857,7 @@ longer if the peer chooses to not send STREAMS_BLOCKED frames.
 连接 ID 并忽略显式长度。目标连接 ID 字段的长度应该是所有
 终端都知道的。使用基于终端连接 ID 进行
 路由的负载均衡器的终端也可以使用固定长度或确定
-编码方案的链接 ID 的负载平衡器。固定部分可以
+编码方案的连接 ID 的负载平衡器。固定部分可以
 对显式长度进行编码，从而允许整个连接 ID 的长度
 各不相同，并且仍然可被负载平衡器使用。
 
@@ -930,97 +930,102 @@ RETIRE_CONNECTION_ID 帧使连接 ID 无效({{frame-retire-connection-id}})。
 不再计划使用该地址后，应停用该地址上使用的
 所有连接 ID。
 
-## Matching Packets to Connections {#packet-handling}
+## 包匹配至连接(Matching Packets to Connections) {#packet-handling}
 
-Incoming packets are classified on receipt.  Packets can either be associated
-with an existing connection, or - for servers - potentially create a new
-connection.
+传入的数据包在接受时会被分类。
+数据包可以关联至现有连接，
+或者也可能（对于服务器）创建新连接。
 
-Hosts try to associate a packet with an existing connection. If the packet has a
-Destination Connection ID corresponding to an existing connection, QUIC
-processes that packet accordingly. Note that more than one connection ID can be
-associated with a connection; see {{connection-id}}.
+主机会尝试将数据包关联至现有连接。
+如果数据包有与现有连接相对应的目标连接ID，
+则QUIC会以此处理该数据包。
+请注意，可以将多个连接ID与一个连接关联{{connection-id}}。
 
-If the Destination Connection ID is zero length and the packet matches the
-address/port tuple of a connection where the host did not require connection
-IDs, QUIC processes the packet as part of that connection.  Endpoints SHOULD
-either reject connection attempts that use the same addresses as existing
-connections, or use a non-zero-length Destination Connection ID so that packets
-can be correctly attributed to connections.
+如果目标连接ID为零长度，
+且数据包匹配的地址或端口是主机不需要链接ID的链接，
+则QUIC会将该数据包作为上述连接的一部分进行处理。
+端点**应该**拒绝以下操作以确保数据包正确地匹配连接：
 
-Endpoints can send a Stateless Reset ({{stateless-reset}}) for any packets that
-cannot be attributed to an existing connection. A stateless reset allows a peer
-to more quickly identify when a connection becomes unusable.
+* 使用与现有连接相同的地址的连接尝试。
 
-Packets that are matched to an existing connection are discarded if the packets
-are inconsistent with the state of that connection.  For example, packets are
-discarded if they indicate a different protocol version than that of the
-connection, or if the removal of packet protection is unsuccessful once the
-expected keys are available.
+* 使用非零长度的目标连接ID。
 
-Invalid packets without packet protection, such as Initial, Retry, or Version
-Negotiation, MAY be discarded.  An endpoint MUST generate a connection error if
-it commits changes to state before discovering an error.
+终端可以为任何无法匹配现有连接的数据包
+发送无状态重置（{{stateless-reset}}）。
+无状态重置允许对端更快地识别连接何时变得不可用。
 
+如果数据包与该连接的状态不一致，
+则丢弃该数据包（即使它已经与现有连接匹配）。
+例如，当数据包指示的协议版本与连接的协议版本不同，
+或者所需密钥可用后数据包解密不成功时，
+该数据包将会被丢弃。
 
-### Client Packet Handling {#client-pkt-handling}
-
-Valid packets sent to clients always include a Destination Connection ID that
-matches a value the client selects.  Clients that choose to receive
-zero-length connection IDs can use the address/port tuple to identify a
-connection.  Packets that don't match an existing connection are discarded.
-
-Due to packet reordering or loss, clients might receive packets for a connection
-that are encrypted with a key it has not yet computed. Clients MAY drop these
-packets, or MAY buffer them in anticipation of later packets that allow it to
-compute the key.
-
-If a client receives a packet that has an unsupported version, it MUST discard
-that packet.
+未加密的无效数据包，
+例如初始化，重试或版本协商包**可以**被丢弃。
+如果终端在发现错误之前有提交状态更改，
+则它**必须**生成一个连接错误。
 
 
-### Server Packet Handling {#server-pkt-handling}
+### 客户端包处理(Client Packet Handling) {#client-pkt-handling}
 
-If a server receives a packet that has an unsupported version, but the packet is
-sufficiently large to initiate a new connection for any version supported by the
-server, it SHOULD send a Version Negotiation packet as described in
-{{send-vn}}. Servers MAY rate control these packets to avoid storms of Version
-Negotiation packets.
+发送到客户端的有效数据包始终包含与
+客户端选择的值匹配的目标连接ID。
+选择接收零长度连接ID的客户端可以使用
+地址/端口元组来识别连接。
+与现有连接不匹配的数据包将被丢弃。
 
-The first packet for an unsupported version can use different semantics and
-encodings for any version-specific field.  In particular, different packet
-protection keys might be used for different versions.  Servers that do not
-support a particular version are unlikely to be able to decrypt the payload of
-the packet.  Servers SHOULD NOT attempt to decode or decrypt a packet from an
-unknown version, but instead send a Version Negotiation packet, provided that
-the packet is sufficiently long.
-
-Servers MUST drop other packets that contain unsupported versions.
-
-Packets with a supported version, or no version field, are matched to a
-connection using the connection ID or - for packets with zero-length connection
-IDs - the address tuple.  If the packet doesn't match an existing connection,
-the server continues below.
-
-If the packet is an Initial packet fully conforming with the specification, the
-server proceeds with the handshake ({{handshake}}). This commits the server to
-the version that the client selected.
-
-If a server isn't currently accepting any new connections, it SHOULD send an
-Initial packet containing a CONNECTION_CLOSE frame with error code
-SERVER_BUSY.
-
-If the packet is a 0-RTT packet, the server MAY buffer a limited number of these
-packets in anticipation of a late-arriving Initial Packet. Clients are forbidden
-from sending Handshake packets prior to receiving a server response, so servers
-SHOULD ignore any such packets.
-
-Servers MUST drop incoming packets under all other circumstances.
+由于数据包重排或丢失，
+客户端可能会收到使用尚未计算的密钥加密的连接数据包。
+客户端**可以**丢弃这些数据包，
+也**可以**缓存它们以期待于后续的包会允许它计算出密钥。
+如果客户端收到的数据包包含不受支持的版本，
+则**必须**丢弃该数据包。
 
 
-## Life of a QUIC Connection {#connection-lifecycle}
+### 服务器包处理(Server Packet Handling) {#server-pkt-handling}
 
-TBD.
+如果服务器收到的数据包包含不受支持的版本，
+但数据包太大以至于无法为
+服务器支持的任何版本启动新连接，
+则**应该**按照{{send-vn}}中的说明发送版本协商数据包。
+服务器可以对这些数据包进行速率控制，
+以避免产生版本协商数据包风暴。
+
+不受支持的版本的第一个数据包可以对任何版本特定字段
+使用不同的语义和编码。
+值得一提的是，
+不同的数据包加密密钥可能用于不同的版本。
+不支持特定版本的服务器不太可能解密数据包的有效负载。
+服务器**不应该**尝试解码或解密来自未知版本的数据包，
+而是发送版本协商数据包（前提是数据包足够长）。
+
+服务器**必须**丢弃包含不受支持的版本的其他数据包。
+
+具有受支持版本或无版本字段的数据包
+与使用连接ID与连接进行匹配，
+具有零长度连接ID的数据包则使用地址元组进行匹配。
+如果数据包与现有连接不匹配，则服务器按照下文处理。
+
+如果数据包是完全符合规范的初始化数据包，
+则服务器继续握手（{{handshake}}）。
+这向服务器申明了客户端选择的版本。
+
+如果服务器当前没有接受任何新连接，
+它**应该**发送一个包含 CONNECTION_CLOSE
+帧的初始数据包与错误代码 SERVER_BUSY 。
+
+如果该包是0-RTT包，
+则服务器**可以**缓冲有限数量的此类包
+并等待延迟的初始数据包。
+在接收服务器响应之前，客户端被禁止发送握手数据包，
+因此服务器**应该**忽略任何此类握手数据包。
+
+服务器**必须**在所有其他情况下丢弃传入的数据包。
+
+
+## QUIC连接寿命(Life of a QUIC Connection) {#connection-lifecycle}
+
+待定。
 
 <!-- Goes into how the next few sections are connected. Specifically, one goal
 is to combine the address validation section that shows up below with path
