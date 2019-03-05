@@ -369,7 +369,8 @@ QUIC的实现**应该**提供方法，
 选择把流ID分配给流，
 这样可以实现更好的流优先级。
 
-对等端发起的双向流的发送部分（服务端是类型0，客户端是类型1）
+对等端发起的双向流的发送部分
+（服务端是类型0，客户端是类型1）
 进入“Ready”状态，然后如果接收部分进入“Recv”状态
 （{{stream-recv-states}}）时立刻转换到“Send”状态。
 
@@ -379,7 +380,8 @@ QUIC的实现**应该**提供方法，
 终端遵循对端设置的流量控制，
 并且继续接收和处理MAX_STREAM_DATA帧。
 一个处于“Send”状态的终端在流发送过程被阻塞
-或受到流量控制的时候生成STREAM_DATA_BLOCKED{{data-flow-control}}帧。
+或受到流量控制的时候生成
+STREAM_DATA_BLOCKED{{data-flow-control}}帧。
 
 当应用程序指示所有的流数据已经发送，
 并且发送了包含FIN位的STREAM帧后，
@@ -387,7 +389,8 @@ QUIC的实现**应该**提供方法，
 在这个状态，终端只会在必要的时候重新传输流数据。
 终端不用检查流控制限制，也不需要为处于这种状态的流
 发送STREAM_DATA_BLOCKED帧。
-当对端收到最终的流偏移量之后终端可能会收到MAX_STREAM_DATA帧。
+当对端收到最终的流偏移量之后终端可能会收到
+MAX_STREAM_DATA帧。
 在这种状态下，
 终端可以安全地忽略从对端接收到的任何MAX_STREAM_DATA帧。
 
@@ -403,7 +406,8 @@ QUIC的实现**应该**提供方法，
 一个终端 **可能** 会将RESET_STREAM做为流发送的第一个帧；
 这导致流发送部分打开并立刻进入“Reset Sent”状态。
 
-一旦一个包含RESET_STREAM的包被，流发送部分进入被称为“Reset Recvd”的最终状态。
+一旦一个包含RESET_STREAM的包被，
+流发送部分进入被称为“Reset Recvd”的最终状态。
 
 
 
@@ -633,61 +637,155 @@ RESET_STREAM帧来终止一个方向，
 来鼓励相反方向的快速终止。
 
 
-# Flow Control {#flow-control} 流量控制
+# 流量控制(Flow Control) {#flow-control}
 
-需要对接收方的数据缓冲大小限制，从而避免快速发送方碾压慢速接收方及恶意发送者大量消耗接收方内存的情况。为了使接收方能够将内存开销限制在一个连接上，并对发送方施加反压力，流是单独控制的，也可以作为一个聚合来控制。QUIC接收方可以随时控制发送方在流上发送的最大数据量,如 {{data-flow-control}} 和
+需要对接收方的数据缓冲大小限制，
+从而避免快速发送方碾压慢速接收方及
+恶意发送者大量消耗接收方内存的情况。
+为了使接收方能够将内存开销限制在一个连接上，
+并对发送方施加反压力，流是单独控制的，
+也可以作为一个聚合来控制。
+QUIC接收方可以随时控制发送方在流上发送的最大数据量,
+如 {{data-flow-control}} 和
 {{fc-credit}}所述。
 
-同样，为了限制连接内的并发，QUIC终端控制其对端可以发起的最大累计数据流数,如{{controlling-concurrency}}所述。
+同样，为了限制连接内的并发，
+QUIC终端控制其对端可以发起的最大累计数据流数,
+如{{controlling-concurrency}}所述。
 
-在CRYPTO帧中发送的数据不像流数据那样受到流控制。QUIC依赖于密码协议实现来避免数据的过度缓冲，请参见{{QUIC-TLS}}。该实现应该提供一个到QUIC的接口，告诉它的缓冲限制，以便在多个层上不会有过多的缓冲。
-
-
-## Data Flow Control {#data-flow-control} 数据流控制
-
-QUIC采用类似于HTTP/2{{?HTTP2}}中的基于信用的流量控制方案，在该方案中，接收方设定它准备在给定流上和整个连接上接收的字节数，这也是QUIC中的两种数据流控制：
-
-* 流控制，通过限制在任何流上发送的数据量，防止单个流占用连接的整个接收缓冲区。
-
-* 连接流控制，通过限制所有流在STREAM帧中发送的流数据的总字节数，防止接收方用于连接的缓冲区容量被发送端消耗殆尽。
-
-接收方通过在握手期间发送传输参数来设置所有流的初始信用 ({{transport-parameters}})。接收方向发送方发送MAX_STREAM_DATA({{frame-max-stream-data}}) 或MAX_DATA ({{frame-max-data}})帧，以通告额外信用。
-
-接收方通过适当发送设置了流ID字段的MAX_STREAM_DATA帧来通告流的信用。MAX_STREAM_DATA帧设置流的最大绝对字节偏移量。接收方可以使用数据消费的当前偏移量来确定要通告的流量控制偏移量。接收方可以在多个数据包中发送MAX_STREAM_DATA帧，以确保发送方在流控制信用用完之前收到更新，即使其中一个数据包丢失也是如此。
-
-接收方通过发送MAX_DATA帧来通告连接的信用，该帧指示所有流的绝对字节偏移量之和的最大值。接收方维护在所有流上接收的字节之和，用于检查是否违反流控制。接收方可以使用在所有流上消耗的字节总和来确定要通告的最大数据限制。
-
-接收方可以通过在连接期间随时发送MAX_STREAM_DATA或MAX_DATA帧来通告较大的偏移量。然而，接收方不能违背自己发送的通告。也就是说，一旦接收方通告了一个偏移量，它可能通告一个较小的偏移量，但是没效果。
-
-如果发送方违反已通告的连接或流的数据限制，接收方必须关闭连接并返回FLOW_CONTROL_ERROR错误({{error-handling}})。
-
-发送方必须忽略任何不会增加流控制限制的MAX_STREAM_DATA或MAX_DATA帧。
-
-如果发送方超出了流控制信用，它将无法发送新数据，并被禁止。如果发送方有被流控制限制阻止写入的数据，应发送STREAM_DATA_BLOCKED或DATA_BLOCKED帧。在常见情况下，不建议频繁发送这些帧。如果是调试和监控则另当别论。
-
-发送方仅在数据限制时发送单个STREAM_DATA_BLOCKED或DATA_BLOCKED帧一次。除非确定原始帧丢失，发送方不应发送具有相同数据限制的多个STREAM_DATA_BLOCKED或DATA_BLOCKED帧。增加数据限制后，可以发送另一个STREAM_DATA_BLOCKED或DATA_BLOCKED帧。
+在CRYPTO帧中发送的数据不像流数据那样受到流控制。
+QUIC依赖于密码协议实现来避免数据的过度缓冲，
+请参见{{QUIC-TLS}}。
+该实现应该提供一个到QUIC的接口，
+告诉它的缓冲限制，以便在多个层上不会有过多的缓冲。
 
 
-## Flow Credit Increments {#fc-credit} 流信用增量
+## 数据流控制(Data Flow Control) {#data-flow-control}
 
- 本文档把MAX_STREAM_DATA或MAX_DATA帧中通告的时间和字节数留给实现，但需要了解一些注意事项。这些特殊帧会增加连接开销。因此，经常发送小更改的帧是不可取的。同时，如果更新频率较低，则需要对限制进行更大的增量，以避免阻塞，这需要接收方做出更大的资源承诺。因此，在确定公布的限制有多大时，在资源承诺和间接费用之间存在权衡。
+QUIC采用类似于HTTP/2{{?HTTP2}}中的基于信用的流量控制方案，
+在该方案中，
+接收方设定它准备在给定流上和整个连接上接收的字节数，
+这也是QUIC中的两种数据流控制：
 
-接收方可以使用自动调优机制基于往返时间估计和接收应用程序消耗数据的速率来调整通告的附加信用的频率和数量，这与常见的TCP实现类似。作为一种优化，仅当有其他帧要发送或对等设备被阻止时，才发送与流量控制相关的帧，以确保流量控制不会导致发送额外的数据包。
+* 流控制，通过限制在任何流上发送的数据量，
+防止单个流占用连接的整个接收缓冲区。
 
-如果发送方超出了流控制信用，它将无法发送新数据并被认为被阻止。一般认为，最好不要让发送方被阻止。为了避免阻塞发送方，并合理地考虑丢失的可能性，接收方应在期望发送方被阻止之前至少发送两次MAX_DATA或MAX_STREAM_DATA帧。
+* 连接流控制，通过限制所有流在STREAM帧中发送的
+流数据的总字节数，
+防止接收方用于连接的缓冲区容量被发送端消耗殆尽。
 
-接收方在发送MAX_STREAM_DATA或MAX_DATA之前，不能等待STREAM_DATA_BLOCKED或DATA_BLOCKED帧，因为这样做将意味着发送方至少在整个往返过程中被阻止，如果对等设备选择不发送STREAM_DATA_BLOCKED或DATA_BLOCKED帧，则可能会阻塞更长的时间。
+接收方通过在握手期间发送传输参数来设置所有流
+的初始信用({{transport-parameters}})。
+ 接收方向发送方发送MAX_STREAM_DATA
+ ({{frame-max-stream-data}}) 或MAX_DATA
+ ({{frame-max-data}})帧，以通告额外信用。
+
+接收方通过适当发送设置了流ID字段的
+MAX_STREAM_DATA帧来通告流的信用。
+MAX_STREAM_DATA帧设置流的最大绝对字节偏移量。
+接收方可以使用数据消费的当前偏移量来确定
+要通告的流量控制偏移量。
+接收方可以在多个数据包中发送MAX_STREAM_DATA帧，
+以确保发送方在流控制信用用完之前收到更新，
+即使其中一个数据包丢失也是如此。
+
+接收方通过发送MAX_DATA帧来通告连接的信用，
+该帧指示所有流的绝对字节偏移量之和的最大值。
+接收方维护在所有流上接收的字节之和，
+用于检查是否违反流控制。
+接收方可以使用在所有流上消耗的字节总和来确定
+要通告的最大数据限制。
+
+接收方可以通过在连接期间随时发送MAX_STREAM_DATA
+或MAX_DATA帧来通告较大的偏移量。
+然而，接收方不能违背自己发送的通告。
+也就是说，一旦接收方通告了一个偏移量，
+它可能通告一个较小的偏移量，但是没效果。
+
+如果发送方违反已通告的连接或流的数据限制，
+接收方必须关闭连接并返回FLOW_CONTROL_ERROR
+错误({{error-handling}})。
+
+发送方必须忽略任何不会增加流控制限制的
+MAX_STREAM_DATA或MAX_DATA帧。
+
+如果发送方超出了流控制信用，它将无法发送新数据，
+并被禁止。如果发送方有被流控制限制阻止写入的数据，
+应发送STREAM_DATA_BLOCKED或DATA_BLOCKED帧。
+在常见情况下，不建议频繁发送这些帧。
+如果是调试和监控则另当别论。
+
+发送方仅在数据限制时发送单个
+STREAM_DATA_BLOCKED或DATA_BLOCKED帧一次。
+除非确定原始帧丢失，
+发送方不应发送具有相同数据限制的
+多个STREAM_DATA_BLOCKED或DATA_BLOCKED帧。
+增加数据限制后，
+可以发送另一个STREAM_DATA_BLOCKED或DATA_BLOCKED帧。
 
 
-## Handling Stream Cancellation {#stream-cancellation} 流终止处理
+## 流信用增量(Flow Credit Increments) {#fc-credit}
 
-接受两端最终需要就已消耗的流量控制信用的数量达成一致，以避免超出流量控制限制或出现死锁。
+本文档把MAX_STREAM_DATA或MAX_DATA帧中通告的
+时间和字节数留给实现，但需要了解一些注意事项。
+这些特殊帧会增加连接开销。
+因此，经常发送小更改的帧是不可取的。
+同时，如果更新频率较低，
+则需要对限制进行更大的增量，以避免阻塞，
+这需要接收方做出更大的资源承诺。
+因此，在确定公布的限制有多大时，
+在资源承诺和间接费用之间存在权衡。
 
-收到RESET_STREAM帧后，端点将关闭匹配流的状态，并忽略到达该流的其他数据。如果RESET_STREAM帧与同一流的流数据一起重新排序，则接收方对该流上接收到的字节数的估计可能低于发送方对发送的字节数的估计。因此，这两个端点在连接流控制的字节数上可能不一致。
+接收方可以使用自动调优机制基于往返时间估计和接收
+应用程序消耗数据的速率来调整通告的
+附加信用的频率和数量，
+这与常见的TCP实现类似。作为一种优化，
+仅当有其他帧要发送或对等设备被阻止时，
+才发送与流量控制相关的帧，
+以确保流量控制不会导致发送额外的数据包。
 
-这个问题通过RESET_STREAM帧({{frame-reset-stream}})设置在流上发送的数据的最终大小来解决。在接收RESET_STREAM帧时，接收方明确知道在RESET_STREAM帧之前在该流上发送了多少字节，并且接收方必须使用流的最终大小来计算在其连接级别流控制器中发送的流上的所有字节。
+如果发送方超出了流控制信用，
+它将无法发送新数据并被认为被阻止。
+一般认为，最好不要让发送方被阻止。
+为了避免阻塞发送方，并合理地考虑丢失的可能性，
+接收方应在期望发送方被阻止之前至少
+发送两次MAX_DATA或MAX_STREAM_DATA帧。
 
-RESET_STREAM突然终止流的一个方向。对于双向流，RESET_STREAM对相反方向的数据流没有影响。两个终端都必须在未终止的方向上保持流的流控制状态，直到该方向进入终止状态，或者直到其中一个端点发送CONNECTION_CLOSE为止。
+接收方在发送MAX_STREAM_DATA或MAX_DATA之前，
+不能等待STREAM_DATA_BLOCKED或DATA_BLOCKED帧，
+因为这样做将意味着发送方至少在整个往返过程中被阻止，
+如果对等设备选择不发送STREAM_DATA_BLOCKED或DATA_BLOCKED帧，
+则可能会阻塞更长的时间。
+
+
+## 流终止处理(Handling Stream Cancellation) {#stream-cancellation}
+
+接受两端最终需要就已消耗的流量控制
+信用的数量达成一致，
+以避免超出流量控制限制或出现死锁。
+
+收到RESET_STREAM帧后，
+端点将关闭匹配流的状态，
+并忽略到达该流的其他数据。
+如果RESET_STREAM帧与同一流的流数据一起重新排序，
+则接收方对该流上接收到的字节数的估计可能低于
+发送方对发送的字节数的估计。
+因此，这两个端点在连接流控制的字节数上可能不一致。
+
+这个问题通过RESET_STREAM帧({{frame-reset-stream}})
+设置在流上发送的数据的最终大小来解决。
+在接收RESET_STREAM帧时，
+接收方明确知道在RESET_STREAM帧
+之前在该流上发送了多少字节，
+并且接收方必须使用流的最终大小来计算
+在其连接级别流控制器中发送的流上的所有字节。
+
+RESET_STREAM突然终止流的一个方向。
+对于双向流，
+RESET_STREAM对相反方向的数据流没有影响。
+两个终端都必须在未终止的方向上保持流的流控制状态，
+直到该方向进入终止状态，
+或者直到其中一个端点发送CONNECTION_CLOSE为止。
 
 
 ## Stream Final Size {#final-size}
@@ -3724,7 +3822,7 @@ short packet header.
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Protected Payload (*)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-​~~~~~
+~~~~~
 {: #fig-short-header title="Short Header Packet Format"}
 
 The short header can be used after the version and 1-RTT keys are negotiated.
@@ -5725,5 +5823,3 @@ Hamilton, Jana Iyengar, Fedor Kouranov, Charles Krasic, Jo Kulik, Adam Langley,
 Jim Roskind, Robbie Shade, Satyam Shekhar, Cherie Shi, Ian Swett, Raman Tenneti,
 Victor Vasiliev, Antonio Vicente, Patrik Westin, Alyssa Wilk, Dale Worley, Fan
 Yang, Dan Zhang, Daniel Ziegler.
-
-~~~
