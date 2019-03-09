@@ -789,63 +789,69 @@ RESET_STREAM对相反方向的数据流没有影响。
 或者直到其中一个端点发送CONNECTION_CLOSE为止。
 
 
-## Stream Final Size {#final-size}
+## 流最终大小(Stream Final Size) {#final-size}
 
-The final size is the amount of flow control credit that is consumed by a
-stream.  Assuming that every contiguous byte on the stream was sent once, the
-final size is the number of bytes sent.  More generally, this is one higher
-than the largest byte offset sent on the stream.
+最终大小是流消费的流量控制的额度。
+假设流上的每一个连续的字节都发送一次，
+最终大小就是字节发送的数量。
+更常见的，这会比发送的最大字节偏移量大一。
 
-For a stream that is reset, the final size is carried explicitly in a
-RESET_STREAM frame.  Otherwise, the final size is the offset plus the length of
-a STREAM frame marked with a FIN flag, or 0 in the case of incoming
-unidirectional streams.
+对于一个被重置的流，
+最终大小会明确的被携带在 RESET_STREAM 帧中。
+或者说，最终大小是偏移量加用 FIN 标志位标记的帧的长度。
 
-An endpoint will know the final size for a stream when the receiving part of the
-stream enters the "Size Known" or "Reset Recvd" state ({{stream-states}}).
+终端在接收到流进入“Size Known" 或者
+”Reset Recvd" 的部分的时候，
+将会知道流的最终大小。
 
-An endpoint MUST NOT send data on a stream at or beyond the final size.
+终端**禁止**在或超过最终大小后发送数据。
 
-Once a final size for a stream is known, it cannot change.  If a RESET_STREAM or
-STREAM frame is received indicating a change in the final size for the stream,
-an endpoint SHOULD respond with a FINAL_SIZE_ERROR error (see
-{{error-handling}}).  A receiver SHOULD treat receipt of data at or beyond the
-final size as a FINAL_SIZE_ERROR error, even after a stream is closed.
-Generating these errors is not mandatory, but only because requiring that an
-endpoint generate these errors also means that the endpoint needs to maintain
-the final size state for closed streams, which could mean a significant state
-commitment.
+一旦流的最终大小确定了，它就不能再改变。
+如果接收到了指示改变流最终大小的
+RESET_STREAM 或者 STREAM 帧，
+终端**应该**返回 FINAL_SIZE_ERROR 错误(详见{{error-handling}})。
+接收者**应该**对在或超过最终大小的确认
+用 FINAL_SIZE_ERROR 错误进行处理，
+即使是在流已经关闭的情况下。
+生成这些错误不是强制的，
+但是这只是因为要求终端生成这些错误也意味着终端
+对关闭的流也需要维护最终大小的状态，
+这可能意味着严重的状态维持花销。
 
 ## Controlling Concurrency {#controlling-concurrency}
 
-An endpoint limits the cumulative number of incoming streams a peer can open.
-Only streams with a stream ID less than (max_stream * 4 +
-initial_stream_id_for_type) can be opened (see {{long-packet-types}}).  Initial
-limits are set in the transport parameters (see
-{{transport-parameter-definitions}}) and subsequently limits are advertised
-using MAX_STREAMS frames ({{frame-max-streams}}). Separate limits apply to
-unidirectional and bidirectional streams.
+终端限制了对端能发起的流的数量。
+只有带着流 ID 小于
+`(max_stream * 4 + initial_stream_id_for_type)`
+才可以以被发起。(详见{{long-packet-types}})。
+初始限制在传输参数中设置
+(详见{{transport-parameter-definitions}}），
+随后限制通过使用 MAX_STREAMS 帧进行建议调整。
+单向流与双向流应用相互独立的限制。
 
-Endpoints MUST NOT exceed the limit set by their peer.  An endpoint that
-receives a STREAM frame with a stream ID exceeding the limit it has sent MUST
-treat this as a stream error of type STREAM_LIMIT_ERROR ({{error-handling}}).
+终端**禁止**超过对端设置的限制。
+终端接收带有超过它已经发送的限制的流 ID 的 STREAM 帧，
+**必须**用一个 STREAM_LIMIT_ERROR({{error-handling}})
+种类的异常进行处理。
 
-A receiver cannot renege on an advertisement. That is, once a receiver
-advertises a stream limit using the MAX_STREAMS frame, advertising a smaller
-limit has no effect.  A receiver MUST ignore any MAX_STREAMS frame that does not
-increase the stream limit.
+接收者不能违背建议者。
+这是说，一旦接收者使用 MAX_STREAMS 帧建议了流上限，
+建议一个更小的限制没有任何效果。
+接收者**必须**无视任何不增加流上限的 MAX_STREAMS 帧。
 
-As with stream and connection flow control, this document leaves when and how
-many streams to advertise to a peer via MAX_STREAMS to implementations.
-Implementations might choose to increase limits as streams close to keep the
-number of streams available to peers roughly consistent.
+关于流与连接流量控制，
+这篇文档留下了何时以及如何实现
+许多流通过 MAX_STREAMS 帧建议对端的问题。
+实现上可能选择当可用流数量接近保持与对端粗
+略一致的时候增加上限。
 
-An endpoint that is unable to open a new stream due to the peer's limits SHOULD
-send a STREAMS_BLOCKED frame ({{frame-streams-blocked}}).  This signal is
-considered useful for debugging. An endpoint MUST NOT wait to receive this
-signal before advertising additional credit, since doing so will mean that the
-peer will be blocked for at least an entire round trip, and potentially for
-longer if the peer chooses to not send STREAMS_BLOCKED frames.
+因为对端的限制不能打开一个新的流的终端**应该**
+发送一个 STREAMS_BLOCKED 帧{{frame-streams-blocked}}。
+这个信号在 debug 的时候很有用。
+终端**禁止**在建议额外的额度之前等待接收这个信号，
+因为这么做将会意味着对端将会阻塞至少一整个往返周期，
+而且如果对端选择不发送 STREAMS_BLOCKED 帧可能更长。
+
 
 # 连接(Connections) {#connections}
 
@@ -1984,77 +1990,84 @@ discontinue use of the old server address.  If path validation fails, the client
 MUST continue sending all future packets to the server's original IP address.
 
 
-### Responding to Connection Migration
+### 对连接迁移的响应(Responding to Connection Migration)
 
-A server might receive a packet addressed to its preferred IP address at any
-time after it accepts a connection.  If this packet contains a PATH_CHALLENGE
-frame, the server sends a PATH_RESPONSE frame as per {{migrate-validate}}.  The
-server MUST send other non-probing frames from its original address until it
-receives a non-probing packet from the client at its preferred address and until
-the server has validated the new path.
+服务端可能在它接受链接后的任何时候接收到
+指向它首选的 IP 地址的包。
+如果这个包包含了一个 PATH_CHALLENGE 帧，
+服务端发送一个和对端一样的 PATH_RESPONSE 帧{{migrate-validate}}。
+服务端**必须**从其原始地址发送其它非探测帧，
+直到它在自己首选地址从客户端收到了非探测包，
+且服务端已经验证了新的路径。
 
-The server MUST probe on the path toward the client from its preferred address.
-This helps to guard against spurious migration initiated by an attacker.
+服务端**必须**从首选地址探测到客户端的路径。
+这有助于防卫来自攻击者的伪造的连接迁移请求。
 
-Once the server has completed its path validation and has received a non-probing
-packet with a new largest packet number on its preferred address, the server
-begins sending non-probing packets to the client exclusively from its preferred
-IP address.  It SHOULD drop packets for this connection received on the old IP
-address, but MAY continue to process delayed packets.
+一旦服务端完成了路径探测并且已经在首选地址
+收到了一个带着新的最大包数非探测包，
+服务端开始仅从首选地址发送非探测包给客户端。
+它**应该**丢弃这个连接上接收到的旧 IP 地址的包，
+但是**可能**继续处理延迟的包。
 
 
-### Interaction of Client Migration and Preferred Address
+### 首选地址与链接迁移之间的交互(Interaction of Client Migration and Preferred Address)
 
-A client might need to perform a connection migration before it has migrated to
-the server's preferred address.  In this case, the client SHOULD perform path
-validation to both the original and preferred server address from the client's
-new address concurrently.
+客户端可能需要在它迁移到服务端的首选地址
+之前执行连接迁移。
+在这种场景下，客户端**应该**并行的执行从
+客户端的新地址到原始地址和首选地址之间的路径验证。
 
-If path validation of the server's preferred address succeeds, the client MUST
-abandon validation of the original address and migrate to using the server's
-preferred address.  If path validation of the server's preferred address fails
-but validation of the server's original address succeeds, the client MAY migrate
-to its new address and continue sending to the server's original address.
+如果到服务端首选地址的路径验证成功，
+客户端**必须**放弃到原始地址的验证
+并且迁移去使用服务端的首选地址。
+如果到服务端首选地址的路径验证失败
+但是到原始地址的路径验证成功，
+客户端**可能**迁移到新的地址
+并且继续发送到服务端的原始地址。
 
-If the connection to the server's preferred address is not from the same client
-address, the server MUST protect against potential attacks as described in
-{{address-spoofing}} and {{on-path-spoofing}}.  In addition to intentional
-simultaneous migration, this might also occur because the client's access
-network used a different NAT binding for the server's preferred address.
+如果到服务端首选地址的连接并
+不是来自相同的客户端地址，
+服务端**必须**防御在{{address-spoofing}} 和
+{{on-path-spoofing}}中描述的可能的潜在攻击者。
+除了有意的迁移之外，这也可能因为客户端使用了绑定
+在服务端首选地址上的不同的NAT连接网络出现。
 
-Servers SHOULD initiate path validation to the client's new address upon
-receiving a probe packet from a different address.  Servers MUST NOT send more
-than a minimum congestion window's worth of non-probing packets to the new
-address before path validation is complete.
+服务端**应该**在接收到来自不同地址的探测包的时候
+初始化到客户端新地址的路径验证。
+服务端**禁止**在路径验证完成前发送
+超过最小拥塞窗口的值的非探测包到新的地址。
 
-A client that migrates to a new address SHOULD use a preferred address from the
-same address family for the server.
+迁移去新地址的客户端**应该**
+使用与服务端相同地址族的首选地址。
 
-## Use of IPv6 Flow-Label and Migration {#ipv6-flow-label}
 
-Endpoints that send data using IPv6 SHOULD apply an IPv6 flow label
-in compliance with {{!RFC6437}}, unless the local API does not allow
-setting IPv6 flow labels.
+## IPv6流标签与迁移的使用(Use of IPv6 Flow-Label and Migration) {#ipv6-flow-label}
 
-The IPv6 flow label SHOULD be a pseudo-random function of the source
-and destination addresses, source and destination UDP ports, and the destination
-CID. The flow label generation MUST be designed to minimize the chances of
-linkability with a previously used flow label, as this would enable correlating
-activity on multiple paths (see {{migration-linkability}}).
+使用 IPv6 发送数据的终端**应该**
+应用符合{{!RFC6437}}的 IPv6 流标签，
+除非本地的 API 不允许设置 IPv6 流标签。
 
-A possible implementation is to compute the flow label as a cryptographic hash
-function of the source and destination addresses, source and destination
-UDP ports, destination CID, and a local secret.
+IPv6 流标签**应该**是一个源与目标地址、
+源于目标UDP端口以及目标CID的伪随机函数。
+流标签的生成**必须**设计为最小化
+使用与之前使用过的流标签的可连接性，
+因为这将允许在多个路径上进行关联行为。
+(详见{{migration-linkability}})
 
-# Connection Termination {#termination}
+一种可能的实现是将流标签作为源和目标地址、
+源和目标UDP端口，
+目标CID以及本地密钥的加密哈希函数来计算。
 
-Connections should remain open until they become idle for a pre-negotiated
-period of time.  A QUIC connection, once established, can be terminated in one
-of three ways:
 
-* idle timeout ({{idle-timeout}})
-* immediate close ({{immediate-close}})
-* stateless reset ({{stateless-reset}})
+# 连接终止(Connection Termination) {#termination}
+
+连接应该保持打开直到它们预协商的
+一段时间内处于空闲状态。
+一个 QUIC 的连接，建立后能被以下三种方式的终止：
+
+* 空闲超时 ({{idle-timeout}})
+* 立即关闭 ({{immediate-close}})
+* 无状态重置 ({{stateless-reset}})
 
 
 ## Closing and Draining Connection States {#draining}
