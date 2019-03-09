@@ -1732,176 +1732,145 @@ client receives packets from an unknown server address, the client MUST discard
 these packets.
 
 
-## Probing a New Path {#probing}
+## 探测一个新的链路(Probing a New Path) {#probing}
+某一端可以为新的本地地址的对端可达性作探测，
+采取之前提到{{migrate-validate}}的链路验证的方式
+将连接迁移到一个新的本地地址.
+链路验证失败表明新的链路对该连接不适用。
+除非没有其他可以替代的有效链路，
+链路验证失败并不会导致连接关闭。
+每次从新的地址探测时，
+端上都会使用一个新的连接id，
+进一步的讨论可以参考{{migration-linkability}} 。
+使用新地址的一端必须确保对端可以提供
+至少一个新的连接id，
+这种保证是通过在探测的时候添加一个
+NEW_CONNECTION_ID 帧来实现的。
 
-An endpoint MAY probe for peer reachability from a new local address using path
-validation {{migrate-validate}} prior to migrating the connection to the new
-local address.  Failure of path validation simply means that the new path is not
-usable for this connection.  Failure to validate a path does not cause the
-connection to end unless there are no valid alternative paths available.
+从对端接收到一个PATH_CHALLENGE帧的时候
+表明该对端正在探测一条链路的可达性，
+本端会按照{{migrate-validate}}回复一个PATH_RESPONSE帧。
 
-An endpoint uses a new connection ID for probes sent from a new local address,
-see {{migration-linkability}} for further discussion. An endpoint that uses
-a new local address needs to ensure that at least one new connection ID is
-available at the peer. That can be achieved by including a NEW_CONNECTION_ID
-frame in the probe.
+PATH_CHALLENGE, PATH_RESPONSE,
+NEW_CONNECTION_ID, 和 PADDING 帧都是”探测帧“，
+其他的帧都是“非探测帧”。
+只包括探测帧的包是一个“探测包”，
+包括其他帧的包都是“非探测包”。
 
-Receiving a PATH_CHALLENGE frame from a peer indicates that the peer is probing
-for reachability on a path. An endpoint sends a PATH_RESPONSE in response as per
-{{migrate-validate}}.
+## 初始化连接迁移(Initiating Connection Migration) {#initiating-migration}
 
-PATH_CHALLENGE, PATH_RESPONSE, NEW_CONNECTION_ID, and PADDING frames are
-"probing frames", and all other frames are "non-probing frames".  A packet
-containing only probing frames is a "probing packet", and a packet containing
-any other frame is a "non-probing packet".
+在从新地址发送非探测包的时候，
+就表明该端迁移连接到了新地址。
+在连接建立的时候，每端都会验证对端的地址。
+因此，当一个正在迁移的某端可以向对端发送消息时表明
+对端在当前的地址已经准备好接受消息了。
+即在迁移到新的地址的时候，
+该端不用提前验证对端的地址。
 
+当迁移的时候，
+新的链路或许不能支持端上当前的发送速率。
+因此，该端需要重置拥塞控制器，详见{{migration-cc}}}
 
-## Initiating Connection Migration {#initiating-migration}
+新的链路或许没有同样的ECN能力，
+因此，该端需要确认下ECN能力，见{{ecn}}.
 
-An endpoint can migrate a connection to a new local address by sending packets
-containing non-probing frames from that address.
-
-Each endpoint validates its peer's address during connection establishment.
-Therefore, a migrating endpoint can send to its peer knowing that the peer is
-willing to receive at the peer's current address. Thus an endpoint can migrate
-to a new local address without first validating the peer's address.
-
-When migrating, the new path might not support the endpoint's current sending
-rate. Therefore, the endpoint resets its congestion controller, as described in
-{{migration-cc}}.
-
-The new path might not have the same ECN capability. Therefore, the endpoint
-verifies ECN capability as described in {{ecn}}.
-
-Receiving acknowledgments for data sent on the new path serves as proof of the
-peer's reachability from the new address.  Note that since acknowledgments may
-be received on any path, return reachability on the new path is not
-established. To establish return reachability on the new path, an endpoint MAY
-concurrently initiate path validation {{migrate-validate}} on the new path.
-
-
-## Responding to Connection Migration {#migration-response}
-
-Receiving a packet from a new peer address containing a non-probing frame
-indicates that the peer has migrated to that address.
-
-In response to such a packet, an endpoint MUST start sending subsequent packets
-to the new peer address and MUST initiate path validation ({{migrate-validate}})
-to verify the peer's ownership of the unvalidated address.
-
-An endpoint MAY send data to an unvalidated peer address, but it MUST protect
-against potential attacks as described in {{address-spoofing}} and
-{{on-path-spoofing}}.  An endpoint MAY skip validation of a peer address if that
-address has been seen recently.
-
-An endpoint only changes the address that it sends packets to in response to the
-highest-numbered non-probing packet. This ensures that an endpoint does not send
-packets to an old peer address in the case that it receives reordered packets.
-
-After changing the address to which it sends non-probing packets, an endpoint
-could abandon any path validation for other addresses.
-
-Receiving a packet from a new peer address might be the result of a NAT
-rebinding at the peer.
-
-After verifying a new client address, the server SHOULD send new address
-validation tokens ({{address-validation}}) to the client.
+在新的链路上发送的数据收到ack的时候表明对端是可达的。
+注意由于ack可以从任何链路上收到，
+在新链路上的返回可达性尚未建立。
+端上需要在新的链路上并发地开始
+链路验证{{migrate-validate}}才可以确定新链路上的返回可达性。
 
 
-### Peer Address Spoofing {#address-spoofing}
+## 对连接迁移的响应(Responding to Connection Migration) {#migration-response}
 
-It is possible that a peer is spoofing its source address to cause an endpoint
-to send excessive amounts of data to an unwilling host.  If the endpoint sends
-significantly more data than the spoofing peer, connection migration might be
-used to amplify the volume of data that an attacker can generate toward a
-victim.
+从新的对端地址收到一个非探测包的的时候
+表明该端已经迁移到了新的地址。
 
-As described in {{migration-response}}, an endpoint is required to validate a
-peer's new address to confirm the peer's possession of the new address.  Until a
-peer's address is deemed valid, an endpoint MUST limit the rate at which it
-sends data to this address.  The endpoint MUST NOT send more than a minimum
-congestion window's worth of data per estimated round-trip time (kMinimumWindow,
-as defined in {{QUIC-RECOVERY}}).  In the absence of this limit, an endpoint
-risks being used for a denial of service attack against an unsuspecting victim.
-Note that since the endpoint will not have any round-trip time measurements to
-this address, the estimate SHOULD be the default initial value (see
-{{QUIC-RECOVERY}}).
+作为对该包的回应，
+端上必须开始将后续的包发往新的对端地址，
+同时为了验证对端都未验证地址的所有权，
+端上必须开始链路验证{{migrate-validate}}。
 
-If an endpoint skips validation of a peer address as described in
-{{migration-response}}, it does not need to limit its sending rate.
+端上可以向未验证的对端地址发送内容，
+但是必须避免潜在的攻击，
+见 {{address-spoofing}} 和{{on-path-spoofing}}.
+如果对端的地址近期出现过，
+端上也可以跳过验证对端地址。
+
+端上只会对标号最高的非探测包作为回应，
+改变发包的地址。这样保证了在收到重排序的包的情况下，
+端上不会为老的对端地址继续发包。
+
+端上在改变了地址为发送非探测包的地址后，
+就可以放弃其他地址的链路验证。
+
+在验证了新的客户端地址之后，服务端可以
+向客户端发送新的地址验证token。({{address-validation}})
+
+### 对端地址欺骗(Peer Address Spoofing) {#address-spoofing}
+对端有可能欺瞒原地址，
+导致端上向一个错误的host发送大量的数据。
+如果端上为欺骗的对端发送了大量的数据，
+连接迁移就会被用来放大攻击者
+生成的数据的流量流向受害者。
+
+如{{migration-response}}所描述，
+端上需要验证对端的地址，来确保对端对新地址的所有权。
+端上必须限制发送数据的速率，
+直到对端的地址被认为是有效的。
+每个预估的RTT时间内，
+端上不能发送超过最小拥塞窗口的数据
+(kMinimumWindow, {{QUIC-RECOVERY}}).如果没有这个限制，
+就会有对非目标受害者发起拒绝服务攻击的风险。
+需要注意的是，端上不会有对改地址的任何RTT时间衡量，
+估算的时间为初始的默认时间（见{{QUIC-RECOVERY}})。
+
+如果端上跳过了对端地址的验证，
+详见{{migration-response}},就不会限制发送速率。
 
 
-### On-Path Address Spoofing {#on-path-spoofing}
+### 链路上的地址欺骗(On-Path Address Spoofing) {#on-path-spoofing}
 
-An on-path attacker could cause a spurious connection migration by copying and
-forwarding a packet with a spoofed address such that it arrives before the
-original packet.  The packet with the spoofed address will be seen to come from
-a migrating connection, and the original packet will be seen as a duplicate and
-dropped. After a spurious migration, validation of the source address will fail
-because the entity at the source address does not have the necessary
-cryptographic keys to read or respond to the PATH_CHALLENGE frame that is sent
-to it even if it wanted to.
+链路上的攻击者可以在真实的包到达之前通过复制
+和发送虚假地址包的方式引起伪造的连接迁移。
+带有虚假地址的包将会被认为是来自一个迁移中的连接，
+原始的包就会被认为是重复的然后被丢弃。
+在虚假的连接迁移之后，源地址的验证会失败，
+因为来自源地址的内容中不会包括必须的加密密钥，
+来读取或者响应发送给它的PATH_CHALLENGE帧，即使它想要。
 
-To protect the connection from failing due to such a spurious migration, an
-endpoint MUST revert to using the last validated peer address when validation of
-a new peer address fails.
+为了保护连接的免于虚假迁移导致的失败，
+在对端地址验证失败的时候，端上必须回退到上次
+有效的对端地址。
 
-If an endpoint has no state about the last validated peer address, it MUST close
-the connection silently by discarding all connection state. This results in new
-packets on the connection being handled generically. For instance, an endpoint
-MAY send a stateless reset in response to any further incoming packets.
+如果端上没有上次有效的对端地址，
+那么就必须通过丢弃所有连接状态
+的方式默默地关闭掉连接。
+这样在连接上的新包都会被统一处理。
+例如，端上可以为后续进来的包都回复一个无状态的重置。
 
-Note that receipt of packets with higher packet numbers from the legitimate peer
-address will trigger another connection migration.  This will cause the
-validation of the address of the spurious migration to be abandoned.
+注意来自合法对端地址的带有较高标号的
+包会触发新的连接迁移。
+这样虚假迁移的地址验证就会被丢弃掉。
 
 
-### Off-Path Packet Forwarding {#off-path-forward}
+### 链路外的包导向(Off-Path Packet Forwarding) {#off-path-forward}
 
-An off-path attacker that can observe packets might forward copies of genuine
-packets to endpoints.  If the copied packet arrives before the genuine packet,
-this will appear as a NAT rebinding.  Any genuine packet will be discarded as a
-duplicate.  If the attacker is able to continue forwarding packets, it might be
-able to cause migration to a path via the attacker.  This places the attacker on
-path, giving it the ability to observe or drop all subsequent packets.
+一个链路外可以看到包的攻击者
+可以将真实包的复制包导向某一端。
+如果复制的包比真实包之前到，会表现为NAT重绑定。
+任何真实的包都会被认为重复而丢弃。
+如果攻击者能够继续导包的话，
+可以造成连接迁移到一个经由攻击者的链路上。
+这样就会把攻击者置于链路中间，
+就可以观测或者丢弃后续的包了。
 
-Unlike the attack described in {{on-path-spoofing}}, the attacker can ensure
-that the new path is successfully validated.
+并不像{{on-path-spoofing}}描述的攻击，
+这样攻击者可以保证新的链路是可以被有效验证的。
 
-This style of attack relies on the attacker using a path that is approximately
-as fast as the direct path between endpoints.  The attack is more reliable if
-relatively few packets are sent or if packet loss coincides with the attempted
-attack.
-
-A non-probing packet received on the original path that increases the maximum
-received packet number will cause the endpoint to move back to that path.
-Eliciting packets on this path increases the likelihood that the attack is
-unsuccessful.  Therefore, mitigation of this attack relies on triggering the
-exchange of packets.
-
-In response to an apparent migration, endpoints MUST validate the previously
-active path using a PATH_CHALLENGE frame.  This induces the sending of new
-packets on that path.  If the path is no longer viable, the validation attempt
-will time out and fail; if the path is viable, but no longer desired, the
-validation will succeed, but only results in probing packets being sent on the
-path.
-
-An endpoint that receives a PATH_CHALLENGE on an active path SHOULD send a
-non-probing packet in response.  If the non-probing packet arrives before any
-copy made by an attacker, this results in the connection being migrated back to
-the original path.  Any subsequent migration to another path restarts this
-entire process.
-
-This defense is imperfect, but this is not considered a serious problem. If the
-path via the attack is reliably faster than the original path despite multiple
-attempts to use that original path, it is not possible to distinguish between
-attack and an improvement in routing.
-
-An endpoint could also use heuristics to improve detection of this style of
-attack.  For instance, NAT rebinding is improbable if packets were recently
-received on the old path, similarly rebinding is rare on IPv6 paths.  Endpoints
-can also look for duplicated packets.  Conversely, a change in connection ID is
-more likely to indicate an intentional migration rather than an attack.
+这种类型的攻击在于攻击者使用了一个跟双端直接连接
+近乎相同速度的链路。如果很少的包正在发送，
+或者攻击的同时伴随丢包情况，这种攻击就很有效。
 
 
 ## Loss Detection and Congestion Control {#migration-cc}
