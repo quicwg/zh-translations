@@ -2483,145 +2483,129 @@ each packet sent in a given packet number space, see {{packet-numbers}} for
 details.
 
 
-## Coalescing Packets {#packet-coalesce}
+## 合并包（Coalescing Packets） {#packet-coalesce}
 
-Initial ({{packet-initial}}), 0-RTT ({{packet-0rtt}}), and Handshake
-({{packet-handshake}}) packets contain a Length field, which determines the end
-of the packet.  The length includes both the Packet Number and Payload
-fields, both of which are confidentiality protected and initially of unknown
-length. The length of the Payload field is learned once header protection is
-removed.
+初始 ({{packet-initial}})、0-RTT ({{packet-0rtt}})
+和握手({数据包-握手})包包含一个长度字段，用于确定包的结尾。
+包的长度包括包编号和有效负载字段，这两个字段都经过加密保护
+且初始长度未知。当删除报头保护后，就可以知道“有效负载”字段的
+长度。
 
-Using the Length field, a sender can coalesce multiple QUIC packets into one UDP
-datagram.  This can reduce the number of UDP datagrams needed to complete the
-cryptographic handshake and starting sending data.  Receivers MUST be able to
-process coalesced packets.
+通过使用长度字段，发送方可以将多个QUIC包合并为一个UDP数据报。
+这可以减少完成加密握手和开始发送数据所需的UDP数据报数。
+接收方**必须**能够处理经过合并处理的包。
 
-Coalescing packets in order of increasing encryption levels (Initial, 0-RTT,
-Handshake, 1-RTT) makes it more likely the receiver will be able to process all
-the packets in a single pass.  A packet with a short header does not include a
-length, so it can only be the last packet included in a UDP datagram.
+按照加密级别增加(初始、0-RTT、握手、1-RTT)的顺序合并数据包，
+能使接收方更有可能处理在单次传输中所有的包。短报头的包的头部
+不包含长度字段，因此它只能是UDP数据报中包含的最后一个包。
 
-Senders MUST NOT coalesce QUIC packets for different connections into a single
-UDP datagram. Receivers SHOULD ignore any subsequent packets with a different
-Destination Connection ID than the first packet in the datagram.
+发送方**禁止**将不同连接的QUIC包合并到单个UDP数据报中。
+接收方**应该**忽略任何具有与数据报中第一个包不同的目的连接ID的
+后续数据包。
 
-Every QUIC packet that is coalesced into a single UDP datagram is separate and
-complete.  Though the values of some fields in the packet header might be
-redundant, no fields are omitted.  The receiver of coalesced QUIC packets MUST
-individually process each QUIC packet and separately acknowledge them, as if
-they were received as the payload of different UDP datagrams.  For example, if
-decryption fails (because the keys are not available or any other reason),
-the receiver MAY either discard or buffer the packet for later processing and
-MUST attempt to process the remaining packets.
+每个合并入单个UDP数据报的QUIC包都是独立和完整的。
+虽然包报头中某些字段的值可能是冗余的，但合并不会省略任何字段。
+合并QUIC包的接收方**必须**单独处理每个QUIC包并分别确认它们，
+就好像它们是从不同UDP数据报的负载接收的一样。例如，如果包的
+解密失败(因为密钥不可用或任何其他原因)，接收方**可能**会丢弃
+或缓冲数据包以供以后处理，并且**必须**尝试处理剩余的包。
 
-Retry packets ({{packet-retry}}), Version Negotiation packets
-({{packet-version}}), and packets with a short header ({{short-header}}) do not
-contain a Length field and so cannot be followed by other packets in the same
-UDP datagram.
+重试包({packet-retry})、版本协商包。({Packet-Version})
+和具有短报头的包({Short-Header})不包含长度字段，因此
+同一UDP数据报中这些包后面不能跟随其他包。
 
 
-## Packet Numbers {#packet-numbers}
+## 包编号（Packet Numbers） {#packet-numbers}
 
-The packet number is an integer in the range 0 to 2^62-1.  This number is used
-in determining the cryptographic nonce for packet protection.  Each endpoint
-maintains a separate packet number for sending and receiving.
+包的编号是介于0到2^62-1之间的整数。
+这个数字用于确定用于包保护的加密随机数。
+每个终端都为发送和接收维护一个独立的包编号。
 
-Packet numbers are limited to this range because they need to be representable
-in whole in the Largest Acknowledged field of an ACK frame ({{frame-ack}}).
-When present in a long or short header however, packet numbers are reduced and
-encoded in 1 to 4 bytes (see {{packet-encoding}}).
+包编号被限制在此范围内，是因为它们需要在ACK帧的
+最大确认字段({frame-ack})中整体表示。
+但是，在长或短报头中时，包编号会减少并
+编码成1到4个字节(请参见{packet-encoding})。
 
-Version Negotiation ({{packet-version}}) and Retry ({{packet-retry}}) packets
-do not include a packet number.
+版本协商({{packet-version}})和重试({{packet-retry}})包
+不会包括包的编号。
 
-Packet numbers are divided into 3 spaces in QUIC:
+在QUIC协议中包编号被分割为三个空间:
 
-- Initial space: All Initial packets ({{packet-initial}}) are in this space.
-- Handshake space: All Handshake packets ({{packet-handshake}}) are in this
-space.
-- Application data space: All 0-RTT and 1-RTT encrypted packets
-  ({{packet-protected}}) are in this space.
+- 初始空间：所有初始包 ({{packet-initial}}) 的包编号都在这个空间。
+- 握手空间：所有握手包 ({{packet-handshake}})的包编号都在这个空间。
+- 应用数据空间: 所有0-RTT和1-RTT加密后的包 ({{packet-protected}})的
+包编号都在这个空间。
 
-As described in {{QUIC-TLS}}, each packet type uses different protection keys.
+正如{{QUIC-TLS}}}中所描述的那样，每个类型的包都使用不同的保护秘钥。
 
-Conceptually, a packet number space is the context in which a packet can be
-processed and acknowledged.  Initial packets can only be sent with Initial
-packet protection keys and acknowledged in packets which are also Initial
-packets.  Similarly, Handshake packets are sent at the Handshake encryption
-level and can only be acknowledged in Handshake packets.
+从概念上讲，包编号空间是一个包可以被处理和确认的上下文。
+初始包只能和初始包保护密钥一起发送，并且也只能在初始包中确认。
+同样，握手包是经过握手加密级别加密后发送的，只能在握手包中得到确认。
 
-This enforces cryptographic separation between the data sent in the different
-packet sequence number spaces.  Packet numbers in each space start at packet
-number 0.  Subsequent packets sent in the same packet number space MUST increase
-the packet number by at least one.
+这强制了在不同包编号空间中发送的数据之间的密码分离。
+每个空间中的包编号从包编号0开始。
+随后在同一包编号空间发送的包的编号**必须**至少增加一。
 
-0-RTT and 1-RTT data exist in the same packet number space to make loss recovery
-algorithms easier to implement between the two packet types.
+在同一包编号空间中存在0-RTT和1-RTT数据能使得两个包类型
+之间的丢失恢复算法更加容易实现。
 
-A QUIC endpoint MUST NOT reuse a packet number within the same packet number
-space in one connection.  If the packet number for sending reaches 2^62 - 1, the
-sender MUST close the connection without sending a CONNECTION_CLOSE frame or any
-further packets; an endpoint MAY send a Stateless Reset ({{stateless-reset}}) in
-response to further packets that it receives.
+一个QUIC终端**禁止**在一个连接内重用同一个包编号空间内的包号。
+如果发送的包编号达到2^62-1，发送方**必须**关闭连接，而无需
+发送CONNECTION_CLOSE帧或任何其他包；终端**可能**发送一个
+无状态重置({{stateless-reset}})，以响应接收到的其他包。
 
-A receiver MUST discard a newly unprotected packet unless it is certain that it
-has not processed another packet with the same packet number from the same
-packet number space. Duplicate suppression MUST happen after removing packet
-protection for the reasons described in Section 9.3 of {{QUIC-TLS}}. An
-efficient algorithm for duplicate suppression can be found in Section 3.4.3 of
-{{?RFC4303}}.
+接收方**必须**丢弃一个新的未受保护的包，除非接收方确定没有从相同的
+包编号空间中处理另一个具有相同包编号的包。由于{{QUIC-TLS}}第9.3节
+中所述的原因，在删除包保护后**必须**进行重复抑制。
+在{{?RFC4303}}的3.4.3节中可以找到一种有效的重复抑制算法。
 
-Packet number encoding at a sender and decoding at a receiver are described in
-{{packet-encoding}}.
+发送方的包编号编码和接收方的解码在{{packet-encoding}}中进行说明。
 
 
-## Frames and Frame Types {#frames}
+## 框架和框架类型（Frames and Frame Types） {#frames}
 
-The payload of QUIC packets, after removing packet protection, commonly consists
-of a sequence of frames, as shown in {{packet-frames}}.  Version Negotiation,
-Stateless Reset, and Retry packets do not contain frames.
+如{{packet-frames}}中所示,移除包保护后QUIC包的负载通常由帧序列组成。
+版本协商、无状态重置和重试包不包含帧。
 
-<!-- TODO: Editorial work needed in this section. Not all packets contain
-frames. -->
+
+<!-- TODO: 本节仍需要编辑工作。不是所有包都包含帧 -->
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Frame 1 (*)                        ...
+|                             帧 1 (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Frame 2 (*)                        ...
+|                             帧 2 (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Frame N (*)                        ...
+|                             帧 N (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 {: #packet-frames title="QUIC Payload"}
 
-QUIC payloads MUST contain at least one frame, and MAY contain multiple frames
-and multiple frame types.
+QUIC负载**必须**包含至少一个帧，并且**可能**包含多个不同类型的帧。
 
-Frames MUST fit within a single QUIC packet and MUST NOT span a QUIC packet
-boundary. Each frame begins with a Frame Type, indicating its type, followed by
-additional type-dependent fields:
+帧的数据**必须**能够塞入单个QUIC包，并且**禁止**跨越QUIC包的边界。
+每个帧都以“帧类型”开头，表示其类型，后跟其他依赖于类型的字段:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Frame Type (i)                        ...
+|                       帧的类型    (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                   Type-Dependent Fields (*)                 ...
+|                   依赖类型的字段   (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 {: #frame-layout title="Generic Frame Layout"}
 
-The frame types defined in this specification are listed in {{frame-types}}.
-The Frame Type in STREAM frames is used to carry other frame-specific flags.
-For all other frames, the Frame Type field simply identifies the frame.  These
-frames are explained in more detail in {{frame-formats}}.
+此规范中定义的帧类型在{{frame-types}}中列出。
+STREAM帧中的帧类型用于携带其他特定于帧的标志。
+对于所有其他帧，帧类型字段仅用于标识该帧。
+{{frame-formats}}中对这些帧进行了更详细的说明。
+
 
 | Type Value  | Frame Type Name      | Definition                     |
 |:------------|:---------------------|:-------------------------------|
@@ -2646,20 +2630,18 @@ frames are explained in more detail in {{frame-formats}}.
 | 0x1c - 0x1d | CONNECTION_CLOSE     | {{frame-connection-close}}     |
 {: #frame-types title="Frame Types"}
 
-All QUIC frames are idempotent in this version of QUIC.  That is, a valid
-frame does not cause undesirable side effects or errors when received more
-than once.
 
-The Frame Type field uses a variable length integer encoding (see
-{{integer-encoding}}) with one exception.  To ensure simple and efficient
-implementations of frame parsing, a frame type MUST use the shortest possible
-encoding.  Though a two-, four- or eight-byte encoding of the frame types
-defined in this document is possible, the Frame Type field for these frames is
-encoded on a single byte.  For instance, though 0x4001 is a legitimate two-byte
-encoding for a variable-length integer with a value of 1, PING frames are always
-encoded as a single byte with the value 0x01.  An endpoint MAY treat the receipt
-of a frame type that uses a longer encoding than necessary as a connection error
-of type PROTOCOL_VIOLATION.
+在此版本的QUIC协议中，所有QUIC帧都是幂等的。
+也就是说，一个有效的帧被接收多次时不会引起
+不良的副作用或错误。
+
+Frame Type字段使用可变长度整数编码(请参见{{integer-encoding}})，
+但有一个例外，为了确保简单有效地实现帧解析，帧类型**必须**使用尽可能短的编码。
+虽然可以对本文档中定义的帧进行2字节、4字节或8字节的编码，
+但这些帧的“帧类型”字段是以单字节编码的。
+例如，虽然0x4001是一个值为1的可变长度整数的合法双字节编码，但是PING帧总是
+编码为单字节值0x01。
+终端**可能**将接收到编码长度超过必要的帧类型视为协议冲突类型的连接错误。
 
 
 # Packetization and Reliability {#packetization}
