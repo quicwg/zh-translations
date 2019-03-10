@@ -1922,7 +1922,8 @@ PATH_CHALLENGE帧发出的计时器，但对应的PATH_RESPONSE包收到的
 端上可以重新发个PATH_CHALLENGE帧,同时为定时器设置一个更长的
 时间.
 
-## 连接迁移的私密性实现(Privacy Implications of Connection 
+## 连接迁移的私密性实现(Privacy Implications
+ of Connection
 Migration) {#migration-linkability}	
 
 在不同的网路链路之间使用稳定的连接id可以使被动的观察者在关联起
