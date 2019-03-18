@@ -2213,159 +2213,134 @@ frames in an Initial packet.  If multiple packets are sent, they can be
 coalesced (see {{packet-coalesce}}) to facilitate retransmission.
 
 
-## Stateless Reset {#stateless-reset}
+## 无状态重置(Stateless Reset) {#stateless-reset}
 
-A stateless reset is provided as an option of last resort for an endpoint that
-does not have access to the state of a connection.  A crash or outage might
-result in peers continuing to send data to an endpoint that is unable to
-properly continue the connection.  A stateless reset is not appropriate for
-signaling error conditions.  An endpoint that wishes to communicate a fatal
-connection error MUST use a CONNECTION_CLOSE frame if it has sufficient state
-to do so.
+无状态重置被提供作为对于无法访问连接状态的终端的最后选择。
+崩溃或中断可能导致对端继续向无法继续正常连接的终端发送数据。
+无状态重置不适用于发出错误条件的信号。
+如果终端有足够的状态，则希望通信致命连接错误的终端**必须**使用CONNECTION_CLOSE帧来通信。
 
-To support this process, a token is sent by endpoints.  The token is carried in
-the NEW_CONNECTION_ID frame sent by either peer, and servers can specify the
-stateless_reset_token transport parameter during the handshake (clients cannot
-because their transport parameters don't have confidentiality protection).  This
-value is protected by encryption, so only client and server know this value.
-Tokens are invalidated when their associated connection ID is retired via a
-RETIRE_CONNECTION_ID frame ({{frame-retire-connection-id}}).
 
-An endpoint that receives packets that it cannot process sends a packet in the
-following layout:
+为了支持这个过程，终端发送一个令牌。
+令牌在两个对端发送的NEW_CONNECTION_ID帧中携带，服务器可以在握手期间
+指定stateless_reset_token传输参数(客户机不能，因为它们的传输参数没有机密性保护)。
+此值受加密保护，因此只有客户机和服务器知道此值。
+当令牌的关联连接ID通过RETIRE_CONNECTION_ID帧
+({{frame-retire-connection-id}})退役时，令牌将失效。
+
+
+接收到无法处理的数据包的终端发送数据包的布局如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|0|1|               Unpredictable Bits (182..)                ...
+|0|1|               不可预知的位数  (182..)                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                                                               +
 |                                                               |
-+                   Stateless Reset Token (128)                 +
++       无状态重置令牌(Stateless Reset Token) (128)                 +
 |                                                               |
 +                                                               +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #fig-stateless-reset title="Stateless Reset Packet"}
-
-This design ensures that a stateless reset packet is - to the extent possible -
-indistinguishable from a regular packet with a short header.
-
-A stateless reset uses an entire UDP datagram, starting with the first two bits
-of the packet header.  The remainder of the first byte and an arbitrary number
-of bytes following it that are set to unpredictable values.  The last 16 bytes
-of the datagram contain a Stateless Reset Token.
-
-A stateless reset will be interpreted by a recipient as a packet with a short
-header.  For the packet to appear as valid, the Unpredictable Bits field needs
-to include at least 182 bits of data (or 23 bytes, less the two fixed bits).
-This is intended to allow for a Destination Connection ID of the maximum length
-permitted, with a minimal packet number, and payload.  The Stateless Reset Token
-corresponds to the minimum expansion of the packet protection AEAD.  More
-unpredictable bytes might be necessary if the endpoint could have negotiated a
-packet protection scheme with a larger minimum AEAD expansion.
-
-An endpoint SHOULD NOT send a stateless reset that is significantly larger than
-the packet it receives.  Endpoints MUST discard packets that are too small to be
-valid QUIC packets.  With the set of AEAD functions defined in {{QUIC-TLS}},
-packets that are smaller than 21 bytes are never valid.
-
-An endpoint MAY send a stateless reset in response to a packet with a long
-header.  This would not be effective if the stateless reset token was not yet
-available to a peer.  In this QUIC version, packets with a long header are only
-used during connection establishment.   Because the stateless reset token is not
-available until connection establishment is complete or near completion,
-ignoring an unknown packet with a long header might be more effective.
-
-An endpoint cannot determine the Source Connection ID from a packet with a short
-header, therefore it cannot set the Destination Connection ID in the stateless
-reset packet.  The Destination Connection ID will therefore differ from the
-value used in previous packets.  A random Destination Connection ID makes the
-connection ID appear to be the result of moving to a new connection ID that was
-provided using a NEW_CONNECTION_ID frame ({{frame-new-connection-id}}).
-
-Using a randomized connection ID results in two problems:
-
-* The packet might not reach the peer.  If the Destination Connection ID is
-  critical for routing toward the peer, then this packet could be incorrectly
-  routed.  This might also trigger another Stateless Reset in response, see
-  {{reset-looping}}.  A Stateless Reset that is not correctly routed is
-  an ineffective error detection and recovery mechanism.  In this
-  case, endpoints will need to rely on other methods - such as timers - to
-  detect that the connection has failed.
-
-* The randomly generated connection ID can be used by entities other than the
-  peer to identify this as a potential stateless reset.  An endpoint that
-  occasionally uses different connection IDs might introduce some uncertainty
-  about this.
-
-Finally, the last 16 bytes of the packet are set to the value of the Stateless
-Reset Token.
-
-This stateless reset design is specific to QUIC version 1.  An endpoint that
-supports multiple versions of QUIC needs to generate a stateless reset that will
-be accepted by peers that support any version that the endpoint might support
-(or might have supported prior to losing state).  Designers of new versions of
-QUIC need to be aware of this and either reuse this design, or use a portion of
-the packet other than the last 16 bytes for carrying data.
+{: #fig-stateless-reset title="无状态重置令牌(Stateless Reset Packet)"}
 
 
-### Detecting a Stateless Reset
-
-An endpoint detects a potential stateless reset when a incoming packet
-with a short header either cannot be associated with a connection,
-cannot be decrypted, or is marked as a duplicate packet.  The endpoint
-then compares the last 16 bytes of the packet with the Stateless Reset
-Token provided by its peer, either in a NEW_CONNECTION_ID frame or
-the server's transport parameters.  If these values are identical,
-the endpoint MUST enter the draining period and not send any further
-packets on this connection.  If the comparison fails, the packet can be
-discarded.
+这种设计确保无状态重置包(在可能的范围内)与具有短报头的常规包没有区别。
 
 
-### Calculating a Stateless Reset Token {#reset-token}
+无状态重置使用整个UDP数据报，从数据包头的前两位开始。
+第一个字节的剩余部分及其后的任意数量的字节被设置为不可预测的值。
+数据报的最后16个字节包含一个无状态重置令牌。
 
-The stateless reset token MUST be difficult to guess.  In order to create a
-Stateless Reset Token, an endpoint could randomly generate {{!RFC4086}} a secret
-for every connection that it creates.  However, this presents a coordination
-problem when there are multiple instances in a cluster or a storage problem for
-an endpoint that might lose state.  Stateless reset specifically exists to
-handle the case where state is lost, so this approach is suboptimal.
 
-A single static key can be used across all connections to the same endpoint by
-generating the proof using a second iteration of a preimage-resistant function
-that takes a static key and the connection ID chosen by the endpoint (see
-{{connection-id}}) as input.  An endpoint could use HMAC {{?RFC2104}} (for
-example, HMAC(static_key, connection_id)) or HKDF {{?RFC5869}} (for example,
-using the static key as input keying material, with the connection ID as salt).
-The output of this function is truncated to 16 bytes to produce the Stateless
-Reset Token for that connection.
+无状态重置将被接收者解释为具有短报头的包。
+要使数据包显示为有效的，不可预测位字段至少需要包含182位数据
+(或23个字节，减去两个固定位)。
+这是为了允许目标连接ID具有最大允许长度、最小包号和有效负载。
+无状态重置令牌对应于包保护AEAD的最小扩展。
+如果终端可以协商使用更大的最小AEAD扩展的包保护方案，则可能需要更多不可预测字节。
 
-An endpoint that loses state can use the same method to generate a valid
-Stateless Reset Token.  The connection ID comes from the packet that the
-endpoint receives.
 
-This design relies on the peer always sending a connection ID in its packets so
-that the endpoint can use the connection ID from a packet to reset the
-connection.  An endpoint that uses this design MUST either use the same
-connection ID length for all connections or encode the length of the connection
-ID such that it can be recovered without state.  In addition, it cannot
-provide a zero-length connection ID.
+终端**不应**发送比其接收的包大得多的无状态重置。
+终端**必须**丢弃太小而不能作为有效的QUIC包的包。
+使用{{QUIC-TLS}}中定义的一组AEAD函数，小于21字节的包永远无效。
 
-Revealing the Stateless Reset Token allows any entity to terminate the
-connection, so a value can only be used once.  This method for choosing the
-Stateless Reset Token means that the combination of connection ID and static key
-cannot occur for another connection.  A denial of service attack is possible if
-the same connection ID is used by instances that share a static key, or if an
-attacker can cause a packet to be routed to an instance that has no state but
-the same static key (see {{reset-oracle}}).  A connection ID from a connection
-that is reset by revealing the Stateless Reset Token cannot be reused for new
-connections at nodes that share a static key.
 
-Note that Stateless Reset packets do not have any cryptographic protection.
+终端**可以**发送无状态重置来响应具有长报头的包。
+如果对端还不能使用无状态重置令牌，则此方法将无效。
+在这个QUIC版本中，只有在建立连接时才使用长报头的数据包。
+由于无状态重置令牌在连接建立完成或接近完成之前不可用，因此忽略具有长报头的未知包可能更有效。
+
+
+终端无法从具有短报头的包中确定源连接ID，因此它无法在无状态重置包中设置目标连接ID。
+因此目标连接ID将与前面包中使用的值不同。
+随机目标连接ID使连接ID看起来是移动到使用NEW_CONNECTION_ID帧
+({{frame-new-connection-id}})提供的新连接ID的结果。
+
+
+使用随机连接ID会导致两个问题:
+
+* 数据包可能无法到达对端。如果目标连接ID对于路由到对端非常重要，
+  则此包可能被错误路由。这还可能触发另一个无状态重置，参见{{reset-looping}}。
+  没有正确路由的无状态重置是无效的错误检测和恢复机制。
+  在这种情况下，端点将需要依赖于其他方法(例如计时器)来检测连接是否失败。
+
+* 随机生成的连接ID可用于对端以外的实体，以将其标识为潜在的无状态重置。
+  偶尔使用不同连接id的终端可能会对此带来一些不确定性。
+
+
+最后，数据包的最后16个字节被设置为无状态重置令牌的值。
+
+
+这种无状态重置设计是特定于QUIC版本1的。
+支持多个QUIC版本的终端需要生成一个无状态重置，
+该重置将被终端可能支持的任何版本(或在丢失状态之前可能已经支持的版本)的对端接受。
+新版本的QUIC的设计者需要意识到这一点，或者重用这个设计，
+或者使用包的一部分而不是最后16个字节来携带数据。
+
+### 检测无状态重置(Detecting a Stateless Reset)
+
+当具有短报头的传入包不能与连接关联、不能被解密或被标记为重复包时，
+终端检测潜在的无状态重置。
+然后，端点将数据包的最后16个字节与它的对端提供的无状态重置令牌
+(在NEW_CONNECTION_ID帧中或服务器的传输参数中)进行比较。
+如果这些值相同，终端**必须**进入耗尽期，并且在此连接上不再发送任何数据包。
+如果比较失败，可以丢弃这些数据包。
+
+
+### 计算无状态重置令牌(Calculating a Stateless Reset Token) {#reset-token}
+
+无状态重置令牌**一定**很难猜测。
+为了创建无状态重置令牌，终端可以为它创建的每个连接随机生成{{!RFC4086}}一个秘密。
+然而，当集群中有多个实例或终端的存储问题可能会丢失状态时，就会出现协调问题。
+无状态重置专门用于处理状态丢失的情况，所以这种方法不是最优的。
+
+通过使用抗预映像函数的第二次迭代生成证明，可以跨到同一终端的所有连接使用单个静态键，
+该函数将静态键和终端选择的连接ID作为输入(请参见{{connection-id}})。
+终端可以使用HMAC {{?RFC2104}}(例如，HMAC(static_key, connection_id))
+或HKDF {{?RFC5869}}(例如，使用静态密钥作为输入密钥，连接ID作为salt)。
+此函数的输出被截断为16字节，以生成该连接的无状态重置令牌。
+
+丢失状态的终端可以使用相同的方法生成有效的无状态重置令牌。连接ID来自终端接收的包。
+
+这种设计依赖于对端总是在其包中发送连接ID，以便终端可以使用包中的连接ID重置连接。
+使用此设计的终端**必须**对所有连接使用相同的连接ID长度，
+或者对连接ID的长度进行编码，以便可以在没有状态的情况下恢复连接ID。
+此外，它不能提供零长度的连接ID。
+
+
+显示无状态重置令牌允许任何实体终止连接，因此值只能使用一次。
+这种选择无状态重置令牌的方法意味着连接ID和静态密钥的组合不能在另一个连接发生。
+如果共享静态密钥的实例使用相同的连接ID，
+或者如果攻击者可以导致数据包路由到只有相同静态密钥(请参阅{{reset-oracle}})的实例，
+则可能发生拒绝服务攻击。
+通过显示无状态重置令牌重置的连接的连接ID不能用于共享静态密钥的节点上的新连接。
+
+请注意，无状态重置包没有任何加密保护。
 
 
 ### Looping {#reset-looping}
