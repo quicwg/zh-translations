@@ -2310,139 +2310,66 @@ connections at nodes that share a static key.
 Note that Stateless Reset packets do not have any cryptographic protection.
 
 
-### Looping {#reset-looping}
+### Looping {#reset-looping}循环
 
-The design of a Stateless Reset is such that without knowing the stateless reset
-token it is indistinguishable from a valid packet.  For instance, if a server
-sends a Stateless Reset to another server it might receive another Stateless
-Reset in response, which could lead to an infinite exchange.
+无状态重置包的设计使得在不知道无状态重置令牌的情况下，它与有效数据包无法区分。例如，如果一台服务器向另一台服务器发送无状态重置包，它可能会收到另一台无状态重置包作为响应，这可能导致无限的交换。
 
-An endpoint MUST ensure that every Stateless Reset that it sends is smaller than
-the packet which triggered it, unless it maintains state sufficient to prevent
-looping.  In the event of a loop, this results in packets eventually being too
-small to trigger a response.
+终端必须确保它发送的每个无状态重置包都小于触发它的数据包，除非它保持足以防止循环的状态。在发生循环的情况下，数据包会因为太小而无法触发响应。
 
-An endpoint can remember the number of Stateless Reset packets that it has sent
-and stop generating new Stateless Reset packets once a limit is reached.  Using
-separate limits for different remote addresses will ensure that Stateless Reset
-packets can be used to close connections when other peers or connections have
-exhausted limits.
+终端可以记住已发送的无状态重置数据包的数量，并在达到限制后停止生成新的无状态重置数据包。对不同的远程地址使用单独的限制将确保在其他对端或连接耗尽限制时可以使用无状态重置数据包来关闭连接。
 
-Reducing the size of a Stateless Reset below the recommended minimum size of 39
-bytes could mean that the packet could reveal to an observer that it is a
-Stateless Reset.  Conversely, refusing to send a Stateless Reset in response to
-a small packet might result in Stateless Reset not being useful in detecting
-cases of broken connections where only very small packets are sent; such
-failures might only be detected by other means, such as timers.
+将无状态重置包的大小减小到建议的最小大小39字节以下，这意味着数据包可能会向观察者显示它是无状态重置包。相反，拒绝响应小数据包而发送无状态重置包可能导致无状态重置包无法在仅发送非常小的数据包的情况下检测中断连接的情况；此类故障可能只能通过其他方式(如计时器)来检测。
 
-An endpoint can increase the odds that a packet will trigger a Stateless Reset
-if it cannot be processed by padding it to at least 40 bytes.
+如果数据包不能通过将其填充到至少40字节来处理，则终端可以增加数据包触发无状态重置的可能性。  
 
 
-# Error Handling {#error-handling}
+# Error Handling {#error-handling}错误处理
 
-An endpoint that detects an error SHOULD signal the existence of that error to
-its peer.  Both transport-level and application-level errors can affect an
-entire connection (see {{connection-errors}}), while only application-level
-errors can be isolated to a single stream (see {{stream-errors}}).
+检测到错误的终端**应该**将该错误的存在通知其对端。传输级和应用级错误都会影响整个连接(see {{connection-errors}})，而只有应用级错误才能被隔离到单个流中(see {{stream-errors}})。
 
-The most appropriate error code ({{error-codes}}) SHOULD be included in the
-frame that signals the error.  Where this specification identifies error
-conditions, it also identifies the error code that is used.
+发出错误信号的帧中**应该**包含最合适的错误代码({{error-codes}})。在描述标识错误状况处，还标识了所使用的错误代码。
 
-A stateless reset ({{stateless-reset}}) is not suitable for any error that can
-be signaled with a CONNECTION_CLOSE or RESET_STREAM frame.  A stateless reset
-MUST NOT be used by an endpoint that has the state necessary to send a frame on
-the connection.
+无状态重置({{stateless-reset}})不适用于可以用CONNECTION_CLOSE或RESET_STREAM帧发出信号的任何错误。具有在连接上发送帧所需状态的终端**禁止**使用无状态重置。
 
 
-## Connection Errors
+## Connection Errors连接错误
 
-Errors that result in the connection being unusable, such as an obvious
-violation of protocol semantics or corruption of state that affects an entire
-connection, MUST be signaled using a CONNECTION_CLOSE frame
-({{frame-connection-close}}). An endpoint MAY close the connection in this
-manner even if the error only affects a single stream.
+导致连接不可用的错误(如明显违反协议语义或影响整个连接的状态损坏)**必须**使用CONNECTION_CLOSE帧发出信号({{frame-connection-close}})。即使错误只影响单个流，终端也**可能**以这种方式关闭连接。
 
-Application protocols can signal application-specific protocol errors using the
-application-specific variant of the CONNECTION_CLOSE frame.  Errors that are
-specific to the transport, including all those described in this document, are
-carried the QUIC-specific variant of the CONNECTION_CLOSE frame.
+应用协议可以使用CONNECTION_CLOSE帧的特定于应用的变体发送特定于应用的协议错误信号。特定于传输的错误，包括本文档中描述的所有错误，都带有CONNECTION_CLOSE框架的特定于QUIC的变体。
 
-A CONNECTION_CLOSE frame could be sent in a packet that is lost.  An endpoint
-SHOULD be prepared to retransmit a packet containing a CONNECTION_CLOSE frame if
-it receives more packets on a terminated connection. Limiting the number of
-retransmissions and the time over which this final packet is sent limits the
-effort expended on terminated connections.
+可以在丢失的数据包中发送CONNECTION_CLOSE帧。如果终端在终止的连接上接收到更多的数据包，则**应该**准备重新传输包含CONNECTION_CLOSE帧的数据包。限制重新传输的次数和发送此最终数据包的时间限制了终止连接所花费的努力。
 
-An endpoint that chooses not to retransmit packets containing a CONNECTION_CLOSE
-frame risks a peer missing the first such packet.  The only mechanism available
-to an endpoint that continues to receive data for a terminated connection is to
-use the stateless reset process ({{stateless-reset}}).
+选择不重新传输包含CONNECTION_CLOSE帧的数据包的终端有丢失第一个此类数据包的风险。对于继续接收终止连接数据的终端来说，唯一可用的机制是使用无状态重置过程({{stateless-reset}})。
 
-An endpoint that receives an invalid CONNECTION_CLOSE frame MUST NOT signal the
-existence of the error to its peer.
+接收无效的CONNECTION_CLOSE帧的终端不能向其对端发出错误存在的信号。
 
 
-## Stream Errors
+## Stream Errors流错误
 
-If an application-level error affects a single stream, but otherwise leaves the
-connection in a recoverable state, the endpoint can send a RESET_STREAM frame
-({{frame-reset-stream}}) with an appropriate error code to terminate just the
-affected stream.
+如果应用级错误影响单个流，换句话说在排除该连接的情况下处在可恢复状态，则端点可以发送包含适当错误代码的RESET_STREAM帧({{frame-reset-stream}})，以终止受影响的流。
 
-RESET_STREAM MUST be instigated by the protocol using QUIC, either directly or
-through the receipt of a STOP_SENDING frame from a peer.  RESET_STREAM carries
-an application error code.  Resetting a stream without knowledge of the
-application protocol could cause the protocol to enter an unrecoverable state.
-Application protocols might require certain streams to be reliably delivered in
-order to guarantee consistent state between endpoints.
+RESET_STREAM**必须**由使用QUIC的协议发起，可以是直接发起，也可以是通过从对端接收STOP_SENDING帧来执行。RESET_STREAM带有应用错误代码。在不知道应用协议的情况下重置流可能会导致协议进入不可恢复状态。应用协议可能需要可靠地传输某些流，以确保终端之间的状态一致。
 
 
-# Packets and Frames {#packets-frames}
+# Packets and Frames {#packets-frames}数据包和帧
 
-QUIC endpoints communicate by exchanging packets. Packets have confidentiality
-and integrity protection (see {{packet-protected}}) and are carried in UDP
-datagrams (see {{packet-coalesce}}).
+QUIC终端通过交换数据包进行通信。数据包具有机密性和完整性保护(see {{packet-protected}})，并在UDP数据报中传输(see {{packet-coalesce}})。
 
-This version of QUIC uses the long packet header (see {{long-header}}) during
-connection establishment.  Packets with the long header are Initial
-({{packet-initial}}), 0-RTT ({{packet-0rtt}}), Handshake ({{packet-handshake}}),
-and Retry ({{packet-retry}}).  Version negotiation uses a version-independent
-packet with a long header (see {{packet-version}}).
+此版本的QUIC在连接建立过程中使用长数据包报头(see {{long-header}})。具有长报头的数据包是初始数据包({{packet-initial}})、0-RTT数据包({{packet-0rtt}})、握手数据包({{packet-handshake}})和重试数据包({{packet-retry}})。版本协商使用带有长报头的独立于版本的数据包(see {{packet-version}})。
 
-Packets with the short header ({{short-header}}) are designed for minimal
-overhead and are used after a connection is established and 1-RTT keys are
-available.
+具有短报头({{short-header}})的数据包是为了最小的开销而设计的，在建立连接和1-RTT密钥可用后使用。  
 
 
-## Protected Packets {#packet-protected}
+## Protected Packets {#packet-protected}受保护的数据包
 
-All QUIC packets except Version Negotiation and Retry packets use authenticated
-encryption with additional data (AEAD) {{!RFC5116}} to provide confidentiality
-and integrity protection. Details of packet protection are found in
-{{QUIC-TLS}}; this section includes an overview of the process.
+除版本协商和重试数据包外，所有QUIC数据包都使用带有附加数据 (AEAD) {{!RFC5116}}的身份验证加密，以提供机密性和完整性保护。数据包保护的详细信息可在{{QUIC-TLS}}中找到，本节包括此过程的概述。
 
-Initial packets are protected using keys that are statically derived. This
-packet protection is not effective confidentiality protection.  Initial
-protection only exists to ensure that the sender of the packet is on the network
-path. Any entity that receives the Initial packet from a client can recover the
-keys necessary to remove packet protection or to generate packets that will be
-successfully authenticated.
+初始数据包使用静态派生的密钥进行保护。此数据包保护不是有效的机密性保护。初始保护仅存在于确保数据包的发送方位于网络路径上。从客户端接收初始数据包的任何实体都可以恢复删除数据包保护或生成能通过验证的数据包所需的密钥。
 
-All other packets are protected with keys derived from the cryptographic
-handshake. The type of the packet from the long header or key phase from the
-short header are used to identify which encryption level - and therefore the
-keys - that are used. Packets protected with 0-RTT and 1-RTT keys are expected
-to have confidentiality and data origin authentication; the cryptographic
-handshake ensures that only the communicating endpoints receive the
-corresponding keys.
+所有其他数据包都使用从加密握手数据包派生的密钥进行保护。来自长报头的数据包类型或来自短报头的密钥阶段用于标识所使用的加密级别(因此也就是密钥)。使用0-RTT和1-RTT密钥保护的数据包应该具有机密性和数据来源身份验证；加密握手数据包确保只有通信终端接收相应的密钥。
 
-The packet number field contains a packet number, which has additional
-confidentiality protection that is applied after packet protection is applied
-(see {{QUIC-TLS}} for details).  The underlying packet number increases with
-each packet sent in a given packet number space, see {{packet-numbers}} for
-details.
+Packet Number字段包含一个Packet Number，它用来在应用数据包保护后应用额外机密性保护(see {{QUIC-TLS}} for details)。基础Packet Number随着每个数据包在给定Packet Number空间中的发送而增加{{packet-numbers}} 。  
 
 
 ## Coalescing Packets {#packet-coalesce}
