@@ -2109,151 +2109,155 @@ A possible implementation is to compute the flow label as a cryptographic hash
 function of the source and destination addresses, source and destination
 UDP ports, destination CID, and a local secret.
 
-# Connection Termination {#termination}
+# 连接终止（Connection Termination） {#termination}
 
-Connections should remain open until they become idle for a pre-negotiated
-period of time.  A QUIC connection, once established, can be terminated in one
-of three ways:
+在没有操作的时候连接是默认打开的，除非闲置了一段时间，
+这个时间是预先定义的。一个已经建立好的
+QUIC连接遇到一下情况会终止。
 
-* idle timeout ({{idle-timeout}})
-* immediate close ({{immediate-close}})
-* stateless reset ({{stateless-reset}})
-
-
-## Closing and Draining Connection States {#draining}
-
-The closing and draining connection states exist to ensure that connections
-close cleanly and that delayed or reordered packets are properly discarded.
-These states SHOULD persist for at least three times the current Probe Timeout
-(PTO) interval as defined in {{QUIC-RECOVERY}}.
-
-An endpoint enters a closing period after initiating an immediate close
-({{immediate-close}}).  While closing, an endpoint MUST NOT send packets unless
-they contain a CONNECTION_CLOSE frame (see {{immediate-close}} for details).  An
-endpoint retains only enough information to generate a packet containing a
-CONNECTION_CLOSE frame and to identify packets as belonging to the connection.
-The endpoint's selected connection ID and the QUIC version are sufficient
-information to identify packets for a closing connection; an endpoint can
-discard all other connection state. An endpoint MAY retain packet protection
-keys for incoming packets to allow it to read and process a CONNECTION_CLOSE
-frame.
-
-The draining state is entered once an endpoint receives a signal that its peer
-is closing or draining.  While otherwise identical to the closing state, an
-endpoint in the draining state MUST NOT send any packets.  Retaining packet
-protection keys is unnecessary once a connection is in the draining state.
-
-An endpoint MAY transition from the closing period to the draining period if it
-receives a CONNECTION_CLOSE frame or stateless reset, both of which indicate
-that the peer is also closing or draining.  The draining period SHOULD end when
-the closing period would have ended.  In other words, the endpoint can use the
-same end time, but cease retransmission of the closing packet.
-
-Disposing of connection state prior to the end of the closing or draining period
-could cause delayed or reordered packets to be handled poorly.  Endpoints that
-have some alternative means to ensure that late-arriving packets on the
-connection do not create QUIC state, such as those that are able to close the
-UDP socket, MAY use an abbreviated draining period which can allow for faster
-resource recovery.  Servers that retain an open socket for accepting new
-connections SHOULD NOT exit the closing or draining period early.
-
-Once the closing or draining period has ended, an endpoint SHOULD discard all
-connection state.  This results in new packets on the connection being handled
-generically.  For instance, an endpoint MAY send a stateless reset in response
-to any further incoming packets.
-
-The draining and closing periods do not apply when a stateless reset
-({{stateless-reset}}) is sent.
-
-An endpoint is not expected to handle key updates when it is closing or
-draining.  A key update might prevent the endpoint from moving from the closing
-state to draining, but it otherwise has no impact.
-
-While in the closing period, an endpoint could receive packets from a new source
-address, indicating a connection migration ({{migration}}). An endpoint in the
-closing state MUST strictly limit the number of packets it sends to this new
-address until the address is validated (see {{migrate-validate}}). A server in
-the closing state MAY instead choose to discard packets received from a new
-source address.
+* 闲置超时（{{idle-timeout}}）
+* 立即关闭（{{immediate-close}}）
+* 无状态重置（{{stateless-reset}}）
 
 
-## Idle Timeout {#idle-timeout}
+## 关闭中和释放中状态（Closing and Draining Connection States） {#draining}
 
-If the idle timeout is enabled, a connection is silently closed and the state is
-discarded when it remains idle for longer than both the advertised
-idle timeout (see {{transport-parameter-definitions}}) and three times the
-current Probe Timeout (PTO).
+关闭中和释放中状态是为了确保连接在关闭的时候
+是干净的，并确保延迟或乱序的包被正确丢弃。
+这些状态**应该**保持至少三倍于在{{QUIC-RECOVERY}}
+中定义的探测超时（PTO）间隔。
 
-Each endpoint advertises its own idle timeout to its peer.  An endpoint
-restarts any timer it maintains when a packet from its peer is received and
-processed successfully.  The timer is also restarted when sending a packet
-containing frames other than ACK or PADDING (an ACK-eliciting packet, see
-{{QUIC-RECOVERY}}), but only if no other ACK-eliciting packets have been sent
-since last receiving a packet.  Restarting when sending packets ensures that
-connections do not prematurely time out when initiating new activity.
+当一个终端开始立即关闭流程（{{immediate-close}}）时进入
+关闭中阶段。在关闭中，除非是包含CONNECTION_CLOSE帧的包否则
+终端**必须不**发送任何包（查看{{immediate-close}}以获得详细信息）。
+终端只保留用于生成包含CONNECTION_CLOSE帧的包的信息，
+并将数据包标记为属于该链接。
+终端选择的连接ID和QUIC版本就足够
+来标记包属于哪个关闭中的连接；终端
+可以丢弃其他所有的连接状态。终端**可能**为
+读取和处理CONNECTION_CLOSE帧而保留
+传入包的包保护密钥。
 
-The value for an idle timeout can be asymmetric.  The value advertised by an
-endpoint is only used to determine whether the connection is live at that
-endpoint.  An endpoint that sends packets near the end of the idle timeout
-period of a peer risks having those packets discarded if its peer enters the
-draining state before the packets arrive.  If a peer could timeout within an
-Probe Timeout (PTO, see Section 6.2.2 of {{QUIC-RECOVERY}}), it is advisable to
-test for liveness before sending any data that cannot be retried safely.
+当一个终端收到它的对端进入关闭中或释放中状态的信号时立即
+计入释放中状态。同关闭中状态一致，处于释放中状态的终端
+**必须不**发送任何包。连接进入释放中状态时就没有必要再
+保存包保护密钥。
+
+端点在收到CONNECTION_CLOSE帧或无状态重置时**可能**回从
+关闭中状态转换到释放中状态，这两种情况都表明对端也在
+关闭中或释放中。当关闭中周期结束的时候释放中周期也必须结束。
+也就是说，终端可以使用相同的结束时间，
+但是停止重传关闭中包。
+
+*(这一点没怎么看懂，加了点意译)*
+在关闭中周期或释放中周期结束前处理连接的状态 *(猜测可能是想说在超时之前把连接状态给改了)*
+*(所以在closing和draining状态之后还能到其他状态？)*
+会导致延迟或乱序的包不能被正确处理。有某种能
+确保连接上延迟到达的包不创建QUIC状态的终端 *(结合下面感觉是说一个延迟的包到达，但是这个时候此连接)*
+*(在此终端上已经不是closing或draining状态而是导致这个延迟的包把此链接的状态再次改变了)*
+**可能**使用较短的释放周期和关闭周期来更快的回复资源，例如
+可以关闭UDP套接字的终端。保留用于接受新连接的 *(把UDP socket关了就不回有问题了)*
+开放套接字的服务器**不可以**提前退出关闭或耗尽周期。*(一个UDP套接字有多个连接一个关了socket不关)*
+*(所以这个socket还能收到已经关闭的连接的延迟到达的包，导致已经被关闭的连接又进入新的状态)*
+*(如果是这样理解没错的话那就是终端记录每个socket已关闭的连接收到延迟包以后直接丢弃也行)*
+
+一旦关闭中或释放中周期结束了，终端**应该**丢弃此
+连接的所有状态。这样这个连接上新的包就能被正常处理。
+比如，终端**可能**发送无状态重置
+来相应之后传入的包。
+
+当发送无状态重置（{{stateless-reset]}}）时
+释放中和关闭中状态不适用。
+
+处于关闭中或释放中的终端不需要处理 *(密钥？健？)* 更新。
+Key更新可能会阻止终端从关闭中状态转向释放中状态，
+但实际上它应该没有任何影响。
+
+终端在关闭中周期时可能接收到来自新地址的
+连接迁移（{{migration}}）。处于关闭状态的端点
+**必须**严格限制发送到此新地址的包的数量，
+直到该地址经过验证（参见{{migrate-validate}}）。处于
+关闭中状态的终端**可以**选择丢弃从新地址
+接收来的包。
 
 
-## Immediate Close
+## 闲置超时（Idle Timeout） {#idle-timeout}
 
-An endpoint sends a CONNECTION_CLOSE frame ({{frame-connection-close}}) to
-terminate the connection immediately.  A CONNECTION_CLOSE frame causes all
-streams to immediately become closed; open streams can be assumed to be
-implicitly reset.
+如果启用了空闲超时，则当连接持续空闲时间超过预公布的空闲超时
+（参见{{transport-parameter-definitions}}）和三倍
+当前探测超时（PTO）的最大值时会被静默关闭，并且连接的
+所有状态都会被抛弃。
 
-After sending a CONNECTION_CLOSE frame, endpoints immediately enter the closing
-state.  During the closing period, an endpoint that sends a CONNECTION_CLOSE
-frame SHOULD respond to any packet that it receives with another packet
-containing a CONNECTION_CLOSE frame.  To minimize the state that an endpoint
-maintains for a closing connection, endpoints MAY send the exact same packet.
-However, endpoints SHOULD limit the number of packets they generate containing a
-CONNECTION_CLOSE frame.  For instance, an endpoint could progressively increase
-the number of packets that it receives before sending additional packets or
-increase the time between packets.
+每个终端都会给对端公布自己的闲置超时。终端
+在收到并成功处理其对端发送的包后重置自己维护的
+任何计时器。当收到一个包且没有发送其他ACK诱发包时，
+发送任何不包含ACK或PADDING
+（一个ACK诱发包，参见{{QUIC-RECOVERY}}）
+帧的包也会重置计时器。发送包的时候重置计时器
+能确保在启动新活动时连接不会过早的超时。
 
-Note:
+闲置超时的值可以是不对等的。终端公布的值
+仅仅时用来确定此终端上的连接是否
+处于活动状态。终端在对端闲置超时周期快要结束的时候发送
+的包可能会因为对端在收到包之前就进入释放状态而被丢弃。
+如果对端可能在一个探测超时（PTO，参见{{QUIC-RECOVERY}}）
+时间内超时，建议在发送任何不能安全重发的数据之前
+测试连接的活动状态。
 
-: Allowing retransmission of a closing packet contradicts other advice in this
-  document that recommends the creation of new packet numbers for every packet.
-  Sending new packet numbers is primarily of advantage to loss recovery and
-  congestion control, which are not expected to be relevant for a closed
-  connection.  Retransmitting the final packet requires less state.
 
-New packets from unverified addresses could be used to create an amplification
-attack (see {{address-validation}}).  To avoid this, endpoints MUST either limit
-transmission of CONNECTION_CLOSE frames to validated addresses or drop packets
-without response if the response would be more than three times larger than the
-received packet.
+## 立即关闭（Immediate Close）
 
-After receiving a CONNECTION_CLOSE frame, endpoints enter the draining state.
-An endpoint that receives a CONNECTION_CLOSE frame MAY send a single packet
-containing a CONNECTION_CLOSE frame before entering the draining state, using a
-CONNECTION_CLOSE frame and a NO_ERROR code if appropriate.  An endpoint MUST NOT
-send further packets, which could result in a constant exchange of
-CONNECTION_CLOSE frames until the closing period on either peer ended.
+终端可以发送CONNECTIN_CLOSE帧（{{frame-connection-close}}）来
+马上立即终止连接。CONNECTION_CLOSE帧会让
+所有的流马上被关闭；可以假定开放流都被
+隐式重置。
 
-An immediate close can be used after an application protocol has arranged to
-close a connection.  This might be after the application protocols negotiates a
-graceful shutdown.  The application protocol exchanges whatever messages that
-are needed to cause both endpoints to agree to close the connection, after which
-the application requests that the connection be closed.  The application
-protocol can use an CONNECTION_CLOSE frame with an appropriate error code to
-signal closure.
+终端在发送CONNECTION_CLOSE帧之后马上进入关闭中状态。
+在关闭中周期中，发送CONNECTION_CLOSE的终端
+**应该**在答复任何接收到的包的同时发送额外的包含
+CONNECTION_CLOSE帧的包。为了最小化
+终端在关闭中维护的状态，终端**可能**重复发送完全一样的包。
+但是终端**应该**限制包含CONNECTION_CLOSE帧的额外包的数量。
+例如，端点可以逐渐增加两次额外包之间
+收到包的数量或者两个额外包
+之间的时间间隔。
 
-If the connection has been successfully established, endpoints MUST send any
-CONNECTION_CLOSE frames in a 1-RTT packet.  Prior to connection establishment a
-peer might not have 1-RTT keys, so endpoints SHOULD send CONNECTION_CLOSE frames
-in a Handshake packet.  If the endpoint does not have Handshake keys, or it is
-not certain that the peer has Handshake keys, it MAY send CONNECTION_CLOSE
-frames in an Initial packet.  If multiple packets are sent, they can be
-coalesced (see {{packet-coalesce}}) to facilitate retransmission.
+注意：
+
+: 允许重传关闭包和本文档中为每个包创建
+  新包号码的建议相矛盾。
+  发送新的包号码主要有利于丢失恢复
+  和用赛控制，这与关闭的连接不相关。
+  重传最终包所需要的状态很较少。*（没怎么看懂）*
+
+从未验证的地址发来的包可能是用来创建
+放大攻击的（参见{{address-validation}}）。为了避免此攻击，终端**必须**选择
+对发送到经验证地址的CONNECTION_CLOSE帧做限制，
+或者不答复直接丢弃答复包的大小比接收到的数据大小
+大三倍的包。
+
+终端在收到CONNECTION_CLOSE帧以后进入释放中状态。
+收到CONNECTION_CLOSE的终端**可能**再进入
+释放中状态之前发送一个包含CONNECTION_CLOSE的单个包，如果需要
+可以使用CONNECTION_CLOSE帧和NO_ERROR码。终端**必须不**
+发送更多的包，因为这会导致在一方结束周期结束之前双方
+不停的交换CONNECTION_CLOSE帧。
+
+在应用协议安排关闭连接之后可以使用立即关闭。
+这可能是在应用协议正常关闭之后。
+两端的应用协议进行了充分的协商并、
+都同意关闭连接，之后
+应用程序请求关闭连接。应用协议
+可以使用带有适当错误码的CONNECTION_CLOSE帧
+来指示关闭。
+
+连接成功建立后，终端**必须**在1-RTT包中发送
+CONNECTION_CLOSE帧。在连接简历之前
+对端可能没有1-RTT密钥，因此终端**应该**在
+握手（Handshake）数据包中发送CONNECTION_CLOSE帧。如果终端没有握手密钥，或者
+不确定对等设备是否有握手密钥，它**可以**在初始化（Initial）包
+中发送CONNECTION_CLOSE帧。如果发送多个数据包，可以
+合并（参见{{packet-coalesce}}）以便重传。
 
 
 ## Stateless Reset {#stateless-reset}
