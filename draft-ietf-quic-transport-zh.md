@@ -3635,11 +3635,11 @@ Like Initial packets (see {{discard-initial}}), data in CRYPTO frames at the
 Handshake encryption level is discarded - and no longer retransmitted - when
 Handshake protection keys are discarded.
 
-### Retry Packet {#packet-retry}
+### 重试包(Retry Packet) {#packet-retry}
 
-A Retry packet uses a long packet header with a type value of 0x3. It carries
-an address validation token created by the server. It is used by a server that
-wishes to perform a stateless retry (see {{validate-handshake}}).
+重试数据包使用类型值为0x3的长数据包报头。它携带由服务器创建的地址验证令牌。它由希望
+执行无状态重试的服务器使用(请参见{{validate-handshake}})。
+
 
 ~~~
  0                   1                   2                   3
@@ -3647,105 +3647,80 @@ wishes to perform a stateless retry (see {{validate-handshake}}).
 +-+-+-+-+-+-+-+-+
 |1|1| 3 | ODCIL |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                         版本(Version) (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|  目标连接ID（Destination Connection ID） (0/32..144)         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|      源连接ID（Source Connection ID） (0/32..144)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|          Original Destination Connection ID (0/32..144)     ...
+| 原始目标连接ID（Original Destination Connection ID） (0/32..144)     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Retry Token (*)                      ...
+|            重试令牌（Retry Token） (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 {: #retry-format title="Retry Packet"}
 
-A Retry packet (shown in {{retry-format}}) does not contain any protected
-fields.  In addition to the long header, it contains these additional fields:
+重试数据包(如{{retry-format}}所示)不包含任何受保护的字段。除了长标头之外，它还包
+含以下附加字段：
 
 ODCIL:
 
-: The four least-significant bits of the first byte of a Retry packet are not
-  protected as they are for other packets with the long header, because Retry
-  packets don't contain a protected payload.  These bits instead encode the
-  length of the Original Destination Connection ID field.  The length uses the
-  same encoding as the DCIL and SCIL fields.
+: 由于重试数据包不包含受保护的有效负载，因此与其他具有长头的数据包一样，重试数据包第
+  一个字节的四个最低有效位不受保护。这些位改为对原始目标连接ID字段的长度进行编码。长
+  度使用与DCIL和SCIL字段相同的编码。
 
-Original Destination Connection ID:
+原始目标连接ID:
 
-: The Original Destination Connection ID contains the value of the Destination
-  Connection ID from the Initial packet that this Retry is in response to. The
-  length of this field is given in ODCIL.
+: 原始目标连接ID包含此重试响应的初始数据包中的目标连接ID的值。此字段的长度在ODCIL中
+  给出。
 
-Retry Token:
+重试令牌:
 
-: An opaque token that the server can use to validate the client's address.
+: 服务器可用于验证客户端地址的不透明令牌。
 
 <!-- Break this stuff up a little, maybe into "Sending Retry" and "Processing
 Retry" sections. -->
 
-The server populates the Destination Connection ID with the connection ID that
-the client included in the Source Connection ID of the Initial packet.
+服务器用客户端在初始数据包的源连接ID中包含的连接ID填充目标连接ID。
 
-The server includes a connection ID of its choice in the Source Connection ID
-field.  This value MUST not be equal to the Destination Connection ID field of
-the packet sent by the client.  The client MUST use this connection ID in the
-Destination Connection ID of subsequent packets that it sends.
+服务器在源连接ID字段中包含其选择的连接ID。此值**不能**等于客户端发送的数据包的目标连接ID
+字段。客户端**必须**在其发送的后续数据包的目标连接ID中使用此连接ID。
 
-A server MAY send Retry packets in response to Initial and 0-RTT packets.  A
-server can either discard or buffer 0-RTT packets that it receives.  A server
-can send multiple Retry packets as it receives Initial or 0-RTT packets.  A
-server MUST NOT send more than one Retry packet in response to a single UDP
-datagram.
+服务器**可以**发送重试数据包以响应初始数据包和0-RTT数据包。服务器可以丢弃或缓冲它接收的
+0-RTT数据包。当服务器接收到初始或0-RTT数据包时，可以发送多个重试数据包。服务器**不能**
+发送多个重试数据包以响应单个UDP数据报。
 
-A client MUST accept and process at most one Retry packet for each connection
-attempt.  After the client has received and processed an Initial or Retry packet
-from the server, it MUST discard any subsequent Retry packets that it receives.
+对于每次连接尝试，客户端**必须**最多只能接受并处理一个重试数据包。客户端接收并处理来自服
+务器的初始或重试数据包后，**必须**丢弃其接收的任何后续重试数据包。
 
-Clients MUST discard Retry packets that contain an Original Destination
-Connection ID field that does not match the Destination Connection ID from its
-Initial packet.  This prevents an off-path attacker from injecting a Retry
-packet.
+客户端**必须**丢弃包含原始目标连接ID字段与初始数据包的目标连接ID不匹配的重试数据包。这可
+防止非路径攻击者注入重试数据包。
 
-The client responds to a Retry packet with an Initial packet that includes the
-provided Retry Token to continue connection establishment.
+客户端用包含提供的重试令牌的初始数据包响应重试数据包，以继续建立连接。
 
-A client sets the Destination Connection ID field of this Initial packet to the
-value from the Source Connection ID in the Retry packet. Changing Destination
-Connection ID also results in a change to the keys used to protect the Initial
-packet. It also sets the Token field to the token provided in the Retry. The
-client MUST NOT change the Source Connection ID because the server could include
-the connection ID as part of its token validation logic (see
-{{token-integrity}}).
+客户端将此初始数据包的目标连接ID字段设置为重试数据包中源连接ID的值。更改目标连接ID也会导
+致用于保护初始数据包的密钥发生更改。它还将令牌字段设置为重试中提供的令牌。客户端**禁止**
+更改源连接ID，因为服务器可以将连接ID作为其令牌验证逻辑的一部分(请参见{{token-integrity}})。
 
-The next Initial packet from the client uses the connection ID and token values
-from the Retry packet (see {{negotiating-connection-ids}}).  Aside from this,
-the Initial packet sent by the client is subject to the same restrictions as the
-first Initial packet.  A client can either reuse the cryptographic handshake
-message or construct a new one at its discretion.
+来自客户端的下一个初始数据包使用来自重试数据包的连接ID和令牌值
+（请参见{{negotiating-connection-ids}}）。除此之外，客户端发送的初始数据包受与第一个初
+始数据包相同的限制。客户机既可以重用加密握手消息，也可以自行构建新的握手消息。
 
-A client MAY attempt 0-RTT after receiving a Retry packet by sending 0-RTT
-packets to the connection ID provided by the server.  A client that sends
-additional 0-RTT packets without constructing a new cryptographic handshake
-message MUST NOT reset the packet number to 0 after a Retry packet, see
-{{packet-0rtt}}.
+客户端在收到重试数据包后，**可以**通过向服务器提供的连接ID发送0-RTT数据包来尝试0-RTT。
+如果客户端发送额外的0-RTT数据包而不构造新的加密握手消息，则在重试数据包后，**禁止**将
+数据包编号重置为0，请参见{{packet-0rtt}}。
 
-A server acknowledges the use of a Retry packet for a connection using the
-original_connection_id transport parameter (see
-{{transport-parameter-definitions}}).  If the server sends a Retry packet, it
-MUST include the value of the Original Destination Connection ID field of the
-Retry packet (that is, the Destination Connection ID field from the client's
-first Initial packet) in the transport parameter.
+服务器确认使用original_connection_id传输参数对连接使用重试数据包(请参见
+{{transport-parameter-definitions}})。如果服务器发送重试数据包，则**必须**在传输参
+数中包含重试数据包的原始目标连接ID字段的值(即客户端第一个初始数据包中的目标连接ID字段)。
 
-If the client received and processed a Retry packet, it MUST validate that the
-original_connection_id transport parameter is present and correct; otherwise, it
-MUST validate that the transport parameter is absent.  A client MUST treat a
-failed validation as a connection error of type TRANSPORT_PARAMETER_ERROR.
+如果客户端接收并处理了一个重试包，它**必须**验证原original_connection_id传输参数是否存在且
+正确；否则，它**必须**验证传输参数是否缺失。客户端**必须**将失败的验证视为
+TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
-A Retry packet does not include a packet number and cannot be explicitly
-acknowledged by a client.
+重试数据包不包含数据包编号，并且无法由客户端明确确认。
 
 ## Short Header Packets {#short-header}
 
