@@ -2772,150 +2772,157 @@ Endpoints SHOULD send acknowledgments for packets containing CRYPTO frames with
 a reduced delay; see Section 6.2.1 of {{QUIC-RECOVERY}}.
 
 
-## Retransmission of Information
+## 信息重传(Retransmission of Information)
 
-QUIC packets that are determined to be lost are not retransmitted whole. The
-same applies to the frames that are contained within lost packets. Instead, the
-information that might be carried in frames is sent again in new frames as
-needed.
+确定丢失的QUIC数据包不会整包重传,
+这同样适用于丢失数据包中包含的帧。
+但是，帧中携带的信息根据需要可以在新帧中再次发送。
 
-New frames and packets are used to carry information that is determined to have
-been lost.  In general, information is sent again when a packet containing that
-information is determined to be lost and sending ceases when a packet
-containing that information is acknowledged.
+新帧和包用于携带确定已丢失的信息。
+通常，当确认包含该信息的包丢失并且此包发送终止时，
+会再次发送该信息。
 
-* Data sent in CRYPTO frames is retransmitted according to the rules in
-  {{QUIC-RECOVERY}}, until all data has been acknowledged.  Data in CRYPTO
-  frames for Initial and Handshake packets is discarded when keys for the
-  corresponding encryption level are discarded.
+* 根据{{QUIC-RECOVERY}}中的规则重新发送CRYPTO帧中发送的数据，
+直到所有数据都被确认。
+当相应加密级别的密钥已被丢弃时，
+丢弃用于初始化和握手包中CRYPTO帧的数据。
 
-* Application data sent in STREAM frames is retransmitted in new STREAM frames
-  unless the endpoint has sent a RESET_STREAM for that stream.  Once an endpoint
-  sends a RESET_STREAM frame, no further STREAM frames are needed.
+* 在STREAM帧中发送的应用数据在新的STREAM帧中重传，
+除非终端已为该流发送RESET_STREAM。
+一旦终端发送了RESET_STREAM帧，
+该流此后的STREAM帧都不需要了。
 
-* The most recent set of acknowledgments are sent in ACK frames.  An ACK frame
-  SHOULD contain all unacknowledged acknowledgments, as described in
-  {{sending-ack-frames}}.
+* 最新的确认集以ACK帧发送。
+ACK帧**应该**包含所有未确认的确认，
+如{{sending-ack-frames}}中所述。
 
-* Cancellation of stream transmission, as carried in a RESET_STREAM frame, is
-  sent until acknowledged or until all stream data is acknowledged by the peer
-  (that is, either the "Reset Recvd" or "Data Recvd" state is reached on the
-  sending part of the stream). The content of a RESET_STREAM frame MUST NOT
-  change when it is sent again.
+* RESET_STREAM帧中有流传输取消请求时流仍将持续发送，
+直到取消被确认或者所有流数据被对端确认
+(流头部的"Reset Recvd"或"Data Recvd"状态信息到达即可)。
+RESET_STREAM帧中的内容在重发时**禁止**更改。
 
-* Similarly, a request to cancel stream transmission, as encoded in a
-  STOP_SENDING frame, is sent until the receiving part of the stream enters
-  either a "Data Recvd" or "Reset Recvd" state, see
-  {{solicited-state-transitions}}.
+* 类似地，取消流传输的请求
+（同STOP_SENDING帧中编码的那样）
+将持续发送，
+直到流的接收部分进入“Data Recvd”或“Reset Recvd”状态。
+参考{{solicited-state-transitions}}.
 
-* Connection close signals, including packets that contain CONNECTION_CLOSE
-  frames, are not sent again when packet loss is detected, but as described in
-  {{termination}}.
+* 连接关闭信号（和包含CONNECTION_CLOSE帧的数据包）
+在检测到数据包丢失时，不会再次发送,
+而是参考{{termination}}响应。
 
-* The current connection maximum data is sent in MAX_DATA frames. An updated
-  value is sent in a MAX_DATA frame if the packet containing the most recently
-  sent MAX_DATA frame is declared lost, or when the endpoint decides to update
-  the limit.  Care is necessary to avoid sending this frame too often as the
-  limit can increase frequently and cause an unnecessarily large number of
-  MAX_DATA frames to be sent.
+* 当前连接最大数据以MAX_DATA帧发送。
+如果包含最近发送的MAX_DATA帧的数据包被声明丢失，
+或者端点决定更新限制，则在MAX_DATA帧中发送更新的值。
+需要注意避免频繁发送此帧，
+因为这样额度可能会频繁增大
+并导致发送不必要的大量MAX_DATA帧。
 
-* The current maximum stream data offset is sent in MAX_STREAM_DATA frames.
-  Like MAX_DATA, an updated value is sent when the packet containing the most
-  recent MAX_STREAM_DATA frame for a stream is lost or when the limit is
-  updated, with care taken to prevent the frame from being sent too often. An
-  endpoint SHOULD stop sending MAX_STREAM_DATA frames when the receiving part of
-  the stream enters a "Size Known" state.
+* 当前最大流数据偏移量在MAX_STREAM_DATA帧中发送。
+与MAX_DATA类似，
+当包含流的最新MAX_STREAM_DATA帧的数据包丢失或更新限制时，
+会发送更新的值，同时注意防止帧过于频繁地发送。
+当流的接收部分进入“Size Known”状态时，
+终端**应该**停止发送MAX_STREAM_DATA帧。
 
-* The limit on streams of a given type is sent in MAX_STREAMS frames.  Like
-  MAX_DATA, an updated value is sent when a packet containing the most recent
-  MAX_STREAMS for a stream type frame is declared lost or when the limit is
-  updated, with care taken to prevent the frame from being sent too often.
+* 给定类型的流的额度在MAX_STREAMS帧中发送。
+与MAX_DATA类似，当包含流类型帧的最新
+MAX_STREAMS的数据包被声明丢失时或额度被更新时，
+会发送更新的值，同时注意防止该帧过于频繁地发送。
 
-* Blocked signals are carried in DATA_BLOCKED, STREAM_DATA_BLOCKED, and
-  STREAMS_BLOCKED frames. DATA_BLOCKED frames have connection scope,
-  STREAM_DATA_BLOCKED frames have stream scope, and STREAMS_BLOCKED frames are
-  scoped to a specific stream type. New frames are sent if packets containing
-  the most recent frame for a scope is lost, but only while the endpoint is
-  blocked on the corresponding limit. These frames always include the limit that
-  is causing blocking at the time that they are transmitted.
+* 阻塞的信号在DATA_BLOCKED，
+STREAM_DATA_BLOCKED和STREAMS_BLOCKED帧中传送。
+DATA_BLOCKED帧含有连接范围，
+STREAM_DATA_BLOCKED帧含有流范围，
+STREAMS_BLOCKED帧限定特定流类型。
+如果包含范围的最新帧的数据包丢失，则会发送新帧，
+但仅在终端在相应限制上被阻止时才会发送。
+这些帧始终包含在被传输过程中会导致阻塞的限制值。
 
-* A liveness or path validation check using PATH_CHALLENGE frames is sent
-  periodically until a matching PATH_RESPONSE frame is received or until there
-  is no remaining need for liveness or path validation checking. PATH_CHALLENGE
-  frames include a different payload each time they are sent.
+* 使用PATH_CHALLENGE帧的存活或
+路径可用的检查结果会定期发送，
+直到收到匹配的PATH_RESPONSE帧，
+或者直到不再需要存活或路径可用的检查。
+PATH_CHALLENGE帧每次发送时都包含不同的有效载荷。
 
-* Responses to path validation using PATH_RESPONSE frames are sent just once.
-  A new PATH_CHALLENGE frame will be sent if another PATH_RESPONSE frame is
-  needed.
+* 使用PATH RESPONSE帧的路径验证响应仅发送一次。
+如果需要另一个PATH_RESPONSE帧，
+将发送新的PATH CHALLENGE帧。
 
-* New connection IDs are sent in NEW_CONNECTION_ID frames and retransmitted if
-  the packet containing them is lost.  Retransmissions of this frame carry the
-  same sequence number value.  Likewise, retired connection IDs are sent in
-  RETIRE_CONNECTION_ID frames and retransmitted if the packet containing them is
-  lost.
+* 新的连接ID在NEW_CONNECTION_ID帧中发送，
+如果包含它们的数据包丢失则重新传输该包。
+该帧的重传具有相同的序列号值。
+同样，退出的连接ID在RETIRE_CONNECTION_ID帧中发送，
+如果包含它们的数据包丢失则重新传输该包。
 
-* PING and PADDING frames contain no information, so lost PING or PADDING frames
-  do not require repair.
+* PING和PADDING帧不包含任何信息，
+因此丢失的PING或PADDING帧不需要修复。
 
-Endpoints SHOULD prioritize retransmission of data over sending new data, unless
-priorities specified by the application indicate otherwise (see
-{{stream-prioritization}}).
+除非应用程序指定的优先级另有说明，
+否则终端**应该**优先通过发送新数据重新传输数据(参考
+{{stream-prioritization}})。
 
-Even though a sender is encouraged to assemble frames containing up-to-date
-information every time it sends a packet, it is not forbidden to retransmit
-copies of frames from lost packets.  A receiver MUST accept packets containing
-an outdated frame, such as a MAX_DATA frame carrying a smaller maximum data than
-one found in an older packet.
+即使鼓励发送方在每次发送数据包时
+组装包含最新信息的帧，
+也不禁止丢包重传发送旧帧的副本。
+接收方**必须**接受包含过时帧的数据包，
+例如包含最大数据量比当前旧数据包中的
+最大数据量小的MAX_DATA帧。
 
-Upon detecting losses, a sender MUST take appropriate congestion control action.
-The details of loss detection and congestion control are described in
-{{QUIC-RECOVERY}}.
-
-
-## Explicit Congestion Notification {#ecn}
-
-QUIC endpoints can use Explicit Congestion Notification (ECN) {{!RFC3168}} to
-detect and respond to network congestion.  ECN allows a network node to indicate
-congestion in the network by setting a codepoint in the IP header of a packet
-instead of dropping it.  Endpoints react to congestion by reducing their sending
-rate in response, as described in {{QUIC-RECOVERY}}.
-
-To use ECN, QUIC endpoints first determine whether a path supports ECN marking
-and the peer is able to access the ECN codepoint in the IP header.  A network
-path does not support ECN if ECN marked packets get dropped or ECN markings are
-rewritten on the path. An endpoint verifies the path, both during connection
-establishment and when migrating to a new path (see {{migration}}).
+在检测到丢包时，发送方**必须**采取适当的拥塞控制措施。
+损失检测和拥塞控制的细节在{{QUIC-RECOVERY}}中描述。
 
 
-### ECN Counts
+## 显式拥塞通知(Explicit Congestion Notification) {#ecn}
 
-On receiving a QUIC packet with an ECT or CE codepoint, an ECN-enabled endpoint
-that can access the ECN codepoints from the enclosing IP packet increases the
-corresponding ECT(0), ECT(1), or CE count, and includes these counts in
-subsequent ACK frames (see {{processing-and-ack}} and {{frame-ack}}).  Note
-that this requires being able to read the ECN codepoints from the enclosing IP
-packet, which is not possible on all platforms.
+QUIC端点可以使用显式拥塞通知
+（ECN）{{!RFC3168}}来检测和响应网络拥塞。
+ECN允许网络节点通过在分组的IP报头中
+设置码点而不是丢弃它来指示网络中的拥塞。
+如{{QUIC-RECOVERY}}中所述，
+端点通过降低响应的发送速率来对拥塞作出反应。
 
-A packet detected by a receiver as a duplicate does not affect the receiver's
-local ECN codepoint counts; see ({{security-ecn}}) for relevant security
-concerns.
+要使用ECN，QUIC端点首先确定路径是否支持ECN标记，
+并且对端能够访问IP标头中的ECN码点。
+如果ECN标记的数据包被丢弃或ECN标记在路径上被重写，
+则网络路径不支持ECN。
+端点在连接建立期间和迁移到
+新路径时会验证路径(参考{{migration}})。
 
-If an endpoint receives a QUIC packet without an ECT or CE codepoint in the IP
-packet header, it responds per {{processing-and-ack}} with an ACK frame without
-increasing any ECN counts.  If an endpoint does not implement ECN
-support or does not have access to received ECN codepoints, it does not increase
-ECN counts.
 
-Coalesced packets (see {{packet-coalesce}}) mean that several packets can share
-the same IP header.  The ECN counter for the ECN codepoint received in the
-associated IP header are incremented once for each QUIC packet, not per
-enclosing IP packet or UDP datagram.
+### 显式拥塞计数（ECN Counts）
 
-Each packet number space maintains separate acknowledgement state and separate
-ECN counts.  For example, if one each of an Initial, 0-RTT, Handshake, and 1-RTT
-QUIC packet are coalesced, the corresponding counts for the Initial and
-Handshake packet number space will be incremented by one and the counts for the
-1-RTT packet number space will be increased by two.
+在接收到具有ECT或CE代码点的QUIC数据包时，
+可以从封闭IP数据包访问ECN代码点的启用
+ECN的端点会增加相应的ECT（0），
+ECT（1）或CE计数，并在随后包含这些计数
+ACK帧（见{{processing-and-ack}}和{{frame-ack}}）。
+请注意，这需要能够从封闭的IP数据包中读取ECN代码点，
+这在所有平台上都是不可能的。
+
+由接收方检测为重复的数据包不会
+影响接收方的本地ECN代码点计数。
+有关上述动作的安全问题，请参阅({{security-ecn}})。
+
+如果终端在IP数据包报头中收到
+没有ECT或CE代码点的QUIC数据包，
+它将根据{{processing-and-ack}}的响应，
+使用ACK帧而不增加任何ECN计数。
+如果终端未实现ECN支持或无法访问收到的ECN码点，
+则不会增加ECN计数。
+
+合并的数据包（参见{{packet-coalesce}}）
+意味着几个数据包可以共享相同的IP报头。
+在相关IP报头中接收的ECN码点的ECN计数器
+对于每个QUIC包递增一次，
+而不是每个封闭的IP包或UDP数据报。
+
+每个数据包编号空间都保持单独的
+确认状态和单独的ECN计数。
+例如，如果初始化，0-RTT，
+握手和1-RTT QUIC包每个各一个被合并，
+则初始和握手包的编号空间的相应计数将递增1，
+同时1-RTT包的编号空间计数加2。
 
 
 ### ECN Verification {#ecn-verification}
