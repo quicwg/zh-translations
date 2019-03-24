@@ -3782,8 +3782,9 @@ failed validation as a connection error of type TRANSPORT_PARAMETER_ERROR.
 A Retry packet does not include a packet number and cannot be explicitly
 acknowledged by a client.
 
-## Short Header Packets {#short-header}
+## 短包头的包（Short Header Packets） {#short-header}
 
+此版本的QUIC协议定义了使用短数据包头的单个包类型。
 This version of QUIC defines a single packet type which uses the
 short packet header.
 
@@ -3802,76 +3803,79 @@ short packet header.
 ~~~~~
 {: #fig-short-header title="Short Header Packet Format"}
 
-The short header can be used after the version and 1-RTT keys are negotiated.
-Packets that use the short header contain the following fields:
+短包头能在版本协商和1-RTT秘钥协商包后面的
+包上使用。使用短包头的包中包含了以下的这些字段：
 
-Header Form:
+头部组成:
 
-: The most significant bit (0x80) of byte 0 is set to 0 for the short header.
+: 短包头包的第0字节中的最高有效位(0x80)设置为0
 
-Fixed Bit:
+固定位:
 
-: The next bit (0x40) of byte 0 is set to 1.  Packets containing a zero value
-  for this bit are not valid packets in this version and MUST be discarded.
+: 第0字节的下一位(0x40)设置为1。
+在当前版本的协议中规定了，该位被设置为0的
+包不是有效包**必须**丢弃。
 
-Spin Bit (S):
+自旋位 (S):
 
-: The sixth bit (0x20) of byte 0 is the Latency Spin Bit, set as described in
-  {{!SPIN=I-D.ietf-quic-spin-exp}}.
+: 第一个字节的第六位(0x20)是延迟自旋位，
+该位的取值参考{{!SPIN=I-D.ietf-quic-spin-exp}}。
 
-Reserved Bits (R):
+保留位 (R):
 
-: The next two bits (those with a mask of 0x18) of byte 0 are reserved.  These
-  bits are protected using header protection (see Section 5.4 of
-  {{QUIC-TLS}}).  The value included prior to protection MUST be set to 0.  An
-  endpoint MUST treat receipt of a packet that has a non-zero value for these
-  bits, after removing both packet and header protection, as a connection error
-  of type PROTOCOL_VIOLATION. Discarding such a packet after only removing
-  header protection can expose the endpoint to attacks (see Section 9.3 of
-  {{QUIC-TLS}}).
+: 第0个字节的后面两个位(掩码为0x18的位)将被保留。
+这些位会使用包头保护进行保护(请参阅第5.4节{{QUIC-TLS}})。
+在添加保护之前的值**必须**设置为0。终端在移除
+接收到的包的包和头部保护后，**必须**将
+保留位具有非零值的包视
+为PROTOCOL_VIOLATION类型的连接错误。
+在仅移除包头保护后就丢弃这样的包可能会使
+终端受到攻击。(参考9.3节关于{{QUIC-TLS}})。
 
-Key Phase (K):
+秘钥段 (K):
 
-: The next bit (0x04) of byte 0 indicates the key phase, which allows a
-  recipient of a packet to identify the packet protection keys that are used to
-  protect the packet.  See {{QUIC-TLS}} for details.  This bit is protected
-  using header protection (see Section 5.4 of {{QUIC-TLS}}).
-
-Packet Number Length (P):
-
-: The least significant two bits (those with a mask of 0x03) of byte 0 contain
-  the length of the packet number, encoded as an unsigned, two-bit integer that
-  is one less than the length of the packet number field in bytes.  That is, the
-  length of the packet number field is the value of this field, plus one.  These
-  bits are protected using header protection (see Section 5.4 of {{QUIC-TLS}}).
-
-Destination Connection ID:
-
-: The Destination Connection ID is a connection ID that is chosen by the
-  intended recipient of the packet.  See {{connection-id}} for more details.
-
-Packet Number:
-
-: The packet number field is 1 to 4 bytes long. The packet number has
-  confidentiality protection separate from packet protection, as described in
-  Section 5.4 of {{QUIC-TLS}}. The length of the packet number field is encoded
-  in Packet Number Length field. See {{packet-encoding}} for details.
-
-Protected Payload:
-
-: Packets with a short header always include a 1-RTT protected payload.
-
-The header form bit and the connection ID field of a short header packet are
-version-independent.  The remaining fields are specific to the selected QUIC
-version.  See {{QUIC-INVARIANTS}} for details on how packets from different
-versions of QUIC are interpreted.
+: 第0字节的下一位(0x04)用于指示秘钥段，
+这一位可以使包的接受者识别用于保护包的包保护秘钥。
+详情请阅{{QUIC-TLS}}。该位处于包头保护之下
+（参考5.4节关于{{QUIC-TLS}})。
 
 
-# Transport Parameter Encoding {#transport-parameter-encoding}
+包编号长度 (P):
 
-The format of the transport parameters is the TransportParameters struct from
-{{figure-transport-parameters}}.  This is described using the presentation
-language from Section 3 of {{!TLS13=RFC8446}}.
+: 第0字节的最低有效两位(掩码为0x03)放置了包编号的长度，
+包编号的长度被编码为两位无符号整型，该整型小于
+包编号字段的长度(以字节为单位)。
+也就是说，包编号字段的长度是该字段的值加1。
+这些位处于包头保护之下(请参阅第5.4节{{QUIC-TLS}})。
+
+目标连接ID:
+
+: 目标连接ID是包的目标接收方选择的连接ID。
+详细信息请参见{{connection-id}}。
+
+包编号:
+
+: 包编号字段的长度为1到4个字节。
+包编号具有独立于包保护的机密性保护，
+如{{QUIC-TLS}}第5.4节所述。
+包编号字段的长度编码在包编号长度字段中。
+详细信息请参见{{packet-encoding}}。
+
+被保护的负载:
+
+: 短包头的包始终包含受1-RTT保护的有效负载。
+
+短包头包的包头组成位和连接ID字段的
+取值与协议版本无关。其余字段特定于
+选定的QUIC版本。关于如何解释
+来自不同版本QUIC的包的详细信息，请参见{{QUIC-INVARIANTS}}。
+
+
+# 传输参数编码（Transport Parameter Encoding） {#transport-parameter-encoding}
+
+传输参数的格式是{{figure-transport-parameters}}中的
+TransportParameters结构。
+{{!TLS13=RFC8446}}第3节中使用演示语言对此进行了描述。
 
 ~~~
    enum {
@@ -3901,12 +3905,12 @@ language from Section 3 of {{!TLS13=RFC8446}}.
 ~~~
 {: #figure-transport-parameters title="Definition of TransportParameters"}
 
-The `extension_data` field of the quic_transport_parameters extension defined in
-{{QUIC-TLS}} contains a TransportParameters value.  TLS encoding rules are
-therefore used to describe the encoding of transport parameters.
+在{{QUIC-TLS}}中定义的quic_transport_parameters
+扩展的“EXTENSION_DATA”字段包含TransportParameters值。
+因此，TLS编码规则被用来描述传输参数的编码。
 
-QUIC encodes transport parameters into a sequence of bytes, which are then
-included in the cryptographic handshake.
+QUIC将传输参数编码为字节序列，然后
+将其放置在加密握手包中。
 
 
 ## Transport Parameter Definitions {#transport-parameter-definitions}
