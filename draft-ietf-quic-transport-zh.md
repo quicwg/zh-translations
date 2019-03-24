@@ -3072,126 +3072,127 @@ PMTU probe packets, on the affected path.  An endpoint MAY terminate the
 connection if an alternative path cannot be found.
 
 
-## ICMP Packet Too Big Messages {#icmp-pmtud}
+## ICMP 包太大消息(ICMP Packet Too Big Messages) {#icmp-pmtud}
 
-PMTU discovery {{!RFC1191}} {{!RFC8201}} relies on reception of ICMP messages
-(e.g., IPv6 Packet Too Big messages) that indicate when a packet is dropped
-because it is larger than the local router MTU. DPLPMTUD can also optionally use
-these messages.  This use of ICMP messages is potentially vulnerable to off-path
-attacks that successfully guess the addresses used on the path and reduce the
-PMTU to a bandwidth-inefficient value.
+PMTU发现{{!RFC1191}} {{!RFC8201}} 依赖于
+暗示因为比本地路由MTU大丢包的 IMCP 消息的接
+收。(例如: IPv6 包太大消息)
+DPLPMTUD 也可选的使用这些信息。
+ICMP 消息的这种应用可能容易受到路境外攻击，
+这些攻击成功猜测到了路径上使用的地址，
+并且使 PMTU 降低到带宽低效值。
 
-An endpoint MUST ignore an ICMP message that claims the PMTU has decreased below
-1280 bytes.
+终端**必须**无视要求 PMTU 降低到
+1280 字节 以下的 ICMP 消息。
 
-The requirements for generating ICMP ({{?RFC1812}}, {{?RFC4443}}) state that the
-quoted packet should contain as much of the original packet as possible without
-exceeding the minimum MTU for the IP version.  The size of the quoted packet can
-actually be smaller, or the information unintelligible, as described in Section
-1.1 of {{!DPLPMTUD}}.
+生成 ICMP({{?RFC1812}}, {{?RFC4443}}) 的要求说明
+所引用包应该在不超过对于这个 IP 版本的最小 MTU 的情况下
+尽可能多的包含原包。
+所引用包的大小实际上可以更小，
+或者是不可理解的信息，如 {{!DPLPMTUD}} 1.1章节中的描述。
 
-QUIC endpoints SHOULD validate ICMP messages to protect from off-path injection
-as specified in {{!RFC8201}} and Section 5.2 of {{!RFC8085}}. This validation
-SHOULD use the quoted packet supplied in the payload of an ICMP message to
-associate the message with a corresponding transport connection {{!DPLPMTUD}}.
+QUIC 终端**应该**校验 ICMP 消息来防止在
+{{!RFC8201}}以及{{!RFC8085}}中5.2章节
+中指出的路境外注入。
+这个验证**应该**使用在 ICMP 消息载荷中提供的
+所引用包来联系这条消息与相对于的传输连接 {{!DPLPMTUD}}。
 
-ICMP message validation MUST include matching IP addresses and UDP ports
-{{!RFC8085}} and, when possible, connection IDs to an active QUIC session.
+ICMP 消息校验**必须**包括匹配 IP 地址和
+UDP 端口{{!RFC8085}}，可能的话，
+还要包括对应一个活动的QUIC会话的连接 ID。
 
-Further validation can also be provided:
+可以提供如下更多的校验：
 
-* An IPv4 endpoint could set the Don't Fragment (DF) bit on a small proportion
-  of packets, so that most invalid ICMP messages arrive when there are no DF
-  packets outstanding, and can therefore be identified as spurious.
+* IPv4 终端可能在小比例的包中设置禁止分片(DF)位，
+以便当没有DF的包未处理时，
+若大部分的不可用的 ICMP 消息抵达了，
+然后这些包因此可能被鉴定为可疑的。
 
-* An endpoint could store additional information from the IP or UDP headers to
-  use for validation (for example, the IP ID or UDP checksum).
+* 终端可以存储 IP 或者 UDP 包头中的附加信息用于
+校验(例如，IP IP 或者 UDP 校验和)。
 
-The endpoint SHOULD ignore all ICMP messages that fail validation.
+终端**应该**无视所有的校验不通过的 ICMP 消息。
 
-An endpoint MUST NOT increase PMTU based on ICMP messages.  Any reduction in the
-QUIC maximum packet size MAY be provisional until QUIC's loss detection
-algorithm determines that the quoted packet has actually been lost.
-
-
-## Datagram Packetization Layer PMTU Discovery
-
-Section 6.4 of {{!DPLPMTUD}} provides considerations for implementing Datagram
-Packetization Layer PMTUD (DPLPMTUD) with QUIC.
-
-When implementing the algorithm in Section 5.3 of {{!DPLPMTUD}}, the initial
-value of BASE_PMTU SHOULD be consistent with the minimum QUIC packet size (1232
-bytes for IPv6 and 1252 bytes for IPv4).
-
-PING and PADDING frames can be used to generate PMTU probe packets. These frames
-might not be retransmitted if a probe packet containing them is lost.  However,
-these frames do consume congestion window, which could delay the transmission of
-subsequent application data.
-
-A PING frame can be included in a PMTU probe to ensure that a valid probe is
-acknowledged.
-
-The considerations for processing ICMP messages in the previous section also
-apply if these messages are used by DPLPMTUD.
+终端**禁止**基于 ICMP 消息增大 PMTU 。
+直到 QUIC 丢包检测算法确定所引用包已经丢失为止，
+任何 QUIC 最大包大小的减小都**可能**是暂时的。
 
 
-# Versions {#versions}
+## 数据包包装层 PMTU 发现(Datagram Packetization Layer PMTU Discovery)
 
-QUIC versions are identified using a 32-bit unsigned number.
+{{!DPLPMTUD}}中 6.4 章节中提供了实现
+QUIC 数据包装层 PMTUD (DPLPMTUD)的思考。
 
-The version 0x00000000 is reserved to represent version negotiation.  This
-version of the specification is identified by the number 0x00000001.
+当实现在{{!DPLPMTUD}}中5.3章节描述的算法时候，
+BASE_PMTU的初始值**应该**和最小 QUIC 包大小一致。
+(IPv6为1232 字节而 IPv4位1252字节)
 
-Other versions of QUIC might have different properties to this version.  The
-properties of QUIC that are guaranteed to be consistent across all versions of
-the protocol are described in {{QUIC-INVARIANTS}}.
+PING 和 PADDING 帧可用于生成 PMTU 探测包。
+如果包含他们的探测包丢失，这些帧可能不会重传。
+然而，这些帧确实消费了拥塞窗口，
+这可能会延迟子流应用数据的传输。
 
-Version 0x00000001 of QUIC uses TLS as a cryptographic handshake protocol, as
-described in {{QUIC-TLS}}.
+PING帧可以被包含在一个 PMTU 探测中，
+用于确保一个可用的探测已经被确认了。
 
-Versions with the most significant 16 bits of the version number cleared are
-reserved for use in future IETF consensus documents.
+如果这些消息被 DPLPMTUD 使用，
+则在之前的章节关于处理 ICMP 消息的思考也适用。
 
-Versions that follow the pattern 0x?a?a?a?a are reserved for use in forcing
-version negotiation to be exercised.  That is, any version number where the low
-four bits of all bytes is 1010 (in binary).  A client or server MAY advertise
-support for any of these reserved versions.
 
-Reserved version numbers will probably never represent a real protocol; a client
-MAY use one of these version numbers with the expectation that the server will
-initiate version negotiation; a server MAY advertise support for one of these
-versions and can expect that clients ignore the value.
+# 版本(Versions) {#versions}
 
-\[\[RFC editor: please remove the remainder of this section before
-publication.]]
+QUIC 版本用一个32位的无符号整数标识。
 
-The version number for the final version of this specification (0x00000001), is
-reserved for the version of the protocol that is published as an RFC.
+版本 0x00000000 保留用于代表版本协商。
+这个特定的版本用 0x00000001 来标识。
 
-Version numbers used to identify IETF drafts are created by adding the draft
-number to 0xff000000.  For example, draft-ietf-quic-transport-13 would be
-identified as 0xff00000D.
+其他版本的 QUIC 可能有和此版本不同的属性。
+QUIC保证在所有协议版本中都一致的属性描述在
+{{QUIC-INVARIANTS}}中。
 
-Implementors are encouraged to register version numbers of QUIC that they are
-using for private experimentation on the GitHub wiki at
+版本 0x00000001 的 QUIC 使用 TLS 作为
+加密握手协议，如{{QUIC-TLS}}中所描述。
+
+版本号中最高16位被清除的版本将保留
+用于未来 IETF 协商一致的文档。
+
+遵循0x?a?a?a?a规律的版本保留用于将要实践的强制版本协商。
+这是说，任何所有比特中的低四位是1010(二进制)的版本号。
+客户端或者服务器**可以**建议支持这些保留的任意版本。
+
+保留的版本号可能永远不代表一个真实的协议；
+客户端**可以**在预期服务端将初始化版本协商
+的情况下使用这些中任意一个；
+服务端**可以**建议支持这些版本中的一个，
+并且预期客户端会无视这个值。
+
+\[\[RFC 编辑者: 请在发布之前删除此章节。]]
+
+此草案的最终版本号为0x00000001，
+保留此版本用于此草案作为 RFC 公布时的版本。
+
+用于标识 IETF 草案的版本号可用
+草案数字加上0xff000000得到。
+例如draft-ietf-quic-transport-13
+可能标识为 0xff00000D.
+
+实现鼓励注册用于私有实验的QUIC的版本号
+到Github wiki，地址为
 \<https://github.com/quicwg/base-drafts/wiki/QUIC-Versions\>.
 
 
+# 可变长度数字编码(Variable-Length Integer Encoding) {#integer-encoding}
 
-# Variable-Length Integer Encoding {#integer-encoding}
+QUIC 包和帧通常对非负整数使用可变长度编码。
+这种编码确保了小整数值需要更少的空间来编码。
 
-QUIC packets and frames commonly use a variable-length encoding for non-negative
-integer values.  This encoding ensures that smaller integer values need fewer
-bytes to encode.
+QUIC 可变长度整数编码保留了第一个字节的两个最高有效位，
+用于保存对整数长度取以2为底数的对数。
+整数值以网络字节顺序编码在剩余位中。
 
-The QUIC variable-length integer encoding reserves the two most significant bits
-of the first byte to encode the base 2 logarithm of the integer encoding length
-in bytes.  The integer value is encoded on the remaining bits, in network byte
-order.
-
-This means that integers are encoded on 1, 2, 4, or 8 bytes and can encode 6,
-14, 30, or 62 bit values respectively.  {{integer-summary}} summarizes the
-encoding properties.
+这意味着整数编码成了1, 2, 4或者8字节，
+对应编码了6, 14, 30或者62位的值。
+{{integer-summary}}概括了编码规则。
 
 | 2Bit | Length | Usable Bits | Range                 |
 |:-----|:-------|:------------|:----------------------|
@@ -3199,15 +3200,17 @@ encoding properties.
 | 01   | 2      | 14          | 0-16383               |
 | 10   | 4      | 30          | 0-1073741823          |
 | 11   | 8      | 62          | 0-4611686018427387903 |
-{: #integer-summary title="Summary of Integer Encodings"}
+{: #integer-summary title="编码规则概括"}
 
-For example, the eight byte sequence c2 19 7c 5e ff 14 e8 8c (in hexadecimal)
-decodes to the decimal value 151288809941952652; the four byte sequence 9d 7f 3e
-7d decodes to 494878333; the two byte sequence 7b bd decodes to 15293; and the
-single byte 25 decodes to 37 (as does the two byte sequence 40 25).
+例如，八字节序列c2 19 7c 5e ff 14 e8 8c(十六进制)
+解码为十进制值151288809941952652；
+四字节序列9d 7f 3e 7d解码为494878333;
+二字节序列7b bd解码为15293;
+单字节序列25解码为37。(同二字节序列40 25的值)
 
-Error codes ({{error-codes}}) and versions {{versions}} are described using
-integers, but do not use this encoding.
+
+错误编码({{error-codes}})和版本
+{{versions}}使用整数描述，但不使用这种编码。
 
 
 
