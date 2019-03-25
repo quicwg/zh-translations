@@ -3892,133 +3892,100 @@ QUIC encodes transport parameters into a sequence of bytes, which are then
 included in the cryptographic handshake.
 
 
-## Transport Parameter Definitions {#transport-parameter-definitions}
+## 传输参数定义(Transport Parameter Definitions) {#transport-parameter-definitions}
 
-This section details the transport parameters defined in this document.
+本节详细介绍了本文档中定义的传输参数。
 
-Many transport parameters listed here have integer values.  Those transport
-parameters that are identified as integers use a variable-length integer
-encoding (see {{integer-encoding}}) and have a default value of 0 if the
-transport parameter is absent, unless otherwise stated.
+此处列出的许多传输参数都具有整数值。除非另有说明，否则标识为整数的传输参数使用可变长度整数编码（请参阅{{integer-encoding}}），如果传输参数不存在，则默认值为0。
 
-The following transport parameters are defined:
+传输参数有以下定义：
 
 original_connection_id (0x0000):
 
-: The value of the Destination Connection ID field from the first Initial packet
-  sent by the client.  This transport parameter is only sent by a server.  A
-  server MUST include the original_connection_id transport parameter if it sent
-  a Retry packet.
+: 客户端发送的第一个Initial数据包中的Destination Connection ID字段的值。
+  此传输参数仅由服务器发送。
+  如果服务器发送了重试数据包，则**必须**包含original_connection_id传输参数。
 
 idle_timeout (0x0001):
 
-: The idle timeout is a value in milliseconds that is encoded as an integer, see
-  ({{idle-timeout}}).  If this parameter is absent or zero then the idle
-  timeout is disabled.
+: 空闲超时是以毫秒为单位的值，编码为整数, 参考({{idle-timeout}})。
+  如果此参数不存在或为零，则禁用空闲超时。
 
 stateless_reset_token (0x0002):
 
-: A stateless reset token is used in verifying a stateless reset, see
-  {{stateless-reset}}.  This parameter is a sequence of 16 bytes.  This
-  transport parameter is only sent by a server.
+: 无状态重置令牌用于验证无状态重置, 参考{{stateless-reset}}。
+  该参数是16个字节的序列。
+  此传输参数仅由服务器发送。
 
 max_packet_size (0x0003):
 
-: The maximum packet size parameter is an integer value that limits the size of
-  packets that the endpoint is willing to receive.  This indicates that packets
-  larger than this limit will be dropped.  The default for this parameter is the
-  maximum permitted UDP payload of 65527.  Values below 1200 are invalid.  This
-  limit only applies to protected packets ({{packet-protected}}).
+: 最大数据包大小参数是一个整数值，用于限制终端愿意接收的数据包的大小。
+  这表示将丢弃大于此限制的数据包。
+  此参数的默认值是UDP允许的最大有效负载65527，低于1200的值无效。
+  此限制仅适用于受保护的数据包（参考{{packet-protected}}）。
 
 initial_max_data (0x0004):
 
-: The initial maximum data parameter is an integer value that contains the
-  initial value for the maximum amount of data that can be sent on the
-  connection.  This is equivalent to sending a MAX_DATA ({{frame-max-data}}) for
-  the connection immediately after completing the handshake.
+: 初始最大数据参数是一个整数值，包含可以在连接上发送的最大数据量的初始值。
+  这相当于在完成握手后立即为连接发送MAX_DATA（{{frame-max-data}}）。
 
 initial_max_stream_data_bidi_local (0x0005):
 
-: This parameter is an integer value specifying the initial flow control limit
-  for locally-initiated bidirectional streams.  This limit applies to newly
-  created bidirectional streams opened by the endpoint that sends the transport
-  parameter.  In client transport parameters, this applies to streams with an
-  identifier with the least significant two bits set to 0x0; in server transport
-  parameters, this applies to streams with the least significant two bits set to
-  0x1.
+: 此参数是一个整数值，指定本地启动的双向流的初始流量控制限制。
+  此限制适用于由发送传输参数的终端打开的新创建的双向流。
+  在客户端传输参数中，这适用于最低有效两位设置为0x0的流;在服务器传输参数中，这适用于最低有效两位设置为0x1的流。
 
 initial_max_stream_data_bidi_remote (0x0006):
 
-: This parameter is an integer value specifying the initial flow control limit
-  for peer-initiated bidirectional streams.  This limit applies to newly created
-  bidirectional streams opened by the endpoint that receives the transport
-  parameter.  In client transport parameters, this applies to streams with an
-  identifier with the least significant two bits set to 0x1; in server transport
-  parameters, this applies to streams with the least significant two bits set to
-  0x0.
+: 此参数是一个整数值，指定对等启动的双向流的初始流控制限制。
+  此限制适用于由接收传输参数的端点打开的新创建的双向流。
+  在客户端传输参数中，这适用于最低有效两位设置为0x1的流;在服务器传输参数中，这适用于最低有效两位设置为0x0的流。
 
 initial_max_stream_data_uni (0x0007):
 
-: This parameter is an integer value specifying the initial flow control limit
-  for unidirectional streams.  This limit applies to newly created
-  unidirectional streams opened by the endpoint that receives the transport
-  parameter.  In client transport parameters, this applies to streams with an
-  identifier with the least significant two bits set to 0x3; in server transport
-  parameters, this applies to streams with the least significant two bits set to
-  0x2.
+: 此参数是一个整数值，指定单向流的初始流控制限制。
+  此限制适用于由接收传输参数的端点打开的新创建的单向流。
+  在客户端传输参数中，这适用于最低有效两位设置为0x3的流;在服务器传输参数中，这适用于最低有效两位设置为0x2的流。
 
 initial_max_streams_bidi (0x0008):
 
-: The initial maximum bidirectional streams parameter is an integer value that
-  contains the initial maximum number of bidirectional streams the peer may
-  initiate.  If this parameter is absent or zero, the peer cannot open
-  bidirectional streams until a MAX_STREAMS frame is sent.  Setting this
-  parameter is equivalent to sending a MAX_STREAMS ({{frame-max-streams}}) of
-  the corresponding type with the same value.
+: 初始最大双向流参数是整数值，其包含对端可以发起的初始最大双向流数量。
+  如果此参数不存在或为零，则在发送MAX_STREAMS帧之前，对等方无法打开双向流。
+  设置此参数等效于发送具有相同值的相应类型的MAX_STREAMS（{{frame-max-streams}}）。
 
 initial_max_streams_uni (0x0009):
 
-: The initial maximum unidirectional streams parameter is an integer value that
-  contains the initial maximum number of unidirectional streams the peer may
-  initiate.  If this parameter is absent or zero, the peer cannot open
-  unidirectional streams until a MAX_STREAMS frame is sent.  Setting this
-  parameter is equivalent to sending a MAX_STREAMS ({{frame-max-streams}}) of
-  the corresponding type with the same value.
+: 初始最大单向流参数是整数值，其包含对端可以发起的初始最大单向流数。
+  如果此参数不存在或为零，则对等方无法打开单向流，直到发送MAX_STREAMS帧为止。
+  设置此参数等效于发送具有相同值的相应类型的MAX_STREAMS（{{frame-max-streams}}）。
 
 ack_delay_exponent (0x000a):
 
-: The ACK delay exponent is an integer value indicating an
-  exponent used to decode the ACK Delay field in the ACK frame ({{frame-ack}}).
-  If this value is absent, a default value of 3 is assumed
-  (indicating a multiplier of 8).  The default value is also used for ACK frames
-  that are sent in Initial and Handshake packets.  Values above 20 are invalid.
+: ACK延迟指数是指示用于解码ACK帧中的ACK延迟字段的指数的整数值（{{frame-ack}}）。
+  如果此值不存在，则假定默认值为3（表示乘数为8）。
+  默认值也用于在Initial和Handshake数据包中发送的ACK帧。
+  大于20的值无效。
 
 max_ack_delay (0x000b):
 
-: The maximum ACK delay is an integer value indicating the
-  maximum amount of time in milliseconds by which the endpoint will delay
-  sending acknowledgments.  This value SHOULD include the receiver's expected
-  delays in alarms firing.  For example, if a receiver sets a timer for 5ms
-  and alarms commonly fire up to 1ms late, then it should send a max_ack_delay
-  of 6ms.  If this value is absent, a default of 25 milliseconds is assumed.
-  Values of 2^14 or greater are invalid.
+: 最大ACK延迟是一个整数值，表示端点延迟发送前确认的最长时间（以毫秒为单位）。
+  该值应该包括接收器在警告发送时的预期延迟。
+  例如，如果接收器定时设置为5ms并且警告通常会延迟最多1ms，那么它应该发送6ms的max_ack_delay。
+  如果此值不存在，则假定默认值为25毫秒。
+  2 ^ 14或更大的值无效。
 
 disable_migration (0x000c):
 
-: The disable migration transport parameter is included if the endpoint does not
-  support connection migration ({{migration}}). Peers of an endpoint that sets
-  this transport parameter MUST NOT send any packets, including probing packets
-  ({{probing}}), from a local address other than that used to perform the
-  handshake.  This parameter is a zero-length value.
+: 如果端点不支持连接迁移（{{migration}}），则包括该禁用迁移传输参数。
+  设置了此传输参数的终端的对端**禁止**从除用于执行握手的本地地址之外的本地地址发送任何数据包，包括探测数据包（{{probing}}）。
+  此参数是零长度值。
 
 preferred_address (0x000d):
 
-: The server's preferred address is used to effect a change in server address at
-  the end of the handshake, as described in {{preferred-address}}.  The format
-  of this transport parameter is the PreferredAddress struct shown in
-  {{fig-preferred-address}}.  This transport parameter is only sent by a server.
-  Servers MAY choose to only send a preferred address of one address family by
-  sending an all-zero address and port (0.0.0.0:0 or ::.0) for the other family.
+: 服务器的首选地址用于在握手结束时实现服务器地址的更改，参考{{preferred-address}}中的描述。
+  此传输参数的格式是{{fig-preferred-address}}中显示的PreferredAddress结构。
+  此传输参数仅由服务器发送。
+  服务器**可能**选择为另一个地址族发送全0地址和端口（0.0.0.0:0或::.0）来实现仅发送一个地址族的首选地址。
 
 ~~~
    struct {
@@ -4030,18 +3997,13 @@ preferred_address (0x000d):
      opaque statelessResetToken[16];
    } PreferredAddress;
 ~~~
-{: #fig-preferred-address title="Preferred Address format"}
+{: #fig-preferred-address title="首选地址格式(Preferred Address format)"}
 
-If present, transport parameters that set initial flow control limits
-(initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, and
-initial_max_stream_data_uni) are equivalent to sending a MAX_STREAM_DATA frame
-({{frame-max-stream-data}}) on every stream of the corresponding type
-immediately after opening.  If the transport parameter is absent, streams of
-that type start with a flow control limit of 0.
+如果存在，则设置初始流控制限制的传输参数（initial_max_stream_data_bidi_local，initial_max_stream_data_bidi_remote和initial_max_stream_data_uni）等同于在打开之后立即在相应类型的每个流上发送MAX_STREAM_DATA帧（{{frame-max-stream-data}}）。
+如果传输参数不存在，则该类型的流以流控制限制为0开始。
 
-A client MUST NOT include an original connection ID, a stateless reset token, or
-a preferred address.  A server MUST treat receipt of any of these transport
-parameters as a connection error of type TRANSPORT_PARAMETER_ERROR.
+客户端**禁止**包含原始连接ID，无状态重置令牌或首选地址。 
+服务器**必须**将任何这些传输参数的接收视为TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
 
 # Frame Types and Formats {#frame-formats}
