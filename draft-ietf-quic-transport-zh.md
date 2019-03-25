@@ -1873,114 +1873,165 @@ NEW_CONNECTION_ID, 和 PADDING 帧都是”探测帧“，
 移在于触发包的交换。
 
 作为明显的连接迁移的回应，端上必须使用PATH_CHANLLENGE
-帧验证之前有效的链路。如果链路是不可达的，尝试验证就会
-超时而失败；如果链路是可达的，但是不再被用，验证会成功
+帧验证之前有效的链路。如果链路是不可达的，
+尝试验证就会超时而失败；
+如果链路是可达的，但是不再被用，验证会成功
 但是，只有探测包会在链路上发送。
 
 在活跃的链路上接收到PATH_CHALLENGE报文的端上应该发送
-非探测包作为回应。如果非探测包在任一攻击者复制的包之前
-到达，连接就会被迁移回原来的链路。任何后续的迁移都会重
+非探测包作为回应。
+如果非探测包在任一攻击者复制的包之前到达，
+连接就会被迁移回原来的链路。任何后续的迁移都会重
 新开始这整个流程。
 
-这种防御并不是完美的，但这并不被认为是一个严肃的问题。如
-果攻击者的链路在多次尝试使用原始链路的情况下仍然比原始链
+这种防御并不是完美的，
+但这并不被认为是一个严肃的问题。如
+果攻击者的链路在多次尝试
+使用原始链路的情况下仍然比原始链
 路可靠迅速，那就不可能区分是攻击者还是路由上的改进。
 
-端上也可以使用启发式的方式改进对这种攻击类型的探测。例如，
-如果刚刚从老的链路接收到包NAT重新绑定是不大可能发生的，在
+端上也可以使用启发式的方式改进对这种攻击类型的探测。
+例如，
+如果刚刚从老的链路接收到包NAT重新绑定
+是不大可能发生的，在
 IPV6的链路上类似的绑定也是很少的。相反，connectionID的
 改变更可能表明有意识的迁移而不是攻击。
 
 ## 丢失检测和拥塞控制（Loss Detection and Congestion Control） {#migration-cc}
 
-新链路的容量有可能和老链路的不同。在旧链路发送的包不应该对
+新链路的容量有可能和老链路的不同。
+在旧链路发送的包不应该对
 新链路的拥塞控制或RTT预测起作用。
 
-在确认对端新地址的所有权的时候，端上必须立刻重置新链路的拥
+在确认对端新地址的所有权的时候，
+端上必须立刻重置新链路的拥
 塞控制器和RTT估算器，
 
-端上**禁止**将发送速率设置为之前链路使用的设置，除非有充分
-的理由之前的速率对新链路同样适用。例如，客户端端口的改变很有
-可能表明中间件的重新绑定而不是链路的更新。这种决定很有可能是
-基于推断的，也是不完善的；如果新的链路容量急剧降低，毫无疑问
-是拥塞控制器对拥塞信号的反应，适当降低了发送速率。
+端上**禁止**将发送速率设置为之前链路使用的设置，
+除非有充分
+的理由之前的速率对新链路同样适用。
+例如，客户端端口的改变很有
+可能表明中间件的重新绑定而不是链路的更新。
+这种决定很有可能是
+基于推断的，也是不完善的；
+如果新的链路容量急剧降低，毫无疑问
+是拥塞控制器对拥塞信号的反应，
+适当降低了发送速率。
 
-在端上发送数据时接收方有可能有明显的重排序，同时在连接迁移的
-时候会在多个往返地址上发送探测包，因此会导致两个探测出来的链
-路有不同的往返时间。多个链路上的包接受者仍旧会为所有接收到的
+在端上发送数据时接收方有可能有明显的重排序，
+同时在连接迁移的
+时候会在多个往返地址上发送探测包，
+因此会导致两个探测出来的链
+路有不同的往返时间。
+多个链路上的包接受者仍旧会为所有接收到的
 包发送ACK帧。
 
-尽管在连接迁移的时候多个链路有可能被使用，单个拥塞控制上下文
+尽管在连接迁移的时候多个链路有可能被使用，
+单个拥塞控制上下文
 和单个丢失重传上下文就够用了（详见{{QUIC-RECOVERY}}），例
-如，端上在确认旧链路已经不被使用的时候才会将相关信息传递给新
+如，端上在确认旧链路已经不被使用
+的时候才会将相关信息传递给新
 的拥塞控制上下文，（参照{{off-path-forward}}）
 
-发送者可以为探测包做例外的处理，使得这些包的丢失检测是单独的
-不会过度导致拥塞控制器降低发送速率。端上可以单独设置一个
-PATH_CHALLENGE帧发出的计时器，但对应的PATH_RESPONSE包收到的
-时候取消掉。如果在PATH_RESPONSE包接收到之前定时器被触发，
-端上可以重新发个PATH_CHALLENGE帧,同时为定时器设置一个更长的
+发送者可以为探测包做例外的处理，
+使得这些包的丢失检测是单独的
+不会过度导致拥塞控制器降低发送速率。
+端上可以单独设置一个
+PATH_CHALLENGE帧发出的计时器，
+但对应的PATH_RESPONSE包收到的
+时候取消掉。
+如果在PATH_RESPONSE包接收到之前定时器被触发，
+端上可以重新发个PATH_CHALLENGE帧,
+同时为定时器设置一个更长的
 时间.
 
-## 连接迁移的私密性实现(Privacy Implications
- of Connection
-Migration) {#migration-linkability}	
+## 连接迁移的私密性实现(Privacy Implications of Connection Migration) {#migration-linkability}
 
-在不同的网路链路之间使用稳定的连接id可以使被动的观察者在关联起
-这些链路之间的活动。端上在不同的网路之间移动的时候或许不想让除
-了对端以外其他方关联到它们的活动，因此从不同的本地地址发送的时
-候会使用不同的连接Id，详见 {{migration-cc}}.端上必须保证他们提
+在不同的网路链路之间使用稳定的连接id可以
+使被动的观察者在关联起
+这些链路之间的活动。
+端上在不同的网路之间移动的时候或许不想让除
+了对端以外其他方关联到它们的活动，
+因此从不同的本地地址发送的时
+候会使用不同的连接Id，
+详见 {{migration-cc}}.端上必须保证他们提
 供的连接id不会被其他方关联到，才能保证私密性生效。
 
-这样在同一连接不同网络的关联活动去掉了连接id的使用。头部保护确
-保在关联活动时包下标不会被用于关联活动，但是不能保证包的其他属
+这样在同一连接不同网络的关联活动去掉了连接id的使用。
+头部保护确
+保在关联活动时包下标不会被用于关联活动，
+但是不能保证包的其他属
 性例如计时和大小不会被用于关联活动。
 
-客户端**可以**基于具体实现随时移动到新的连接id。例如，在一段时
-间网络不活跃之后，客户端发送数据的时候已经发生了NAT重绑定。
+客户端**可以**基于具体实现随时移动到新的连接id。
+例如，在一段时间网络不活跃之后，
+客户端发送数据的时候已经发生了NAT重绑定。
 
-在一段时间的不活跃之后，客户端或许想要在发送流量的时候通过启用
-新的连接id和udp端口的方式来降低可达性。在发送包的时候改变udp端
-口可以该包表现为连接迁移。这样确保了在客户端没有经历NAT重绑定
-或者真实的连接迁移的时候，支持连接迁移的机制也是可以被练习的。
-更新端口号会造成对端重置它的拥塞状态（详见 {{migration-cc}}），
+在一段时间的不活跃之后，
+客户端或许想要在发送流量的时候通过启用
+新的连接id和udp端口的方式来降低可达性。
+在发送包的时候改变udp端
+口可以该包表现为连接迁移。
+这样确保了在客户端没有经历NAT重绑定
+或者真实的连接迁移的时候，
+支持连接迁移的机制也是可以被练习的。
+更新端口号会造成对端重置它的拥塞状态
+（详见 {{migration-cc}}），
 因此端口**应该**不被频繁的更新。
 
-如果对端在连接迁移之后使用同样的目的连接id，使用长度大于0的连接
-ID的端上就会将这些活动关联起来。端上在接收到一个未使用过的目
-的连接id的包的时候，应该将连接id更新为没有被其他网络链路使用过的
-连接id。这里的目的是确保不同链路上的包不会被关联起来。为了实现
-这种隐私性的要求，开始连接迁移并且使用大于0长度连接ID的端上**应
+如果对端在连接迁移之后使用同样的目的连接id，
+使用长度大于0的连接
+ID的端上就会将这些活动关联起来。
+端上在接收到一个未使用过的目
+的连接id的包的时候，
+应该将连接id更新为没有被其他网络链路使用过的
+连接id。
+这里的目的是确保不同链路上的包不会被关联起来。
+为了实现
+这种隐私性的要求，
+开始连接迁移并且使用大于0长度连接ID的端上**应
 该**在连接迁移之前为对端提供新的连接ID。
 
-注意：如果在观察到对端的连接ID更新的时候，双端都更新连接id作为回
+注意：如果在观察到对端的连接ID更新的时候，
+双端都更新连接id作为回
 应，这样就会触发一轮无限的更新循环。
 
 
 ## 服务端首选地址（Server's Preferred Address） {#preferred-address}
 
-Quic协议允许服务端接受一个id地址上的连接，然后尝试在握手之后将连接转移到另一
-个更倾向的地址。这一点在客户端初始连接到了一个被多个服务端共享但更倾向于使用
-单播地址来确保连接稳定性的时候尤其有用。这部分内容描述将连接迁移到一个首选
+Quic协议允许服务端接受一个id地址上的连接，
+然后尝试在握手之后将连接转移到另一
+个更倾向的地址。
+这一点在客户端初始连接到了一个被多个
+服务端共享但更倾向于使用
+单播地址来确保连接稳定性的时候尤其有用。
+这部分内容描述将连接迁移到一个首选
 服务端地址的协议。
 
-将连接迁移到一个新的服务端地址的时候，对于将来的工作留下了半连接的状态。如果
-客户端接收到了一个不被传输参数preferred_address标识的新的服务端地址，那么客户
-端**应该**把这些包丢弃掉。
+将连接迁移到一个新的服务端地址的时候，
+对于将来的工作留下了半连接的状态。如果
+客户端接收到了一个不被传输参数
+preferred_address标识的新的服务端地址，
+那么客户端**应该**把这些包丢弃掉。
 
 ### 商议一个首选地址（ Communicating A Preferred Address）
 
-服务端通过在TLS握手中添加一个preferred_address传输参数来传达一个首选的地址。
+服务端通过在TLS握手中添加一个
+preferred_address传输参数来传达一个首选的地址。
 
-服务端**可以**为每个协议簇（ipv4和ipv6）设定一个首选的地址，让客户端来自己选
+服务端**可以**为每个协议簇（ipv4和ipv6）
+设定一个首选的地址，让客户端来自己选
 择最适合它们网络附件的一个。
 
-一旦握手完成，客户端**应该**在服务端首选地址里选择一个，然后利用在
-preferred_address的传输参数里面指定的连接id初始化链路验证。详见
-{{migrate-validate}}.
+一旦握手完成，
+客户端**应该**在服务端首选地址里选择一个，
+然后利用在preferred_address的传输参数
+里面指定的连接id初始化链路验证。详见{{migrate-validate}}.
 
-如果链路验证成功了，客户端**应该**立即开始利用新的连接id发送所有的后续包到
-新的服务端地址，终止掉旧的服务器地址。如果链路验证失败，客户端**必须**继续
+如果链路验证成功了，
+客户端**应该**立即开始利用新的连接id发送所有的后续包到
+新的服务端地址，终止掉旧的服务器地址。
+如果链路验证失败，客户端**必须**继续
 向原有的服务端地址发送后续的包。
 
 ### Responding to Connection Migration
@@ -2482,145 +2533,162 @@ each packet sent in a given packet number space, see {{packet-numbers}} for
 details.
 
 
-## Coalescing Packets {#packet-coalesce}
+## 合并包（Coalescing Packets） {#packet-coalesce}
 
-Initial ({{packet-initial}}), 0-RTT ({{packet-0rtt}}), and Handshake
-({{packet-handshake}}) packets contain a Length field, which determines the end
-of the packet.  The length includes both the Packet Number and Payload
-fields, both of which are confidentiality protected and initially of unknown
-length. The length of the Payload field is learned once header protection is
-removed.
+初始 ({{packet-initial}})、0-RTT ({{packet-0rtt}})
+和握手({数据包-握手})包包含一个长度字段，
+用于确定包的结尾。包的长度包括包编号和
+有效负载字段，这两个字段都经过加密保护
+且初始长度未知。当删除报头保护后，
+就可以知道“有效负载”字段的长度。
 
-Using the Length field, a sender can coalesce multiple QUIC packets into one UDP
-datagram.  This can reduce the number of UDP datagrams needed to complete the
-cryptographic handshake and starting sending data.  Receivers MUST be able to
-process coalesced packets.
+通过使用长度字段，发送方可以将多个QUIC包
+合并为一个UDP数据报。这可以减少完成
+加密握手和开始发送数据所需的UDP数据报数。
+接收方**必须**能够处理经过合并处理的包。
 
-Coalescing packets in order of increasing encryption levels (Initial, 0-RTT,
-Handshake, 1-RTT) makes it more likely the receiver will be able to process all
-the packets in a single pass.  A packet with a short header does not include a
-length, so it can only be the last packet included in a UDP datagram.
+按照加密级别增加(初始、0-RTT、握手、1-RTT)的
+顺序合并数据包，能使接收方更有
+可能处理在单次传输中所有的包。
+短报头的包的头部不包含长度字段，
+因此它只能是UDP数据报中包含的最后一个包。
 
-Senders MUST NOT coalesce QUIC packets for different connections into a single
-UDP datagram. Receivers SHOULD ignore any subsequent packets with a different
-Destination Connection ID than the first packet in the datagram.
+发送方**禁止**将不同连接的QUIC包合并到
+单个UDP数据报中。接收方**应该**忽略
+任何具有与数据报中第一个包不同的目的
+连接ID的后续数据包。
 
-Every QUIC packet that is coalesced into a single UDP datagram is separate and
-complete.  Though the values of some fields in the packet header might be
-redundant, no fields are omitted.  The receiver of coalesced QUIC packets MUST
-individually process each QUIC packet and separately acknowledge them, as if
-they were received as the payload of different UDP datagrams.  For example, if
-decryption fails (because the keys are not available or any other reason),
-the receiver MAY either discard or buffer the packet for later processing and
-MUST attempt to process the remaining packets.
+每个合并入单个UDP数据报的QUIC包都是
+独立和完整的。虽然包报头中某些字段的值
+可能是冗余的，但合并不会省略任何字段。
+合并QUIC包的接收方**必须**单独处理
+每个QUIC包并分别确认它们，
+就好像它们是从不同UDP数据报的负载
+接收的一样。例如，如果包的
+解密失败(因为密钥不可用或任何其他原因)，
+接收方**可能**会丢弃
+或缓冲数据包以供以后处理，
+并且**必须**尝试处理剩余的包。
 
-Retry packets ({{packet-retry}}), Version Negotiation packets
-({{packet-version}}), and packets with a short header ({{short-header}}) do not
-contain a Length field and so cannot be followed by other packets in the same
-UDP datagram.
-
-
-## Packet Numbers {#packet-numbers}
-
-The packet number is an integer in the range 0 to 2^62-1.  This number is used
-in determining the cryptographic nonce for packet protection.  Each endpoint
-maintains a separate packet number for sending and receiving.
-
-Packet numbers are limited to this range because they need to be representable
-in whole in the Largest Acknowledged field of an ACK frame ({{frame-ack}}).
-When present in a long or short header however, packet numbers are reduced and
-encoded in 1 to 4 bytes (see {{packet-encoding}}).
-
-Version Negotiation ({{packet-version}}) and Retry ({{packet-retry}}) packets
-do not include a packet number.
-
-Packet numbers are divided into 3 spaces in QUIC:
-
-- Initial space: All Initial packets ({{packet-initial}}) are in this space.
-- Handshake space: All Handshake packets ({{packet-handshake}}) are in this
-space.
-- Application data space: All 0-RTT and 1-RTT encrypted packets
-  ({{packet-protected}}) are in this space.
-
-As described in {{QUIC-TLS}}, each packet type uses different protection keys.
-
-Conceptually, a packet number space is the context in which a packet can be
-processed and acknowledged.  Initial packets can only be sent with Initial
-packet protection keys and acknowledged in packets which are also Initial
-packets.  Similarly, Handshake packets are sent at the Handshake encryption
-level and can only be acknowledged in Handshake packets.
-
-This enforces cryptographic separation between the data sent in the different
-packet sequence number spaces.  Packet numbers in each space start at packet
-number 0.  Subsequent packets sent in the same packet number space MUST increase
-the packet number by at least one.
-
-0-RTT and 1-RTT data exist in the same packet number space to make loss recovery
-algorithms easier to implement between the two packet types.
-
-A QUIC endpoint MUST NOT reuse a packet number within the same packet number
-space in one connection.  If the packet number for sending reaches 2^62 - 1, the
-sender MUST close the connection without sending a CONNECTION_CLOSE frame or any
-further packets; an endpoint MAY send a Stateless Reset ({{stateless-reset}}) in
-response to further packets that it receives.
-
-A receiver MUST discard a newly unprotected packet unless it is certain that it
-has not processed another packet with the same packet number from the same
-packet number space. Duplicate suppression MUST happen after removing packet
-protection for the reasons described in Section 9.3 of {{QUIC-TLS}}. An
-efficient algorithm for duplicate suppression can be found in Section 3.4.3 of
-{{?RFC4303}}.
-
-Packet number encoding at a sender and decoding at a receiver are described in
-{{packet-encoding}}.
+重试包({packet-retry})、
+版本协商包。({Packet-Version})
+和具有短报头的包({Short-Header})
+不包含长度字段，因此同一UDP数据报
+中这些包后面不能跟随其他包。
 
 
-## Frames and Frame Types {#frames}
+## 包编号（Packet Numbers） {#packet-numbers}
 
-The payload of QUIC packets, after removing packet protection, commonly consists
-of a sequence of frames, as shown in {{packet-frames}}.  Version Negotiation,
-Stateless Reset, and Retry packets do not contain frames.
+包的编号是介于0到2^62-1之间的整数。
+这个数字用于确定用于包保护的加密随机数。
+每个终端都为发送和接收维护一个独立的包编号。
 
-<!-- TODO: Editorial work needed in this section. Not all packets contain
-frames. -->
+包编号被限制在此范围内，是因为它们需要在ACK帧的
+最大确认字段({frame-ack})中整体表示。
+但是，在长或短报头中时，包编号会减少并
+编码成1到4个字节(请参见{packet-encoding})。
+
+版本协商({{packet-version}})和重试({{packet-retry}})包
+不会包括包的编号。
+
+在QUIC协议中包编号被分割为三个空间:
+
+- 初始空间：所有初始包 ({{packet-initial}}) 的
+包编号都在这个空间。
+- 握手空间：所有握手包 ({{packet-handshake}})的
+包编号都在这个空间。
+- 应用数据空间: 所有0-RTT和1-RTT加密后的包
+({{packet-protected}})的包编号都在这个空间。
+
+正如{{QUIC-TLS}}}中所描述的那样，每
+个类型的包都使用不同的保护秘钥。
+
+从概念上讲，包编号空间是一个包
+可以被处理和确认的上下文。
+初始包只能和初始包保护密钥一起发送，
+并且也只能在初始包中确认。
+同样，握手包是经过握手加密级别
+加密后发送的，只能在握手包中得到确认。
+
+这强制了在不同包编号空间中发送的
+数据之间的密码分离。
+每个空间中的包编号从包编号0开始。
+随后在同一包编号空间发送的包的
+编号**必须**至少增加一。
+
+在同一包编号空间中存在0-RTT和
+1-RTT数据能使得两个包类型
+之间的丢失恢复算法更加容易实现。
+
+一个QUIC终端**禁止**在一个连接内
+重用同一个包编号空间内的包号。
+如果发送的包编号达到2^62-1，
+发送方**必须**关闭连接，而无需
+发送CONNECTION_CLOSE帧或任何其他包；
+终端**可能**发送一个
+无状态重置({{stateless-reset}})，
+以响应接收到的其他包。
+
+接收方**必须**丢弃一个新的未受保护的包，
+除非接收方确定没有从相同的包编号空间中
+处理另一个具有相同包编号的包。
+由于{{QUIC-TLS}}第9.3节中所述的原因，
+在删除包保护后**必须**进行重复抑制。
+在{{?RFC4303}}的3.4.3节中可以找到一种
+有效的重复抑制算法。
+
+发送方的包编号编码和接收方的解码
+在{{packet-encoding}}中进行说明。
+
+
+## 框架和框架类型（Frames and Frame Types） {#frames}
+
+如{{packet-frames}}中所示,
+移除包保护后QUIC包的负载通常由帧序列组成。
+版本协商、无状态重置和重试包不包含帧。
+
+
+<!-- TODO: 本节仍需要编辑工作。不是所有包都包含帧 -->
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Frame 1 (*)                        ...
+|                             帧 1 (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Frame 2 (*)                        ...
+|                             帧 2 (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Frame N (*)                        ...
+|                             帧 N (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 {: #packet-frames title="QUIC Payload"}
 
-QUIC payloads MUST contain at least one frame, and MAY contain multiple frames
-and multiple frame types.
+QUIC负载**必须**包含至少一个帧，
+并且**可能**包含多个不同类型的帧。
 
-Frames MUST fit within a single QUIC packet and MUST NOT span a QUIC packet
-boundary. Each frame begins with a Frame Type, indicating its type, followed by
-additional type-dependent fields:
+帧的数据**必须**能够塞入单个QUIC包，
+并且**禁止**跨越QUIC包的边界。
+每个帧都以“帧类型”开头，表示其类型，
+后跟其他依赖于类型的字段:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Frame Type (i)                        ...
+|                       帧的类型    (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                   Type-Dependent Fields (*)                 ...
+|                   依赖类型的字段   (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 {: #frame-layout title="Generic Frame Layout"}
 
-The frame types defined in this specification are listed in {{frame-types}}.
-The Frame Type in STREAM frames is used to carry other frame-specific flags.
-For all other frames, the Frame Type field simply identifies the frame.  These
-frames are explained in more detail in {{frame-formats}}.
+此规范中定义的帧类型在{{frame-types}}中列出。
+STREAM帧中的帧类型用于携带其他特定于帧的标志。
+对于所有其他帧，帧类型字段仅用于标识该帧。
+{{frame-formats}}中对这些帧进行了更详细的说明。
+
 
 | Type Value  | Frame Type Name      | Definition                     |
 |:------------|:---------------------|:-------------------------------|
@@ -2645,131 +2713,139 @@ frames are explained in more detail in {{frame-formats}}.
 | 0x1c - 0x1d | CONNECTION_CLOSE     | {{frame-connection-close}}     |
 {: #frame-types title="Frame Types"}
 
-All QUIC frames are idempotent in this version of QUIC.  That is, a valid
-frame does not cause undesirable side effects or errors when received more
-than once.
 
-The Frame Type field uses a variable length integer encoding (see
-{{integer-encoding}}) with one exception.  To ensure simple and efficient
-implementations of frame parsing, a frame type MUST use the shortest possible
-encoding.  Though a two-, four- or eight-byte encoding of the frame types
-defined in this document is possible, the Frame Type field for these frames is
-encoded on a single byte.  For instance, though 0x4001 is a legitimate two-byte
-encoding for a variable-length integer with a value of 1, PING frames are always
-encoded as a single byte with the value 0x01.  An endpoint MAY treat the receipt
-of a frame type that uses a longer encoding than necessary as a connection error
-of type PROTOCOL_VIOLATION.
+在此版本的QUIC协议中，所有QUIC帧都是幂等的。
+也就是说，一个有效的帧被接收多次时不会引起
+不良的副作用或错误。
 
-
-# Packetization and Reliability {#packetization}
-
-A sender bundles one or more frames in a QUIC packet (see {{frames}}).
-
-A sender can minimize per-packet bandwidth and computational costs by bundling
-as many frames as possible within a QUIC packet.  A sender MAY wait for a short
-period of time to bundle multiple frames before sending a packet that is not
-maximally packed, to avoid sending out large numbers of small packets.  An
-implementation MAY use knowledge about application sending behavior or
-heuristics to determine whether and for how long to wait.  This waiting period
-is an implementation decision, and an implementation should be careful to delay
-conservatively, since any delay is likely to increase application-visible
-latency.
-
-Stream multiplexing is achieved by interleaving STREAM frames from multiple
-streams into one or more QUIC packets.  A single QUIC packet can include
-multiple STREAM frames from one or more streams.
-
-One of the benefits of QUIC is avoidance of head-of-line blocking across
-multiple streams.  When a packet loss occurs, only streams with data in that
-packet are blocked waiting for a retransmission to be received, while other
-streams can continue making progress.  Note that when data from multiple streams
-is bundled into a single QUIC packet, loss of that packet blocks all those
-streams from making progress.  Implementations are advised to bundle as few
-streams as necessary in outgoing packets without losing transmission efficiency
-to underfilled packets.
+Frame Type字段使用可变长度整数编码(请参见{{integer-encoding}})，
+但有一个例外，为了确保简单有效地实现帧解析，
+帧类型**必须**使用尽可能短的编码。
+虽然可以对本文档中定义的帧进行
+2字节、4字节或8字节的编码，
+但这些帧的“帧类型”字段是以单字节编码的。
+例如，虽然0x4001是一个值为1的可变长度整数的
+合法双字节编码，但是PING帧总是编码为单字节值0x01。
+终端**可能**将接收到编码长度超过必要的帧类型视为
+协议冲突类型的连接错误。
 
 
-## Packet Processing and Acknowledgment {#processing-and-ack}
+# 打包和可靠性（Packetization and Reliability） {#packetization}
 
-A packet MUST NOT be acknowledged until packet protection has been successfully
-removed and all frames contained in the packet have been processed.  For STREAM
-frames, this means the data has been enqueued in preparation to be received by
-the application protocol, but it does not require that data is delivered and
-consumed.
+发送方会将一个或多个帧捆绑在一起
+放进一个QUIC包(请参见{{frames}})。
 
-Once the packet has been fully processed, a receiver acknowledges receipt by
-sending one or more ACK frames containing the packet number of the received
-packet.
+通过在QUIC包中绑定尽可能多的帧，发送方可以将每个包用的
+带宽和计算成本降至最低。发送方**可能**在发送未达到
+最大包装的包前等待一短段时间，
+以捆绑多个帧，用以避免发送大量的小包。
+协议的实现**可能**使用应用程序发送行为
+或启发式的相关知识来确定是否等待
+以及等待多长时间。这个等待期
+是一个实现决策，实施时应谨慎保守，
+因为任何延迟都可能会增加应用可感知的延迟。
 
-<!-- TODO: Do we need to say anything about partial processing. And our
-expectations about what implementations do with packets that have errors after
-valid frames? -->
+流复用是通过将来自多个流的流帧交织到
+一个或多个QUIC包中来实现的。
+单个QUIC包可以包括来自一个或多个流的多个帧。
 
-### Sending ACK Frames
-
-An endpoint MUST NOT send more than one packet containing only an ACK frame per
-received packet that contains frames other than ACK and PADDING frames.
-An endpoint MUST NOT send a packet containing only an ACK frame in response
-to a packet containing only ACK or PADDING frames, even if there are packet
-gaps which precede the received packet. This prevents an indefinite feedback
-loop of ACKs. The endpoint MUST however acknowledge packets containing only
-ACK or PADDING frames when sending ACK frames in response to other packets.
-
-Packets containing PADDING frames are considered to be in flight for congestion
-control purposes {{QUIC-RECOVERY}}. Sending only PADDING frames might cause the
-sender to become limited by the congestion controller (as described in
-{{QUIC-RECOVERY}}) with no acknowledgments forthcoming from the
-receiver. Therefore, a sender SHOULD ensure that other frames are sent in
-addition to PADDING frames to elicit acknowledgments from the receiver.
-
-The receiver's delayed acknowledgment timer SHOULD NOT exceed the current RTT
-estimate or the value it indicates in the `max_ack_delay` transport parameter.
-This ensures an acknowledgment is sent at least once per RTT when packets
-needing acknowledgement are received.  The sender can use the receiver's
-`max_ack_delay` value in determining timeouts for timer-based retransmission.
-
-Strategies and implications of the frequency of generating acknowledgments are
-discussed in more detail in {{QUIC-RECOVERY}}.
-
-To limit ACK Ranges (see {{ack-ranges}}) to those that have not yet been
-received by the sender, the receiver SHOULD track which ACK frames have been
-acknowledged by its peer. The receiver SHOULD exclude already acknowledged
-packets from future ACK frames whenever these packets would unnecessarily
-contribute to the ACK frame size.
-
-Because ACK frames are not sent in response to ACK-only packets, a receiver that
-is only sending ACK frames will only receive acknowledgements for its packets if
-the sender includes them in packets with non-ACK frames.  A sender SHOULD bundle
-ACK frames with other frames when possible.
-
-To limit receiver state or the size of ACK frames, a receiver MAY limit the
-number of ACK Ranges it sends.  A receiver can do this even without receiving
-acknowledgment of its ACK frames, with the knowledge this could cause the sender
-to unnecessarily retransmit some data.  Standard QUIC {{QUIC-RECOVERY}}
-algorithms declare packets lost after sufficiently newer packets are
-acknowledged.  Therefore, the receiver SHOULD repeatedly acknowledge newly
-received packets in preference to packets received in the past.
-
-An endpoint SHOULD treat receipt of an acknowledgment for a packet it did not
-send as a connection error of type PROTOCOL_VIOLATION, if it is able to detect
-the condition.
+QUIC的优点之一是避免了跨多个流的行首阻塞。
+当发生包丢失时，只有在这个包中有数据的
+流被阻塞，以等待接收重传，
+而其他流可以继续进行处理。
+请注意，当来自多个流的数据被捆绑到单个QUIC包中时，
+该包的丢失会使在这个包中有数据的所有流被阻塞。
+建议实现协议时在不降低未填满数据包的传输效率的
+情况下，发出的包中应捆绑尽可能少数量的流。
 
 
-### ACK Frames and Packet Protection
+## 包处理和确认（Packet Processing and Acknowledgment） {#processing-and-ack}
 
-ACK frames MUST only be carried in a packet that has the same packet
-number space as the packet being ACKed (see {{packet-protected}}). For
-instance, packets that are protected with 1-RTT keys MUST be
-acknowledged in packets that are also protected with 1-RTT keys.
+在成功去掉包保护并且处理完包中包含的
+所有帧之前**禁止**发送包的确认。
+对于STREAM帧，这意味着数据已经排队准备
+由应用程序协议接收，但这不要求确认数据已
+被应用接受和处理。
 
-Packets that a client sends with 0-RTT packet protection MUST be acknowledged by
-the server in packets protected by 1-RTT keys.  This can mean that the client is
-unable to use these acknowledgments if the server cryptographic handshake
-messages are delayed or lost.  Note that the same limitation applies to other
-data sent by the server protected by the 1-RTT keys.
+一旦包被完全处理，接收方通过发送一个或多个包含
+所接收包的编号的ACK帧来确认包已收到。
 
-Endpoints SHOULD send acknowledgments for packets containing CRYPTO frames with
-a reduced delay; see Section 6.2.1 of {{QUIC-RECOVERY}}.
+<!-- TODO: 关于处理部分我们需要介绍吗？
+以及提出我们对协议的实现在处理
+有效帧后出现错误的包的方式的期望？-->
+
+### 发送ACK帧（Sending ACK Frame） {#sending-ack-frames}
+
+终端**禁止**对收到的包含了除ACK和PADDING帧以外的帧的包，
+发送一个以上只包含一个ACK帧的包。终端**禁止**对仅包含
+ACK帧或PADDING帧的包，发送仅包含ACK帧的包作为响应，
+即使在接收到的包之前存在包间隙也是如此。
+这可以防止ACK的无限期反馈循环。
+但是，当发送ACK帧以响应其他包时，
+端点**必须**确认仅包含ACK或PADDING帧的包。
+
+出于拥塞控制的目的{{QUIC-RECOVERY}}，
+传输过程中会发送包含PADDING帧的包。
+发送仅有PADDING帧的包可能会导致
+发送方受到拥塞控制器的限制(如{{QUIC-RECOVERY}}中所述)，
+而接收方不会对此发出确认。因此，发送方**应该**
+确保包中除PADDING帧外还发送其他帧，
+以从接收方获得确认。
+
+接收方的延迟确认计时器的延迟**不应该**超过
+当前RTT估计值或其在“max_ack_delay”传输参数
+中指示的值。这可确保在接收到
+需要进行确认的包时，
+每个RTT中至少发送了一次响应。
+发送方可以使用接收方的`max_ack_delay‘
+值来确定基于计时器的重传超时。
+
+在{{QUIC-RECOVERY}}中详细讨论了关于
+生成确认频率的策略和含义。
+
+为了将发送ACK范围(请参见{{ack-ranges}})缩小为
+发送方尚未收到的范围，
+接收方**应该**跟踪其对端已确认了哪些ACK帧。
+当已确认包对ACK帧的大小没有贡献时，
+接收方**应该**从将发出的ACK帧中排除这些包。
+
+由于ACK帧不是作为对仅包含ACK帧包的响应而发送的，
+因此发送了仅包含ACK帧的包的接收方，只有在发送方
+将这些帧包含在包含非ACK帧的包中时才会收到对其的确认。
+发送方**应该**尽可能将ACK帧与其他帧捆绑在一起。
+
+为了限制接收方的状态或ACK帧的大小，
+接收方**可能**限制它发送的ACK范围的数量。
+即使接收方没有收到对端对其ACK帧的确认，
+也可以这样做，这可能会导致
+发送方不必要地重新传输某些数据。
+标准QUIC{{QUIC-RECOVERY}}算法会在确认收到
+足够新的包后声明旧包丢失。
+因此，接收方**应该**重复确认
+新接收的包而不是过去接收的包。
+
+如果终端能够检测到它收到了
+它没有发送的包的确认，终端**应该**将其
+视为PROTOCOL_VIOLATION类型的连接错误。
+
+
+
+### ACK帧和数据包保护（ACK Frames and Packet Protection）
+
+ACK帧**必须**只在与被ACK的包有相同包编号空间的
+包中传输(请参见{{packet-protected}})。
+例如，使用1-RTT密钥进行保护的包**必须**通过同
+使用了1-RTT密钥进行保护的包进行确认。
+
+客户端发送使用0-RTT保护的包**必须**由
+服务端在受1-RTT密钥保护的包中确认。
+这可能意味着如果服务端加密握手消息
+延迟或丢失，客户端将无法使用这些确认。
+请注意，同样的限制也适用于服务端发送的
+受1-RTT密钥保护的其他数据。
+
+终端**应该**在较短的延迟内发送对包含CRYPTO帧的包的确认；
+请参阅{{QUIC-RECOVERY}}的6.2.1节。
 
 
 ## 信息重传(Retransmission of Information)
