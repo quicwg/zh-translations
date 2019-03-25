@@ -1867,122 +1867,121 @@ NEW_CONNECTION_ID, 和 PADDING 帧都是”探测帧“，
 近乎相同速度的链路。如果很少的包正在发送，
 或者攻击的同时伴随丢包情况，这种攻击就很有效。
 
+在原始的链路接收到一个增加了收到包标号的最大值的
+非探测包的时候，端上就会迁移回原来的链路。原始链路
+上引出来的包增加了攻击失败的概率。因此，攻击性的迁
+移在于触发包的交换。
 
-## Loss Detection and Congestion Control {#migration-cc}
+作为明显的连接迁移的回应，端上必须使用PATH_CHANLLENGE
+帧验证之前有效的链路。如果链路是不可达的，尝试验证就会
+超时而失败；如果链路是可达的，但是不再被用，验证会成功
+但是，只有探测包会在链路上发送。
 
-The capacity available on the new path might not be the same as the old path.
-Packets sent on the old path SHOULD NOT contribute to congestion control or RTT
-estimation for the new path.
+在活跃的链路上接收到PATH_CHALLENGE报文的端上应该发送
+非探测包作为回应。如果非探测包在任一攻击者复制的包之前
+到达，连接就会被迁移回原来的链路。任何后续的迁移都会重
+新开始这整个流程。
 
-On confirming a peer's ownership of its new address, an endpoint SHOULD
-immediately reset the congestion controller and round-trip time estimator for
-the new path.
+这种防御并不是完美的，但这并不被认为是一个严肃的问题。如
+果攻击者的链路在多次尝试使用原始链路的情况下仍然比原始链
+路可靠迅速，那就不可能区分是攻击者还是路由上的改进。
 
-An endpoint MUST NOT return to the send rate used for the previous path unless
-it is reasonably sure that the previous send rate is valid for the new path.
-For instance, a change in the client's port number is likely indicative of a
-rebinding in a middlebox and not a complete change in path.  This determination
-likely depends on heuristics, which could be imperfect; if the new path capacity
-is significantly reduced, ultimately this relies on the congestion controller
-responding to congestion signals and reducing send rates appropriately.
+端上也可以使用启发式的方式改进对这种攻击类型的探测。例如，
+如果刚刚从老的链路接收到包NAT重新绑定是不大可能发生的，在
+IPV6的链路上类似的绑定也是很少的。相反，connectionID的
+改变更可能表明有意识的迁移而不是攻击。
 
-There may be apparent reordering at the receiver when an endpoint sends data and
-probes from/to multiple addresses during the migration period, since the two
-resulting paths may have different round-trip times.  A receiver of packets on
-multiple paths will still send ACK frames covering all received packets.
+## 丢失检测和拥塞控制（Loss Detection and Congestion Control） {#migration-cc}
 
-While multiple paths might be used during connection migration, a single
-congestion control context and a single loss recovery context (as described in
-{{QUIC-RECOVERY}}) may be adequate.  For instance, an endpoint might delay
-switching to a new congestion control context until it is confirmed that an old
-path is no longer needed (such as the case in {{off-path-forward}}).
+新链路的容量有可能和老链路的不同。在旧链路发送的包不应该对
+新链路的拥塞控制或RTT预测起作用。
 
-A sender can make exceptions for probe packets so that their loss detection is
-independent and does not unduly cause the congestion controller to reduce its
-sending rate.  An endpoint might set a separate timer when a PATH_CHALLENGE is
-sent, which is cancelled when the corresponding PATH_RESPONSE is received.  If
-the timer fires before the PATH_RESPONSE is received, the endpoint might send a
-new PATH_CHALLENGE, and restart the timer for a longer period of time.
+在确认对端新地址的所有权的时候，端上必须立刻重置新链路的拥
+塞控制器和RTT估算器，
 
+端上**禁止**将发送速率设置为之前链路使用的设置，除非有充分
+的理由之前的速率对新链路同样适用。例如，客户端端口的改变很有
+可能表明中间件的重新绑定而不是链路的更新。这种决定很有可能是
+基于推断的，也是不完善的；如果新的链路容量急剧降低，毫无疑问
+是拥塞控制器对拥塞信号的反应，适当降低了发送速率。
 
-## Privacy Implications of Connection Migration {#migration-linkability}
+在端上发送数据时接收方有可能有明显的重排序，同时在连接迁移的
+时候会在多个往返地址上发送探测包，因此会导致两个探测出来的链
+路有不同的往返时间。多个链路上的包接受者仍旧会为所有接收到的
+包发送ACK帧。
 
-Using a stable connection ID on multiple network paths allows a passive observer
-to correlate activity between those paths.  An endpoint that moves between
-networks might not wish to have their activity correlated by any entity other
-than their peer, so different connection IDs are used when sending from
-different local addresses, as discussed in {{connection-id}}.  For this to be
-effective endpoints need to ensure that connections IDs they provide cannot be
-linked by any other entity.
+尽管在连接迁移的时候多个链路有可能被使用，单个拥塞控制上下文
+和单个丢失重传上下文就够用了（详见{{QUIC-RECOVERY}}），例
+如，端上在确认旧链路已经不被使用的时候才会将相关信息传递给新
+的拥塞控制上下文，（参照{{off-path-forward}}）
 
-This eliminates the use of the connection ID for linking activity from
-the same connection on different networks.  Header protection ensures
-that packet numbers cannot be used to correlate activity.  This does not prevent
-other properties of packets, such as timing and size, from being used to
-correlate activity.
+发送者可以为探测包做例外的处理，使得这些包的丢失检测是单独的
+不会过度导致拥塞控制器降低发送速率。端上可以单独设置一个
+PATH_CHALLENGE帧发出的计时器，但对应的PATH_RESPONSE包收到的
+时候取消掉。如果在PATH_RESPONSE包接收到之前定时器被触发，
+端上可以重新发个PATH_CHALLENGE帧,同时为定时器设置一个更长的
+时间.
 
-Clients MAY move to a new connection ID at any time based on
-implementation-specific concerns.  For example, after a period of network
-inactivity NAT rebinding might occur when the client begins sending data again.
+## 连接迁移的私密性实现(Privacy Implications
+ of Connection
+Migration) {#migration-linkability}	
 
-A client might wish to reduce linkability by employing a new connection ID and
-source UDP port when sending traffic after a period of inactivity.  Changing the
-UDP port from which it sends packets at the same time might cause the packet to
-appear as a connection migration. This ensures that the mechanisms that support
-migration are exercised even for clients that don't experience NAT rebindings or
-genuine migrations.  Changing port number can cause a peer to reset its
-congestion state (see {{migration-cc}}), so the port SHOULD only be changed
-infrequently.
+在不同的网路链路之间使用稳定的连接id可以使被动的观察者在关联起
+这些链路之间的活动。端上在不同的网路之间移动的时候或许不想让除
+了对端以外其他方关联到它们的活动，因此从不同的本地地址发送的时
+候会使用不同的连接Id，详见 {{migration-cc}}.端上必须保证他们提
+供的连接id不会被其他方关联到，才能保证私密性生效。
 
-Endpoints that use connection IDs with length greater than zero could have their
-activity correlated if their peers keep using the same destination connection ID
-after migration. Endpoints that receive packets with a previously unused
-Destination Connection ID SHOULD change to sending packets with a connection ID
-that has not been used on any other network path.  The goal here is to ensure
-that packets sent on different paths cannot be correlated. To fulfill this
-privacy requirement, endpoints that initiate migration and use connection IDs
-with length greater than zero SHOULD provide their peers with new connection IDs
-before migration.
+这样在同一连接不同网络的关联活动去掉了连接id的使用。头部保护确
+保在关联活动时包下标不会被用于关联活动，但是不能保证包的其他属
+性例如计时和大小不会被用于关联活动。
 
-Caution:
+客户端**可以**基于具体实现随时移动到新的连接id。例如，在一段时
+间网络不活跃之后，客户端发送数据的时候已经发生了NAT重绑定。
 
-: If both endpoints change connection ID in response to seeing a change in
-  connection ID from their peer, then this can trigger an infinite sequence of
-  changes.
+在一段时间的不活跃之后，客户端或许想要在发送流量的时候通过启用
+新的连接id和udp端口的方式来降低可达性。在发送包的时候改变udp端
+口可以该包表现为连接迁移。这样确保了在客户端没有经历NAT重绑定
+或者真实的连接迁移的时候，支持连接迁移的机制也是可以被练习的。
+更新端口号会造成对端重置它的拥塞状态（详见 {{migration-cc}}），
+因此端口**应该**不被频繁的更新。
+
+如果对端在连接迁移之后使用同样的目的连接id，使用长度大于0的连接
+ID的端上就会将这些活动关联起来。端上在接收到一个未使用过的目
+的连接id的包的时候，应该将连接id更新为没有被其他网络链路使用过的
+连接id。这里的目的是确保不同链路上的包不会被关联起来。为了实现
+这种隐私性的要求，开始连接迁移并且使用大于0长度连接ID的端上**应
+该**在连接迁移之前为对端提供新的连接ID。
+
+注意：如果在观察到对端的连接ID更新的时候，双端都更新连接id作为回
+应，这样就会触发一轮无限的更新循环。
 
 
-## Server's Preferred Address {#preferred-address}
+## 服务端首选地址（Server's Preferred Address） {#preferred-address}
 
-QUIC allows servers to accept connections on one IP address and attempt to
-transfer these connections to a more preferred address shortly after the
-handshake.  This is particularly useful when clients initially connect to an
-address shared by multiple servers but would prefer to use a unicast address to
-ensure connection stability. This section describes the protocol for migrating a
-connection to a preferred server address.
+Quic协议允许服务端接受一个id地址上的连接，然后尝试在握手之后将连接转移到另一
+个更倾向的地址。这一点在客户端初始连接到了一个被多个服务端共享但更倾向于使用
+单播地址来确保连接稳定性的时候尤其有用。这部分内容描述将连接迁移到一个首选
+服务端地址的协议。
 
-Migrating a connection to a new server address mid-connection is left for future
-work. If a client receives packets from a new server address not indicated by
-the preferred_address transport parameter, the client SHOULD discard these
-packets.
+将连接迁移到一个新的服务端地址的时候，对于将来的工作留下了半连接的状态。如果
+客户端接收到了一个不被传输参数preferred_address标识的新的服务端地址，那么客户
+端**应该**把这些包丢弃掉。
 
-### Communicating A Preferred Address
+### 商议一个首选地址（ Communicating A Preferred Address）
 
-A server conveys a preferred address by including the preferred_address
-transport parameter in the TLS handshake.
+服务端通过在TLS握手中添加一个preferred_address传输参数来传达一个首选的地址。
 
-Servers MAY communicate a preferred address of each address family (IPv4 and
-IPv6) to allow clients to pick the one most suited to their network attachment.
+服务端**可以**为每个协议簇（ipv4和ipv6）设定一个首选的地址，让客户端来自己选
+择最适合它们网络附件的一个。
 
-Once the handshake is finished, the client SHOULD select one of the two
-server's preferred addresses and initiate path validation (see
-{{migrate-validate}}) of that address using the connection ID provided in the
-preferred_address transport parameter.
+一旦握手完成，客户端**应该**在服务端首选地址里选择一个，然后利用在
+preferred_address的传输参数里面指定的连接id初始化链路验证。详见
+{{migrate-validate}}.
 
-If path validation succeeds, the client SHOULD immediately begin sending all
-future packets to the new server address using the new connection ID and
-discontinue use of the old server address.  If path validation fails, the client
-MUST continue sending all future packets to the server's original IP address.
-
+如果链路验证成功了，客户端**应该**立即开始利用新的连接id发送所有的后续包到
+新的服务端地址，终止掉旧的服务器地址。如果链路验证失败，客户端**必须**继续
+向原有的服务端地址发送后续的包。
 
 ### Responding to Connection Migration
 
