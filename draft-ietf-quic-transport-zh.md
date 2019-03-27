@@ -3114,7 +3114,7 @@ QUIC包(尤其是PMTU的探测包)**应该**定义为
 分片或者丢弃(详见{{?RFC8085}})
 
 端上**应该**使用报文分包层的PMTU发现机制
-({{!DPLPMTUD=I-D.ietf-tsvwg-datagram-plpmtud}}) 
+({{!DPLPMTUD=I-D.ietf-tsvwg-datagram-plpmtud}})
 或者实现链路MTU发现机制
 (PMTUD) {{!RFC1191}} {{!RFC8201}}
 来决定到终点的链路是否支持没有经过分片的
