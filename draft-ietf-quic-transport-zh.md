@@ -2325,7 +2325,7 @@ Note that Stateless Reset packets do not have any cryptographic protection.
 
 # Error Handling {#error-handling}错误处理
 
-检测到错误的终端**应该**将该错误的存在通知其对端。传输级和应用级错误都会影响整个连接(see {{connection-errors}})，而只有应用级错误才能被隔离到单个流中(see {{stream-errors}})。
+检测到错误的终端**应该**将该错误的存在通知其对端。传输级和应用级错误都会影响整个连接(参见 {{connection-errors}})，而只有应用级错误才能被隔离到单个流中(参见 {{stream-errors}})。
 
 发出错误信号的帧中**应该**包含最合适的错误代码({{error-codes}})。在描述标识错误状况处，还标识了所使用的错误代码。
 
@@ -2354,9 +2354,9 @@ RESET_STREAM**必须**由使用QUIC的协议发起，可以是直接发起，也
 
 # Packets and Frames {#packets-frames}数据包和帧
 
-QUIC终端通过交换数据包进行通信。数据包具有机密性和完整性保护(see {{packet-protected}})，并在UDP数据报中传输(see {{packet-coalesce}})。
+QUIC终端通过交换数据包进行通信。数据包具有机密性和完整性保护(参见 {{packet-protected}})，并在UDP数据报中传输(参见 {{packet-coalesce}})。
 
-此版本的QUIC在连接建立过程中使用长数据包报头(see {{long-header}})。具有长报头的数据包是初始数据包({{packet-initial}})、0-RTT数据包({{packet-0rtt}})、握手数据包({{packet-handshake}})和重试数据包({{packet-retry}})。版本协商使用带有长报头的独立于版本的数据包(see {{packet-version}})。
+此版本的QUIC在连接建立过程中使用长数据包报头(参见 {{long-header}})。具有长报头的数据包是初始数据包({{packet-initial}})、0-RTT数据包({{packet-0rtt}})、握手数据包({{packet-handshake}})和重试数据包({{packet-retry}})。版本协商使用带有长报头的独立于版本的数据包(参见 {{packet-version}})。
 
 具有短报头({{short-header}})的数据包是为了最小的开销而设计的，在建立连接和1-RTT密钥可用后使用。  
 
@@ -2369,7 +2369,7 @@ QUIC终端通过交换数据包进行通信。数据包具有机密性和完整�
 
 所有其他数据包都使用从加密握手数据包派生的密钥进行保护。来自长报头的数据包类型或来自短报头的密钥阶段用于标识所使用的加密级别(因此也就是密钥)。使用0-RTT和1-RTT密钥保护的数据包应该具有机密性和数据来源身份验证；加密握手数据包确保只有通信终端接收相应的密钥。
 
-Packet Number字段包含一个Packet Number，它用来在应用数据包保护后应用额外机密性保护(see {{QUIC-TLS}} for details)。基础Packet Number随着每个数据包在给定Packet Number空间中的发送而增加{{packet-numbers}} 。  
+Packet Number字段包含一个Packet Number，它用来在应用数据包保护后应用额外机密性保护(详情参见 {{QUIC-TLS}})。基础Packet Number随着每个数据包在给定Packet Number空间中的发送而增加(详情参见 {{packet-numbers}}) 。  
 
 
 ## Coalescing Packets {#packet-coalesce}
