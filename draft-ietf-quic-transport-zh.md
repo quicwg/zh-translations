@@ -369,7 +369,7 @@ QUIC的实现**应该**提供方法，
 选择把流ID分配给流，
 这样可以实现更好的流优先级。
 
-对等端发起的双向流的发送部分
+对端发起的双向流的发送部分
 （服务端是类型0，客户端是类型1）
 进入“Ready”状态，然后如果接收部分进入“Recv”状态
 （{{stream-recv-states}}）时立刻转换到“Send”状态。
@@ -4993,140 +4993,145 @@ An IANA registry is used to manage the assignment of frame types, see
 {{iana-frames}}.
 
 
-# Transport Error Codes {#error-codes}
+# 传输错误码（Transport Error Codes） {#error-codes}
 
-QUIC error codes are 16-bit unsigned integers.
+QUIC错误码都是16位的无符号整型数。
 
-This section lists the defined QUIC transport error codes that may be used in a
-CONNECTION_CLOSE frame.  These errors apply to the entire connection.
+本节列出了可能在CONNECTION_CLOSE帧中
+使用的QUIC错误码的定义。这些错误可能在
+整个连接过程中发生。
 
 NO_ERROR (0x0):
 
-: An endpoint uses this with CONNECTION_CLOSE to signal that the connection is
-  being closed abruptly in the absence of any error.
+: 终端通过使用携带这个错误码的CONNECTION_CLOSE帧
+来表明连接在没有发生任何错误的情况下突然关闭。
 
 INTERNAL_ERROR (0x1):
 
-: The endpoint encountered an internal error and cannot continue with the
-  connection.
+: 终端遇到内部错误无法继续维持连接。
 
 SERVER_BUSY (0x2):
 
-: The server is currently busy and does not accept any new connections.
+: 服务器当前繁忙且不会接受任何新的连接。
 
 FLOW_CONTROL_ERROR (0x3):
 
-: An endpoint received more data than it permitted in its advertised data limits
-  (see {{flow-control}}).
+: 终端收到的数据超过其通知的数据限制所允许的数量。
+(请参见{{flow-control}})。
 
 STREAM_LIMIT_ERROR (0x4):
 
-: An endpoint received a frame for a stream identifier that exceeded its
-  advertised stream limit for the corresponding stream type.
+: 终端接收到超出了其通知的流类型限制的帧。
 
 STREAM_STATE_ERROR (0x5):
 
-: An endpoint received a frame for a stream that was not in a state that
-  permitted that frame (see {{stream-states}}).
+: 终端在允许接收该帧的状态之外的
+状态接收到该帧(请参见{{stream-states}})。
 
 FINAL_SIZE_ERROR (0x6):
 
-: An endpoint received a STREAM frame containing data that exceeded the
-  previously established final size.  Or an endpoint received a STREAM frame or
-  a RESET_STREAM frame containing a final size that was lower than the size of
-  stream data that was already received.  Or an endpoint received a STREAM frame
-  or a RESET_STREAM frame containing a different final size to the one already
-  established.
+: 终端收到的STREAM帧包含的数据
+超过了先前确定的最终大小。
+或者，终端接收的STREAM帧或RESET_STREAM帧的
+最终大小于已接收的流数据的大小。
+或者，终端接收的STREAM帧或RESET_STREAM帧
+中包含与已建立的最终大小值不同。
 
 FRAME_ENCODING_ERROR (0x7):
 
-: An endpoint received a frame that was badly formatted.  For instance, a frame
-  of an unknown type, or an ACK frame that has more acknowledgment ranges than
-  the remainder of the packet could carry.
+: 终端收到格式错误的帧。
+例如，未知类型的帧，
+或者确认范围大于包其余部分的ACK帧。
+
 
 TRANSPORT_PARAMETER_ERROR (0x8):
 
-: An endpoint received transport parameters that were badly formatted, included
-  an invalid value, was absent even though it is mandatory, was present though
-  it is forbidden, or is otherwise in error.
+: 终端接收的传输参数格式错误、包含无效值、
+是必填的但不存在、
+出现了不允许的值，或在其他情况下出错。
 
 PROTOCOL_VIOLATION (0xA):
 
-: An endpoint detected an error with protocol compliance that was not covered by
-  more specific error codes.
+: 终端检测到的错误在协议范围内
+没有更具体的错误代码。
 
 INVALID_MIGRATION (0xC):
 
-: A peer has migrated to a different network when the endpoint had disabled
-  migration.
+: 在终端禁用了迁移的状态下，
+对端迁移到其他网络。
 
 CRYPTO_ERROR (0x1XX):
 
-: The cryptographic handshake failed.  A range of 256 values is reserved for
-  carrying error codes specific to the cryptographic handshake that is used.
-  Codes for errors occurring when TLS is used for the crypto handshake are
-  described in Section 4.8 of {{QUIC-TLS}}.
+: 加密握手失败。
+保留256个值的范围用于传送特定于
+所使用的加密握手的错误代码。
+在{{QUIC-TLS}}的第4.8节中介绍了
+将TLS用于加密握手时会出现的错误码。
 
-See {{iana-error-codes}} for details of registering new error codes.
-
-
-## Application Protocol Error Codes {#app-error-codes}
-
-Application protocol error codes are 16-bit unsigned integers, but the
-management of application error codes are left to application protocols.
-Application protocol error codes are used for the RESET_STREAM frame
-({{frame-reset-stream}}) and the CONNECTION_CLOSE frame with a type of 0x1d
-({{frame-connection-close}}).
+有关新错误码的详细信息，请参阅{{iana-error-codes}}。
 
 
-# Security Considerations
+## 应用协议错误码（Application Protocol Error Codes） {#app-error-codes}
 
-## Handshake Denial of Service
+应用协议的错误码是16位无符号整数，但应用错误码的
+管理由应用协议负责。
+应用协议错误码用于RESET_STREAM帧
+({{frame-reset-stream}})和
+类型为0x1d({{frame-connection-close}})的
+CONNECTION_CLOSE帧。
 
-As an encrypted and authenticated transport QUIC provides a range of protections
-against denial of service.  Once the cryptographic handshake is complete, QUIC
-endpoints discard most packets that are not authenticated, greatly limiting the
-ability of an attacker to interfere with existing connections.
 
-Once a connection is established QUIC endpoints might accept some
-unauthenticated ICMP packets (see {{icmp-pmtud}}), but the use of these packets
-is extremely limited.  The only other type of packet that an endpoint might
-accept is a stateless reset ({{stateless-reset}}) which relies on the token
-being kept secret until it is used.
+# 安全注意事项（Security Considerations）
 
-During the creation of a connection, QUIC only provides protection against
-attack from off the network path.  All QUIC packets contain proof that the
-recipient saw a preceding packet from its peer.
+## 握手拒绝服务（Handshake Denial of Service）
 
-The first mechanism used is the source and destination connection IDs, which are
-required to match those set by a peer.  Except for an Initial and stateless
-reset packets, an endpoint only accepts packets that include a destination
-connection that matches a connection ID the endpoint previously chose.  This is
-the only protection offered for Version Negotiation packets.
+作为一种经过加密和验证的传输，
+QUIC提供了一系列针对拒绝服务的保护。
+一旦加密握手完成后，QUIC终端将丢弃大多数
+未经身份验证的包，从而极大地限制了
+攻击者干扰现有连接的能力。
 
-The destination connection ID in an Initial packet is selected by a client to be
-unpredictable, which serves an additional purpose.  The packets that carry the
-cryptographic handshake are protected with a key that is derived from this
-connection ID and salt specific to the QUIC version.  This allows endpoints to
-use the same process for authenticating packets that they receive as they use
-after the cryptographic handshake completes.  Packets that cannot be
-authenticated are discarded.  Protecting packets in this fashion provides a
-strong assurance that the sender of the packet saw the Initial packet and
-understood it.
+一旦建立了连接，QUIC终端可能会接受一些
+未经身份验证的ICMP包(请参阅{{icmp-pmtud}})，
+但这些包的使用受到极大限制。
+终端可能接受的唯一其他类型的包是
+无状态重置({{stateless-reset}})，
+该重置依赖于在使用前一直保密的令牌。
 
-These protections are not intended to be effective against an attacker that is
-able to receive QUIC packets prior to the connection being established.  Such an
-attacker can potentially send packets that will be accepted by QUIC endpoints.
-This version of QUIC attempts to detect this sort of attack, but it expects that
-endpoints will fail to establish a connection rather than recovering.  For the
-most part, the cryptographic handshake protocol {{QUIC-TLS}} is responsible for
-detecting tampering during the handshake.
+在创建连接期间，QUIC提供的保护仅针对
+来自网络路径之外的攻击。
+所有QUIC包都包含接收方收到来自其
+对端的前面的包的证明。
 
-Endpoints are permitted to use other methods to detect and attempt to recover
-from interference with the handshake.  Invalid packets may be identified and
-discarded using other methods, but no specific method is mandated in this
-document.
+防御使用的第一种机制是源连接ID和目标连接ID，
+这是匹配对端所设置的连接ID所必需的。
+除了初始和无状态重置数据包外，
+终端仅接受包含与终端先前选择的连接ID
+所匹配的目标连接的包。
+这是为版本协商包提供的唯一保护。
 
+初始包中客户端选择的目标连接ID值
+不可预测是为另一个目的提供服务。
+携带密码握手的包受来自该连接ID和
+特定于QUIC协议版本的盐派生的密钥来保护。
+这允许终端在完成加密握手后使用和自身使用的
+相同的流程来验证它们收到的包。
+无法验证的包会被丢弃。
+以这种方式保护包提供了一个强有力的保证，
+即该包的发送方收到初始包并正确理解它。
+
+这些保护措施并不是为了有效对抗能够
+在建立连接之前接收到多个包的攻击者，。
+这样的攻击者可能会发送能被QUIC终端接受的包。
+本版本的QUIC协议试图检测这种攻击，
+但是它期望终端不会建立连接而不是恢复连接。
+大多数情况下，加密握手协议{{QUIC-TLS}}负责
+检测握手期间的篡改。
+
+终端允许使用其他方法来检测和尝试
+从握手受到的干扰中恢复。
+无效包可以使用其他方法来标识和丢弃，
+但本文档中没有指定特定方法。
 
 ## Amplification Attack
 
