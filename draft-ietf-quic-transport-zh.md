@@ -4266,14 +4266,15 @@ ECN Counts:
 : The three ECN Counts, see {{ack-ecn-counts}}.
 
 
-### ACK Ranges {#ack-ranges}
+### ACK范围(ACK Ranges) {#ack-ranges}
 
-The ACK Ranges field consists of alternating Gap and ACK Range values in
-descending packet number order.  The number of Gap and ACK Range values is
-determined by the ACK Range Count field; one of each value is present for each
-value in the ACK Range Count field.
+“ACK范围”字段由按数据包编号降序排列的
+“间隙”值和“ACK范围”值交替组成。
+“间隙”(Gap)和“ACK范围”(ACK Range)值的数量
+由“ACK范围计数”(ACK Range Count)字段确定；
+ACK范围计数(Range Count)字段中的每个值都对应一个值。
 
-ACK Ranges are structured as follows:
+ACK范围结构如下组织:
 
 ~~~
  0                   1                   2                   3
@@ -4294,69 +4295,64 @@ ACK Ranges are structured as follows:
 |                          [ACK Range (i)]                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #ack-range-format title="ACK Ranges"}
+{: #ack-range-format title="ACK范围(ACK Ranges)"}
 
-The fields that form the ACK Ranges are:
+新城ACK范围的字段有:
 
-Gap (repeated):
+间隙(重复的):
 
-: A variable-length integer indicating the number of contiguous unacknowledged
-  packets preceding the packet number one lower than the smallest in the
-  preceding ACK Range.
+: 一个变长整数，表示比在之前的ACK范围中
+最小包编号小一的连续未确认包的编号。
 
-ACK Range (repeated):
+ACK 范围(重复的):
 
-: A variable-length integer indicating the number of contiguous acknowledged
-  packets preceding the largest packet number, as determined by the
-  preceding Gap.
+: 一个变长整数，表示小于当前最大包编号连续
+确认包的编号，由之前的Gap确定。
 
-Gap and ACK Range value use a relative integer encoding for efficiency.  Though
-each encoded value is positive, the values are subtracted, so that each ACK
-Range describes progressively lower-numbered packets.
+间隙和ACK范围值使用相对整数编码以提高效率。
+尽管每个编码的值都是正的，由于该值是被减去的，
+所以每个ACK范围描述了编码降序的数据包。
 
-Each ACK Range acknowledges a contiguous range of packets by indicating the
-number of acknowledged packets that precede the largest packet number in that
-range.  A value of zero indicates that only the largest packet number is
-acknowledged.  Larger ACK Range values indicate a larger range, with
-corresponding lower values for the smallest packet number in the range.  Thus,
-given a largest packet number for the range, the smallest value is determined by
-the formula:
+每个ACK范围通过指示在该范围内最大数据包编号之前的
+已确认数据包的编号来确认连续的数据包范围。
+值为零表示仅确认最大的数据包号。
+较大的ACK范围值表示较大的范围，
+该范围内最小的数据包编号对应较小的值。
+因此，给定范围内的最大数据包编号，
+最小值由以下公式确定:
 
 ~~~
    smallest = largest - ack_range
 ~~~
 
-An ACK Range acknowledges all packets between the smallest packet number and the
-largest, inclusive.
+ACK范围确认了最小包编号和最大包编号之间的所有数据包。
 
-The largest value for an ACK Range is determined by cumulatively subtracting the
-size of all preceding ACK Ranges and Gaps.
+ACK范围的最大值是通过累计减去
+前面所有ACK范围和间隙的大小来确定的。
 
-Each Gap indicates a range of packets that are not being acknowledged.  The
-number of packets in the gap is one higher than the encoded value of the Gap
-field.
+每个间隙表示了未确认的包的范围。
+间隙中的包的编号比间隙字段的编码值大一。
 
-The value of the Gap field establishes the largest packet number value for the
-subsequent ACK Range using the following formula:
+间隙字段的值使用以下公式确定后续ACK范围的最大包编号值:
 
 ~~~
    largest = previous_smallest - gap - 2
 ~~~
 
-If any computed packet number is negative, an endpoint MUST generate a
-connection error of type FRAME_ENCODING_ERROR indicating an error in an ACK
-frame.
+如果任何计算出的包编号是负值，
+终端**必须**生成一个FRAME_ENCODING_ERROR
+类型的连接异常表示ACK帧中的错误。
 
 
-### ECN Counts {#ack-ecn-counts}
+### ECN计数(ECN Counts) {#ack-ecn-counts}
 
-The ACK frame uses the least significant bit (that is, type 0x03) to indicate
-ECN feedback and report receipt of QUIC packets with associated ECN codepoints
-of ECT(0), ECT(1), or CE in the packet's IP header.  ECN Counts are only present
-when the ACK frame type is 0x03.
+ACK帧使用最低有效位(即类型0x03)来指示ECN反馈，
+并且在数据包的IP报头中报告收到的QUIC包的关联的ECN码点
+ECN(0), ECT(1), 或者 CE。
+ECN计数仅仅在ACK帧类型是0x03的时候存在。
 
-ECN Counts are only parsed when the ACK frame type is 0x03.  There are 3 ECN
-counts, as follows:
+只有ACK帧类型是0x03的时候，ECN计数才会被解析。
+有三个ECN计数，如下表示：
 
 ~~~
  0                   1                   2                   3
@@ -4370,36 +4366,32 @@ counts, as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-The three ECN Counts are:
+三个ECN计数分别是：
 
-ECT(0) Count:
-: A variable-length integer representing the total number packets received with
-  the ECT(0) codepoint.
+ECT(0) 计数:
+: 一个变长的整数，表示接收到的带有ECT(0)码点的包的总数。
 
-ECT(1) Count:
-: A variable-length integer representing the total number packets received with
-  the ECT(1) codepoint.
+ECT(1) 计数:
+: 一个变长的整数，表示接收到的带有ECT(1)码点的包的总数。
 
-CE Count:
-: A variable-length integer representing the total number packets received with
-  the CE codepoint.
+CE 计数:
+: 一个变长的整数，表示接收到的带有CE码点的包的总数。
 
-ECN counts are maintained separately for each packet number space.
+ECN 计数对每个包编码空间进行独立的维护。
 
+## RESET_STREAM帧(RESET_STREAM Frame) {#frame-reset-stream}
 
-## RESET_STREAM Frame {#frame-reset-stream}
+终端使用RESET_STREAM帧(类型=0x04)来立刻中断一个流。
 
-An endpoint uses a RESET_STREAM frame (type=0x04) to abruptly terminate a
-stream.
+在发送RESET_STREAM帧之后，
+终端停止在标识的流上的数据包的传输与重传。
+收到RESET_STREAM的终端可以丢弃
+它在这个流上已经收到的任何数据。
 
-After sending a RESET_STREAM, an endpoint ceases transmission and retransmission
-of STREAM frames on the identified stream.  A receiver of RESET_STREAM can
-discard any data that it already received on that stream.
+在一个仅发送流上接收到RESET_STREAM帧的终端
+**必须**以STREAM_STATE_ERROR异常来中断连接。
 
-An endpoint that receives a RESET_STREAM frame for a send-only stream MUST
-terminate the connection with error STREAM_STATE_ERROR.
-
-The RESET_STREAM frame is as follows:
+RESET_STREAM帧如下表示:
 
 ~~~
  0                   1                   2                   3
@@ -4413,23 +4405,21 @@ The RESET_STREAM frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-RESET_STREAM frames contain the following fields:
+RESET_STREAM 帧包含下列字段:
 
-Stream ID:
+流 ID(Stream ID):
 
-: A variable-length integer encoding of the Stream ID of the stream being
-  terminated.
+: 一个变长整数，编码将要终止的流的ID。
 
-Application Protocol Error Code:
+应用协议错误码(Application Error Code):
 
-: A 16-bit application protocol error code (see {{app-error-codes}}) which
-  indicates why the stream is being closed.
+: 一个十六位的应用协议错误码(详见{{app-error-codes}})
+，表示为什么流要被关闭。
 
-Final Size:
+最终大小(Final Size):
 
-: A variable-length integer indicating the final size of the stream by the
-  RESET_STREAM sender, in unit of bytes.
-
+: 一个变长整数，
+表示以位为单位的发送者定义的流的最终大小。
 
 ## STOP_SENDING Frame {#frame-stop-sending}
 
