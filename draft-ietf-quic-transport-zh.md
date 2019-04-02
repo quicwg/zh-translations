@@ -5061,168 +5061,119 @@ discarded using other methods, but no specific method is mandated in this
 document.
 
 
-## Amplification Attack
+## 重放攻击(Amplification Attack)
 
-An attacker might be able to receive an address validation token
-({{address-validation}}) from a server and then release the IP address it used
-to acquire that token.  At a later time, the attacker may initiate a 0-RTT
-connection with a server by spoofing this same address, which might now address
-a different (victim) endpoint.  The attacker can thus potentially cause the
-server to send an initial congestion window's worth of data towards the victim.
+攻击者可能能够从服务器接收地址验证令牌（{{address-validation}}），然后解码其中获取该令牌的IP地址。
+稍后，攻击者可以通过伪造该地址来启动与服务器的0-RTT连接，此时该地址实际指向一个（被攻击的目标）终端
+为此，攻击者可能会使服务器向目标发送初始拥塞窗口的数据。
 
-Servers SHOULD provide mitigations for this attack by limiting the usage and
-lifetime of address validation tokens (see {{validate-future}}).
+服务器**应该**通过限制地址验证令牌的使用和生命周期来缓解此种攻击（参见{{validate-future}}）。
 
-## Optimistic ACK Attack
+## 乐观ACK攻击预期(Optimistic ACK Attack)
 
-An endpoint that acknowledges packets it has not received might cause a
-congestion controller to permit sending at rates beyond what the network
-supports.  An endpoint MAY skip packet numbers when sending packets to detect
-this behavior.  An endpoint can then immediately close the connection with a
-connection error of type PROTOCOL_VIOLATION (see {{immediate-close}}).
+确认未收到数据包的终端可能导致拥塞控制允许以超出网络支持的速率发送。
+终端**可以**在发送数据包时跳过数据包编号以检测此行为。
+然后，终端可以立即关闭有PROTOCOL_VIOLATION类型错误的连接（请参阅{{immediate-close}}。
 
 
-## Slowloris Attacks
+## Slowloris攻击(Slowloris Attacks)
 
-The attacks commonly known as Slowloris {{SLOWLORIS}} try to keep many
-connections to the target endpoint open and hold them open as long as possible.
-These attacks can be executed against a QUIC endpoint by generating the minimum
-amount of activity necessary to avoid being closed for inactivity.  This might
-involve sending small amounts of data, gradually opening flow control windows in
-order to control the sender rate, or manufacturing ACK frames that simulate a
-high loss rate.
+Slowloris {{SLOWLORIS}}攻击尝试保持与目标终端的多个连接打开并维持尽可能长的时间。
+通过生成能避免因不活动而关闭所需的最低数量的活动，可以针对QUIC端点执行这些攻击。
+这可能涉及发送少量数据，逐步打开流控制窗口以控制发送速率，或制造模拟高丢失率的ACK帧。
 
-QUIC deployments SHOULD provide mitigations for the Slowloris attacks, such as
-increasing the maximum number of clients the server will allow, limiting the
-number of connections a single IP address is allowed to make, imposing
-restrictions on the minimum transfer speed a connection is allowed to have, and
-restricting the length of time an endpoint is allowed to stay connected.
+QUIC部署**应该**为Slowloris攻击提供缓解:
+例如增加服务器允许的最大客户端数量，限制允许单个IP地址进行的连接数量，对允许连接的最小传输速度施加限制 ，并限制允许终端保持连接的时间长度。
 
 
-## Stream Fragmentation and Reassembly Attacks
+## 流碎片和重组攻击(Stream Fragmentation and Reassembly Attacks)
 
-An adversarial sender might intentionally send fragments of stream data in
-order to cause disproportionate receive buffer memory commitment and/or
-creation of a large and inefficient data structure.
+对抗性发送者可能故意发送流数据的片段，以便导致不成比例的接收缓冲存储器承诺和/或创建大而低效的数据结构。
 
-An adversarial receiver might intentionally not acknowledge packets
-containing stream data in order to force the sender to store the
-unacknowledged stream data for retransmission.
+一个对抗接收器可能故意不确认包含流数据的分组，迫使 发送者存储未确认的流数据以进行重传。
 
-The attack on receivers is mitigated if flow control windows correspond to
-available memory.  However, some receivers will over-commit memory and
-advertise flow control offsets in the aggregate that exceed actual available
-memory.  The over-commitment strategy can lead to better performance when
-endpoints are well behaved, but renders endpoints vulnerable to the stream
-fragmentation attack.
+如果流控制窗口对应了可用内存，则可减轻对接收器的攻击。
+但是，某些接收器会过量使用内存并在聚合中通告超过实际可用内存的控制器偏移量（即内存溢出至声明外）。
+当终端表现良好时，过度提交策略可以带来更好的性能，但是使终端容易受到流碎片攻击。
 
-QUIC deployments SHOULD provide mitigations against stream fragmentation
-attacks.  Mitigations could consist of avoiding over-committing memory,
-limiting the size of tracking data structures, delaying reassembly
-of STREAM frames, implementing heuristics based on the age and
-duration of reassembly holes, or some combination.
+QUIC部署**应该**提供缓解流碎片攻击的措施。
+缓解措施可以包括避免过度提交内存，限制跟踪数据结构的大小，延迟STREAM帧的重组，基于重组孔的年龄和持续时间或某种组合实现的启发式。
 
 
-## Stream Commitment Attack
+## 流承诺攻击(Stream Commitment Attack)
 
-An adversarial endpoint can open lots of streams, exhausting state on an
-endpoint.  The adversarial endpoint could repeat the process on a large number
-of connections, in a manner similar to SYN flooding attacks in TCP.
+对抗终端可以打开大量流，耗尽目标终端上的状态。
+并且对抗终端可以在大量连接上重复该过程，其方式类似于TCP中的SYN泛洪攻击。
 
-Normally, clients will open streams sequentially, as explained in {{stream-id}}.
-However, when several streams are initiated at short intervals, transmission
-error may cause STREAM DATA frames opening streams to be received out of
-sequence.  A receiver is obligated to open intervening streams if a
-higher-numbered stream ID is received.  Thus, on a new connection, opening
-stream 2000001 opens 1 million streams, as required by the specification.
+通常，客户端将按顺序打开流，如{{stream-id}}中所述。
+然而，当以短间隔启动若干流时，传输错误可能导致STREAM DATA帧打开流不被接收。
+如果接收到更高编号的流ID，则接收方有义务打开中间流。
+因此，在新连接上，打开流2000001时将按照规范的要求打开100万个流。
 
-The number of active streams is limited by the concurrent stream limit transport
-parameter, as explained in {{controlling-concurrency}}.  If chosen judiciously,
-this limit mitigates the effect of the stream commitment attack.  However,
-setting the limit too low could affect performance when applications expect to
-open large number of streams.
+活动流的数量受并发流限制传输参数的限制，如{{controlling-concurrency}}中所述。
+如果明智地选择，这个限制可以减轻流承诺攻击的影响。
+但是，当应用程序期望打开大量流时，将限制设置得太低可能会影响性能。
 
-## Explicit Congestion Notification Attacks {#security-ecn}
+## 显式拥塞通知攻击(Explicit Congestion Notification Attacks) {#security-ecn}
 
-An on-path attacker could manipulate the value of ECN codepoints in the IP
-header to influence the sender's rate. {{!RFC3168}} discusses manipulations and
-their effects in more detail.
+路径上的攻击者可以操纵IP头中的ECN码点的值来影响发送者的速率。
+{{!RFC3168}} 更详细地讨论了操作及其影响。
 
-An on-the-side attacker can duplicate and send packets with modified ECN
-codepoints to affect the sender's rate.  If duplicate packets are discarded by a
-receiver, an off-path attacker will need to race the duplicate packet against
-the original to be successful in this attack.  Therefore, QUIC receivers ignore
-ECN codepoints set in duplicate packets (see {{ecn}}).
+端到端的攻击者可以复制并发送带有修改的ECN码点的数据包，以影响发送者的速率。
+如果接收方丢弃重复的数据包，则路径外攻击者需要将重复的数据包与原始数据包竞争才能在此攻击中成功。
+因此，QUIC接收器忽略在重复数据包中设置的ECN码点（请参阅{{ecn}}）。
 
-## Stateless Reset Oracle {#reset-oracle}
+## 无状态重置Oracle(Stateless Reset Oracle) {#reset-oracle}
 
-Stateless resets create a possible denial of service attack analogous to a TCP
-reset injection. This attack is possible if an attacker is able to cause a
-stateless reset token to be generated for a connection with a selected
-connection ID. An attacker that can cause this token to be generated can reset
-an active connection with the same connection ID.
+无状态重置可能会产生类似于TCP重置注入的拒绝服务攻击。
+如果攻击者能够为具有所选连接ID的连接生成无状态重置令牌，则就有可能发起此攻击。
+能生成此令牌的攻击者可以使用相同的连接ID重置活动连接。
 
-If a packet can be routed to different instances that share a static key, for
-example by changing an IP address or port, then an attacker can cause the server
-to send a stateless reset.  To defend against this style of denial service,
-endpoints that share a static key for stateless reset (see {{reset-token}}) MUST
-be arranged so that packets with a given connection ID always arrive at an
-instance that has connection state, unless that connection is no longer active.
+如果数据包可以路由到共享静态密钥的不同实例（例如，通过更改IP地址或端口），则攻击者可以使服务器发送无状态重置。
+为了抵御这种拒绝服务攻击，**必须**安排共享静态密钥以进行无状态重置的终端（请参阅{{reset-token}}），以便具有给定连接ID的数据包始终到达具有连接状态的实例，除非该连接不再活动。
 
-In the case of a cluster that uses dynamic load balancing, it's possible that a
-change in load balancer configuration could happen while an active instance
-retains connection state; even if an instance retains connection state, the
-change in routing and resulting stateless reset will result in the connection
-being terminated.  If there is no chance in the packet being routed to the
-correct instance, it is better to send a stateless reset than wait for
-connections to time out.  However, this is acceptable only if the routing cannot
-be influenced by an attacker.
+对于使用动态负载平衡的集群，当活动实例保留连接状态时，可能会发生负载均衡器配置的更改; 即使实例保留连接状态，路由更改和结果无状态重置也会导致连接终止。
+如果数据包无法路由到正确的实例，则最好发送无状态重置，而不是等待连接超时。
+但是，这只有在路由不受攻击者影响的情况下才是可接受的。
 
-## Version Downgrade {#version-downgrade}
+## 版本降级(Version Downgrade) {#version-downgrade}
 
-This document defines QUIC Version Negotiation packets {{version-negotiation}},
-which can be used to negotiate the QUIC version used between two endpoints.
-However, this document does not specify how this negotiation will be performed
-between this version and subsequent future versions.  In particular, Version
-Negotiation packets do not contain any mechanism to prevent version downgrade
-attacks.  Future versions of QUIC that use Version Negotiation packets MUST
-define a mechanism that is robust against version downgrade attacks.
+本文档定义了QUIC版本协商数据包{{version-negotiation}}，可用于协商两个终端之间使用的QUIC版本。
+但是，本文档未指定在此版本与后续版本之间如何执行此协商。
+特别是，VersionNegotiation数据包不包含任何防止版本降级攻击的机制。
+使用版本协商数据包的QUIC的未来版本**必须**定义一种对版本降级攻击具有强大功能的机制。
 
 
-# IANA Considerations
+# IANA注意事项(IANA Considerations)
 
-## QUIC Transport Parameter Registry {#iana-transport-parameters}
+## QUIC传输参数注册信息(QUIC Transport Parameter Registry) {#iana-transport-parameters}
 
 IANA \[SHALL add/has added] a registry for "QUIC Transport Parameters" under a
 "QUIC Protocol" heading.
 
-The "QUIC Transport Parameters" registry governs a 16-bit space.  This space is
-split into two spaces that are governed by different policies.  Values with the
-first byte in the range 0x00 to 0xfe (in hexadecimal) are assigned via the
-Specification Required policy {{!RFC8126}}.  Values with the first byte 0xff are
-reserved for Private Use {{!RFC8126}}.
+“QUIC传输参数”注册信息管理了一个16位空间。
+此空间分为两个子空间，由不同的策略管理。
+具有0x00到0xfe（十六进制）范围内的第一个字节的值通过规范必需策略{{!RFC8126}}分配。
+第一个字节0xff的值保留给私有信息，参考{{!RFC8126}}。
 
-Registrations MUST include the following fields:
+注册**必须**包括以下字段：
 
-Value:
+值:
 
-: The numeric value of the assignment (registrations will be between 0x0000 and
-  0xfeff).
+: 分配的数值 (范围在0x0000~0xfeff).
 
-Parameter Name:
+参数名:
 
-: A short mnemonic for the parameter.
+: 参数的缩写名称。
 
-Specification:
+格式:
 
-: A reference to a publicly available specification for the value.
+: 值的公开可用规范的参考。
 
-The nominated expert(s) verify that a specification exists and is readily
-accessible.  Expert(s) are encouraged to be biased towards approving
-registrations unless they are abusive, frivolous, or actively harmful (not
-merely aesthetically displeasing, or architecturally dubious).
+指定专家验证规范是否存在且易于访问。
+鼓励专家偏向批准注册，除非他们是滥用，轻浮或积极有害（不仅仅是美学上令人不悦，或在建筑上可疑）。
 
-The initial contents of this registry are shown in {{iana-tp-table}}.
+此注册信息的初始内容显示在{{iana-tp-table}}中。
 
 | Value  | Parameter Name              | Specification                       |
 |:-------|:----------------------------|:------------------------------------|
