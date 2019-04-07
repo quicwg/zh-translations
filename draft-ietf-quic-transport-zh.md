@@ -2215,18 +2215,18 @@ coalesced (see {{packet-coalesce}}) to facilitate retransmission.
 
 ## 无状态重置(Stateless Reset) {#stateless-reset}
 
-无状态重置被提供作为对于无法访问连接状态的终端的最后选择。
+无状态重置是提供给无法访问连接状态的终端的最后选择。
 崩溃或中断可能导致对端继续向无法继续正常连接的终端发送数据。
 无状态重置不适用于发出错误条件的信号。
 如果终端有足够的状态，则希望通信致命连接错误的终端**必须**使用CONNECTION_CLOSE帧来通信。
 
 
 为了支持这个过程，终端发送一个令牌。
-令牌在两个对端发送的NEW_CONNECTION_ID帧中携带，服务器可以在握手期间
+令牌在任一对端发送的NEW_CONNECTION_ID帧中携带，服务器可以在握手期间
 指定stateless_reset_token传输参数(客户机不能，因为它们的传输参数没有机密性保护)。
 此值受加密保护，因此只有客户机和服务器知道此值。
 当令牌的关联连接ID通过RETIRE_CONNECTION_ID帧
-({{frame-retire-connection-id}})退役时，令牌将失效。
+({{frame-retire-connection-id}})停用时，令牌将失效。
 
 
 接收到无法处理的数据包的终端发送数据包的布局如下:
@@ -2249,7 +2249,7 @@ coalesced (see {{packet-coalesce}}) to facilitate retransmission.
 {: #fig-stateless-reset title="无状态重置令牌(Stateless Reset Packet)"}
 
 
-这种设计确保无状态重置包(在可能的范围内)与具有短报头的常规包没有区别。
+这种设计确保无状态重置包尽可能与具有短报头的常规包没有区别。
 
 
 无状态重置使用整个UDP数据报，从数据包头的前两位开始。
@@ -2315,11 +2315,11 @@ coalesced (see {{packet-coalesce}}) to facilitate retransmission.
 ### 计算无状态重置令牌(Calculating a Stateless Reset Token) {#reset-token}
 
 无状态重置令牌**一定**很难猜测。
-为了创建无状态重置令牌，终端可以为它创建的每个连接随机生成{{!RFC4086}}一个秘密。
+为了创建无状态重置令牌，终端可以为它创建的每个连接随机生成{{!RFC4086}}一个密码。
 然而，当集群中有多个实例或终端的存储问题可能会丢失状态时，就会出现协调问题。
 无状态重置专门用于处理状态丢失的情况，所以这种方法不是最优的。
 
-通过使用抗预映像函数的第二次迭代生成证明，可以跨到同一终端的所有连接使用单个静态键，
+通过使用抗预映像函数的第二次迭代生成证明，单个静态密钥可用于到同一终端的所有连接，
 该函数将静态键和终端选择的连接ID作为输入(请参见{{connection-id}})。
 终端可以使用HMAC {{?RFC2104}}(例如，HMAC(static_key, connection_id))
 或HKDF {{?RFC5869}}(例如，使用静态密钥作为输入密钥，连接ID作为salt)。
