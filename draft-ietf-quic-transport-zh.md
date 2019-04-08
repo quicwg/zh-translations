@@ -464,7 +464,7 @@ STREAM_DATA_BLOCKED,或RESET_STREAM时完成创建。
 时也会创建接收部分。
 流的接收部分初始状态是“Recv”(接收)。
 
-当端点（客户端是类型0，服务端是类型1）发起的双向传输流
+当终端（客户端是类型0，服务端是类型1）发起的双向传输流
 的发送部分进入“就绪”状态时，
 流的接收部分进入“Recv”状态。
 
@@ -766,12 +766,12 @@ STREAM_DATA_BLOCKED或DATA_BLOCKED帧一次。
 以避免超出流量控制限制或出现死锁。
 
 收到RESET_STREAM帧后，
-端点将关闭匹配流的状态，
+终端将关闭匹配流的状态，
 并忽略到达该流的其他数据。
 如果RESET_STREAM帧与同一流的流数据一起重新排序，
 则接收方对该流上接收到的字节数的估计可能低于
 发送方对发送的字节数的估计。
-因此，这两个端点在连接流控制的字节数上可能不一致。
+因此，这两个终端在连接流控制的字节数上可能不一致。
 
 这个问题通过RESET_STREAM帧({{frame-reset-stream}})
 设置在流上发送的数据的最终大小来解决。
@@ -786,7 +786,7 @@ RESET_STREAM突然终止流的一个方向。
 RESET_STREAM对相反方向的数据流没有影响。
 两个终端都必须在未终止的方向上保持流的流控制状态，
 直到该方向进入终止状态，
-或者直到其中一个端点发送CONNECTION_CLOSE为止。
+或者直到其中一个终端发送CONNECTION_CLOSE为止。
 
 
 ## 流最终大小(Stream Final Size) {#final-size}
@@ -973,7 +973,7 @@ RETIRE_CONNECTION_ID 帧使连接 ID 无效({{frame-retire-connection-id}})。
 如果目标连接ID为零长度，
 且数据包匹配的地址或端口是主机不需要链接ID的链接，
 则QUIC会将该数据包作为上述连接的一部分进行处理。
-端点**应该**拒绝以下操作以确保数据包正确地匹配连接：
+终端**应该**拒绝以下操作以确保数据包正确地匹配连接：
 
 * 使用与现有连接相同的地址的连接尝试。
 
@@ -1594,7 +1594,7 @@ NEW_TOKEN帧中提供的令牌(请参见{{frame-new-token}})
 
 ## 路径验证(Path Validation) {#migrate-validate}
 
-迁移端点在连接迁移(参考{{migration}} 和
+迁移终端在连接迁移(参考{{migration}} 和
 {{preferred-address}})期间使用路径验证来验证从新的
 本地地址到对端的可达性。在路径验证中，终端测试特定
 本地地址与特定对等地址之间的可达性，其中地址是IP
@@ -1605,7 +1605,7 @@ NEW_TOKEN帧中提供的令牌(请参见{{frame-new-token}})
 路径验证确认从迁移的对端接收的包不携带欺骗性的
 源地址。
 
-任何端点都可以随时使用路径验证。 例如，端点可能会
+任何终端都可以随时使用路径验证。 例如，终端可能会
 在一段时间的静默后检查对端是否仍然拥有其地址。
 
 路径验证不是设计为NAT穿透机制。 虽然这里描述的机制
@@ -1617,7 +1617,7 @@ NEW_TOKEN帧中提供的令牌(请参见{{frame-new-token}})
 终端**可能**把用于路径验证的PATH_CHALLENGE和
 PATH_RESPONSE帧和其他帧进行捆绑。 特别地，终端
 可以装配一个携带PATH_CHALLENGE的包用于PMTU探测，
-或者端点可以把一个PATH_RESPONSE和自己的
+或者终端可以把一个PATH_RESPONSE和自己的
 PATH_CHALLENGE捆绑起来。
 
 在探测新路径时，终端可能希望确保其对端具有可用于
@@ -1631,7 +1631,7 @@ NEW_CONNECTION_ID和PATH_CHALLENGE帧。 这可
 要启动路径验证，终端会在要验证的路径上发送包含随机
 有效负载的PATH_CHALLENGE帧。
 
-端点**可能**发送多个PATH_CHALLENGE帧以防止丢包。
+终端**可能**发送多个PATH_CHALLENGE帧以防止丢包。
 终端**应该不**比初始数据包更频繁地
 发送PATH_CHALLENGE，
 从而确保连接迁移到新的路径时负载量和建立一个新连接
@@ -1694,7 +1694,7 @@ PATH_RESPONSE帧中填入PATH_CHALLENGE帧中包含的
 但路径验证成功要求收到具有正确数据的PATH_RESPONSE帧。
 
 当终端放弃路径验证时，等于确定该路径不可用。
-这并不一定意味着连接失败 - 端点可以继续在适当的情况下
+这并不一定意味着连接失败 - 终端可以继续在适当的情况下
 通过其他路径发送数据包。 如果没有可用的路径，
 则终端可以等待一个新路径变为可用或关闭连接。
 
@@ -2902,7 +2902,7 @@ RESET_STREAM帧中的内容在重发时**禁止**更改。
 
 * 当前连接最大数据以MAX_DATA帧发送。
 如果包含最近发送的MAX_DATA帧的数据包被声明丢失，
-或者端点决定更新限制，则在MAX_DATA帧中发送更新的值。
+或者终端决定更新限制，则在MAX_DATA帧中发送更新的值。
 需要注意避免频繁发送此帧，
 因为这样额度可能会频繁增大
 并导致发送不必要的大量MAX_DATA帧。
@@ -2964,18 +2964,18 @@ PATH_CHALLENGE帧每次发送时都包含不同的有效载荷。
 
 ## 显式拥塞通知(Explicit Congestion Notification) {#ecn}
 
-QUIC端点可以使用显式拥塞通知
+QUIC终端可以使用显式拥塞通知
 （ECN）{{!RFC3168}}来检测和响应网络拥塞。
 ECN允许网络节点通过在分组的IP报头中
 设置码点而不是丢弃它来指示网络中的拥塞。
 如{{QUIC-RECOVERY}}中所述，
-端点通过降低响应的发送速率来对拥塞作出反应。
+终端通过降低响应的发送速率来对拥塞作出反应。
 
-要使用ECN，QUIC端点首先确定路径是否支持ECN标记，
+要使用ECN，QUIC终端首先确定路径是否支持ECN标记，
 并且对端能够访问IP标头中的ECN码点。
 如果ECN标记的数据包被丢弃或ECN标记在路径上被重写，
 则网络路径不支持ECN。
-端点在连接建立期间和迁移到
+终端在连接建立期间和迁移到
 新路径时会验证路径(参考{{migration}})。
 
 
@@ -2983,7 +2983,7 @@ ECN允许网络节点通过在分组的IP报头中
 
 在接收到具有ECT或CE代码点的QUIC数据包时，
 可以从封闭IP数据包访问ECN代码点的启用
-ECN的端点会增加相应的ECT（0），
+ECN的终端会增加相应的ECT（0），
 ECT（1）或CE计数，并在随后包含这些计数
 ACK帧（见{{processing-and-ack}}和{{frame-ack}}）。
 请注意，这需要能够从封闭的IP数据包中读取ECN代码点，
@@ -3983,133 +3983,140 @@ QUIC encodes transport parameters into a sequence of bytes, which are then
 included in the cryptographic handshake.
 
 
-## Transport Parameter Definitions {#transport-parameter-definitions}
+## 传输参数定义(Transport Parameter Definitions) {#transport-parameter-definitions}
 
-This section details the transport parameters defined in this document.
+本节详细介绍了本文档中定义的传输参数。
 
-Many transport parameters listed here have integer values.  Those transport
-parameters that are identified as integers use a variable-length integer
-encoding (see {{integer-encoding}}) and have a default value of 0 if the
-transport parameter is absent, unless otherwise stated.
+此处列出的许多传输参数都具有整数值。
+除非另有说明，否则标识为整数的传输参数使用
+可变长度整数编码（请参阅{{integer-encoding}}），
+如果传输参数不存在，则默认值为0。
 
-The following transport parameters are defined:
+传输参数有以下定义：
 
 original_connection_id (0x0000):
 
-: The value of the Destination Connection ID field from the first Initial packet
-  sent by the client.  This transport parameter is only sent by a server.  A
-  server MUST include the original_connection_id transport parameter if it sent
-  a Retry packet.
+: 客户端发送的第一个Initial数据包中的
+  Destination Connection ID字段的值。
+  此传输参数仅由服务器发送。
+  如果服务器发送了重试数据包，
+  则**必须**包含original_connection_id传输参数。
 
 idle_timeout (0x0001):
 
-: The idle timeout is a value in milliseconds that is encoded as an integer, see
-  ({{idle-timeout}}).  If this parameter is absent or zero then the idle
-  timeout is disabled.
+: 空闲超时是以毫秒为单位的值，编码为整数,
+  参考({{idle-timeout}})。
+  如果此参数不存在或为零，则禁用空闲超时。
 
 stateless_reset_token (0x0002):
 
-: A stateless reset token is used in verifying a stateless reset, see
-  {{stateless-reset}}.  This parameter is a sequence of 16 bytes.  This
-  transport parameter is only sent by a server.
+: 无状态重置令牌用于验证无状态重置, 参考{{stateless-reset}}。
+  该参数是16个字节的序列。
+  此传输参数仅由服务器发送。
 
 max_packet_size (0x0003):
 
-: The maximum packet size parameter is an integer value that limits the size of
-  packets that the endpoint is willing to receive.  This indicates that packets
-  larger than this limit will be dropped.  The default for this parameter is the
-  maximum permitted UDP payload of 65527.  Values below 1200 are invalid.  This
-  limit only applies to protected packets ({{packet-protected}}).
+: 最大数据包大小参数是一个整数值，
+  用于限制终端愿意接收的数据包的大小。
+  这表示将丢弃大于此限制的数据包。
+  此参数的默认值是UDP允许的最大有效负载65527，
+  低于1200的值无效。
+  此限制仅适用于受保护的数据包（参考{{packet-protected}}）。
 
 initial_max_data (0x0004):
 
-: The initial maximum data parameter is an integer value that contains the
-  initial value for the maximum amount of data that can be sent on the
-  connection.  This is equivalent to sending a MAX_DATA ({{frame-max-data}}) for
-  the connection immediately after completing the handshake.
+: 初始最大数据参数是一个整数值，
+  包含可以在连接上发送的最大数据量的初始值。
+  这相当于在完成握手后立即为连接发送MAX_DATA
+  （{{frame-max-data}}）。
 
 initial_max_stream_data_bidi_local (0x0005):
 
-: This parameter is an integer value specifying the initial flow control limit
-  for locally-initiated bidirectional streams.  This limit applies to newly
-  created bidirectional streams opened by the endpoint that sends the transport
-  parameter.  In client transport parameters, this applies to streams with an
-  identifier with the least significant two bits set to 0x0; in server transport
-  parameters, this applies to streams with the least significant two bits set to
-  0x1.
+: 此参数是一个整数值，
+指定本地启动的双向流的初始流量控制限制。此
+限制适用于由发送传输参数的终端打开的新创建的双向流。
+在客户端传输参数中，
+这适用于最低有效两位设置为0x0的流;
+在服务器传输参数中，
+这适用于最低有效两位设置为0x1的流。
 
 initial_max_stream_data_bidi_remote (0x0006):
 
-: This parameter is an integer value specifying the initial flow control limit
-  for peer-initiated bidirectional streams.  This limit applies to newly created
-  bidirectional streams opened by the endpoint that receives the transport
-  parameter.  In client transport parameters, this applies to streams with an
-  identifier with the least significant two bits set to 0x1; in server transport
-  parameters, this applies to streams with the least significant two bits set to
-  0x0.
+: 此参数是一个整数值，
+  指定对等启动的双向流的初始流控制限制。
+  此限制适用于由接收传输参数的终端打开的
+  新创建的双向流。
+  在客户端传输参数中，
+  这适用于最低有效两位设置为0x1的流;
+  在服务器传输参数中，
+  这适用于最低有效两位设置为0x0的流。
 
 initial_max_stream_data_uni (0x0007):
 
-: This parameter is an integer value specifying the initial flow control limit
-  for unidirectional streams.  This limit applies to newly created
-  unidirectional streams opened by the endpoint that receives the transport
-  parameter.  In client transport parameters, this applies to streams with an
-  identifier with the least significant two bits set to 0x3; in server transport
-  parameters, this applies to streams with the least significant two bits set to
-  0x2.
+: 此参数是一个整数值，指定单向流的初始流控制限制。
+  此限制适用于由接收传输参数的终端
+  打开的新创建的单向流。
+  在客户端传输参数中，
+  这适用于最低有效两位设置为0x3的流;
+  在服务器传输参数中，
+  这适用于最低有效两位设置为0x2的流。
 
 initial_max_streams_bidi (0x0008):
 
-: The initial maximum bidirectional streams parameter is an integer value that
-  contains the initial maximum number of bidirectional streams the peer may
-  initiate.  If this parameter is absent or zero, the peer cannot open
-  bidirectional streams until a MAX_STREAMS frame is sent.  Setting this
-  parameter is equivalent to sending a MAX_STREAMS ({{frame-max-streams}}) of
-  the corresponding type with the same value.
+: 初始最大双向流参数是整数值，
+  其包含对端可以发起的初始最大双向流数量。
+  如果此参数不存在或为零，则在发送MAX_STREAMS帧之前，
+  对等方无法打开双向流。
+  设置此参数等效于发送具有相同值的
+  相应类型的MAX_STREAMS（{{frame-max-streams}}）。
 
 initial_max_streams_uni (0x0009):
 
-: The initial maximum unidirectional streams parameter is an integer value that
-  contains the initial maximum number of unidirectional streams the peer may
-  initiate.  If this parameter is absent or zero, the peer cannot open
-  unidirectional streams until a MAX_STREAMS frame is sent.  Setting this
-  parameter is equivalent to sending a MAX_STREAMS ({{frame-max-streams}}) of
-  the corresponding type with the same value.
+: 初始最大单向流参数是整数值，
+  其包含对端可以发起的初始最大单向流数。
+  如果此参数不存在或为零，则对等方无法打开单向流，
+  直到发送MAX_STREAMS帧为止。
+  设置此参数等效于发送具有相同值的相应类型
+  的MAX_STREAMS（{{frame-max-streams}}）。
 
 ack_delay_exponent (0x000a):
 
-: The ACK delay exponent is an integer value indicating an
-  exponent used to decode the ACK Delay field in the ACK frame ({{frame-ack}}).
-  If this value is absent, a default value of 3 is assumed
-  (indicating a multiplier of 8).  The default value is also used for ACK frames
-  that are sent in Initial and Handshake packets.  Values above 20 are invalid.
+: ACK延迟指数是指示用于解码ACK帧中的
+  ACK延迟字段的指数的整数值（{{frame-ack}}）。
+  如果此值不存在，则假定默认值为3（表示乘数为8）。
+  默认值也用于在Initial和Handshake数据包中发送的ACK帧。
+  大于20的值无效。
 
 max_ack_delay (0x000b):
 
-: The maximum ACK delay is an integer value indicating the
-  maximum amount of time in milliseconds by which the endpoint will delay
-  sending acknowledgments.  This value SHOULD include the receiver's expected
-  delays in alarms firing.  For example, if a receiver sets a timer for 5ms
-  and alarms commonly fire up to 1ms late, then it should send a max_ack_delay
-  of 6ms.  If this value is absent, a default of 25 milliseconds is assumed.
-  Values of 2^14 or greater are invalid.
+: 最大ACK延迟是一个整数值，
+表示终端延迟发送前确认的最长时间（以毫秒为单位）。
+该值应该包括接收者在警告发送时的预期延迟。
+例如，如果接收者定时设置为5ms
+并且警告通常会延迟最多1ms，
+那么它应该发送6ms的max_ack_delay。
+如果此值不存在，则假定默认值为25毫秒。
+2 ^ 14或更大的值无效。
 
 disable_migration (0x000c):
 
-: The disable migration transport parameter is included if the endpoint does not
-  support connection migration ({{migration}}). Peers of an endpoint that sets
-  this transport parameter MUST NOT send any packets, including probing packets
-  ({{probing}}), from a local address other than that used to perform the
-  handshake.  This parameter is a zero-length value.
+: 如果终端不支持连接迁移（{{migration}}），
+  则包括该禁用迁移传输参数。
+  设置了此传输参数的终端的对端**禁止**从除
+  用于执行握手的本地地址之外的本地地址发送任何数据包，
+  包括探测数据包（{{probing}}）。
+  此参数是零长度值。
 
 preferred_address (0x000d):
 
-: The server's preferred address is used to effect a change in server address at
-  the end of the handshake, as described in {{preferred-address}}.  The format
-  of this transport parameter is the PreferredAddress struct shown in
-  {{fig-preferred-address}}.  This transport parameter is only sent by a server.
-  Servers MAY choose to only send a preferred address of one address family by
-  sending an all-zero address and port (0.0.0.0:0 or ::.0) for the other family.
+: 服务器的首选地址用于在握手结束时
+  实现服务器地址的更改，
+  参考{{preferred-address}}中的描述。
+  此传输参数的格式是{{fig-preferred-address}}中
+  显示的PreferredAddress结构。
+  此传输参数仅由服务器发送。
+  服务器**可能**选择为另一个地址族发送全0地址和端口
+  （0.0.0.0:0或::.0）来实现仅发送一个地址族的首选地址。
 
 ~~~
    struct {
@@ -4121,18 +4128,19 @@ preferred_address (0x000d):
      opaque statelessResetToken[16];
    } PreferredAddress;
 ~~~
-{: #fig-preferred-address title="Preferred Address format"}
+{: #fig-preferred-address title="首选地址格式(Preferred Address format)"}
 
-If present, transport parameters that set initial flow control limits
-(initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, and
-initial_max_stream_data_uni) are equivalent to sending a MAX_STREAM_DATA frame
-({{frame-max-stream-data}}) on every stream of the corresponding type
-immediately after opening.  If the transport parameter is absent, streams of
-that type start with a flow control limit of 0.
+如果存在，则设置初始流控制限制的传输参数
+（initial_max_stream_data_bidi_local，initial_max_stream_data_bidi_remote
+和initial_max_stream_data_uni）
+等同于在打开之后立即在相应类型的每个流上发送
+MAX_STREAM_DATA帧（{{frame-max-stream-data}}）。
+如果传输参数不存在，则该类型的流以流控制限制为0开始。
 
-A client MUST NOT include an original connection ID, a stateless reset token, or
-a preferred address.  A server MUST treat receipt of any of these transport
-parameters as a connection error of type TRANSPORT_PARAMETER_ERROR.
+客户端**禁止**包含原始连接ID，
+无状态重置令牌或首选地址。
+服务器**必须**将任何这些传输参数的接收视为
+TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
 
 # Frame Types and Formats {#frame-formats}
@@ -5180,168 +5188,175 @@ discarded using other methods, but no specific method is mandated in this
 document.
 
 
-## Amplification Attack
+## 重放攻击(Amplification Attack)
 
-An attacker might be able to receive an address validation token
-({{address-validation}}) from a server and then release the IP address it used
-to acquire that token.  At a later time, the attacker may initiate a 0-RTT
-connection with a server by spoofing this same address, which might now address
-a different (victim) endpoint.  The attacker can thus potentially cause the
-server to send an initial congestion window's worth of data towards the victim.
+攻击者可能能够从服务器
+接收地址验证令牌({{address-validation}}),
+然后解码其中获取该令牌的IP地址。
+稍后，
+攻击者可以通过伪造该地址来启动与服务器的0-RTT连接，
+此时该地址实际指向一个（被攻击的目标）终端。
+为此，
+攻击者可能会使服务器向目标发送初始拥塞窗口的数据。
 
-Servers SHOULD provide mitigations for this attack by limiting the usage and
-lifetime of address validation tokens (see {{validate-future}}).
+服务器**应该**通过限制地址验证令牌的使用和生命周期
+来缓解此种攻击（参见{{validate-future}}）。
 
-## Optimistic ACK Attack
+## 乐观ACK攻击预期(Optimistic ACK Attack)
 
-An endpoint that acknowledges packets it has not received might cause a
-congestion controller to permit sending at rates beyond what the network
-supports.  An endpoint MAY skip packet numbers when sending packets to detect
-this behavior.  An endpoint can then immediately close the connection with a
-connection error of type PROTOCOL_VIOLATION (see {{immediate-close}}).
-
-
-## Slowloris Attacks
-
-The attacks commonly known as Slowloris {{SLOWLORIS}} try to keep many
-connections to the target endpoint open and hold them open as long as possible.
-These attacks can be executed against a QUIC endpoint by generating the minimum
-amount of activity necessary to avoid being closed for inactivity.  This might
-involve sending small amounts of data, gradually opening flow control windows in
-order to control the sender rate, or manufacturing ACK frames that simulate a
-high loss rate.
-
-QUIC deployments SHOULD provide mitigations for the Slowloris attacks, such as
-increasing the maximum number of clients the server will allow, limiting the
-number of connections a single IP address is allowed to make, imposing
-restrictions on the minimum transfer speed a connection is allowed to have, and
-restricting the length of time an endpoint is allowed to stay connected.
+确认未收到数据包的终端可能
+导致拥塞控制允许以超出网络支持的速率发送。
+终端**可以**在发送数据包时跳过数据包编号以检测此行为。
+若发现，终端可以立即以PROTOCOL_VIOLATION
+类型错误立刻关闭连接（请参阅{{immediate-close}}。
 
 
-## Stream Fragmentation and Reassembly Attacks
+## Slowloris攻击(Slowloris Attacks)
 
-An adversarial sender might intentionally send fragments of stream data in
-order to cause disproportionate receive buffer memory commitment and/or
-creation of a large and inefficient data structure.
+Slowloris {{SLOWLORIS}}攻击尝试保持与目标终端的
+多个连接打开并维持尽可能长的时间。
+针对某个 QUIC 终端执行这种攻击，
+可以通过执行能避免因不活动而关闭
+所需的最低数量的动作来进行。
+这可能涉及发送少量数据，
+逐步打开流控制窗口以控制发送速率，
+或制造模拟高丢失率的ACK帧。
 
-An adversarial receiver might intentionally not acknowledge packets
-containing stream data in order to force the sender to store the
-unacknowledged stream data for retransmission.
-
-The attack on receivers is mitigated if flow control windows correspond to
-available memory.  However, some receivers will over-commit memory and
-advertise flow control offsets in the aggregate that exceed actual available
-memory.  The over-commitment strategy can lead to better performance when
-endpoints are well behaved, but renders endpoints vulnerable to the stream
-fragmentation attack.
-
-QUIC deployments SHOULD provide mitigations against stream fragmentation
-attacks.  Mitigations could consist of avoiding over-committing memory,
-limiting the size of tracking data structures, delaying reassembly
-of STREAM frames, implementing heuristics based on the age and
-duration of reassembly holes, or some combination.
+QUIC部署**应该**为Slowloris攻击提供缓解机制:
+例如增加服务器允许的最大客户端数量，
+限制允许单个IP地址进行的连接数量，
+对允许连接的最小传输速度施加限制，
+限制允许终端保持连接的时间长度等。
 
 
-## Stream Commitment Attack
+## 流碎片和重组攻击(Stream Fragmentation and Reassembly Attacks)
 
-An adversarial endpoint can open lots of streams, exhausting state on an
-endpoint.  The adversarial endpoint could repeat the process on a large number
-of connections, in a manner similar to SYN flooding attacks in TCP.
+敌对发送者可能故意发送流数据的片段，
+以便导致不成比例的接收缓冲内存耗费
+和/或创建大而低效的数据结构。
 
-Normally, clients will open streams sequentially, as explained in {{stream-id}}.
-However, when several streams are initiated at short intervals, transmission
-error may cause STREAM DATA frames opening streams to be received out of
-sequence.  A receiver is obligated to open intervening streams if a
-higher-numbered stream ID is received.  Thus, on a new connection, opening
-stream 2000001 opens 1 million streams, as required by the specification.
+一个敌对接收者可能故意不确认包含流数据的分组，
+迫使发送者存储未确认的流数据以进行重传。
 
-The number of active streams is limited by the concurrent stream limit transport
-parameter, as explained in {{controlling-concurrency}}.  If chosen judiciously,
-this limit mitigates the effect of the stream commitment attack.  However,
-setting the limit too low could affect performance when applications expect to
-open large number of streams.
+如果流控制窗口对应了可用内存，
+则可减轻对接收者的攻击。
+但是，某些接收者会过量使用内存并建议了总计
+超过实际可用内存的控制器偏移量(即内存溢出至声明外)。
+当终端表现良好时，过度耗费策略可以带来更好的性能，
+但是使终端容易受到流碎片攻击。
 
-## Explicit Congestion Notification Attacks {#security-ecn}
-
-An on-path attacker could manipulate the value of ECN codepoints in the IP
-header to influence the sender's rate. {{!RFC3168}} discusses manipulations and
-their effects in more detail.
-
-An on-the-side attacker can duplicate and send packets with modified ECN
-codepoints to affect the sender's rate.  If duplicate packets are discarded by a
-receiver, an off-path attacker will need to race the duplicate packet against
-the original to be successful in this attack.  Therefore, QUIC receivers ignore
-ECN codepoints set in duplicate packets (see {{ecn}}).
-
-## Stateless Reset Oracle {#reset-oracle}
-
-Stateless resets create a possible denial of service attack analogous to a TCP
-reset injection. This attack is possible if an attacker is able to cause a
-stateless reset token to be generated for a connection with a selected
-connection ID. An attacker that can cause this token to be generated can reset
-an active connection with the same connection ID.
-
-If a packet can be routed to different instances that share a static key, for
-example by changing an IP address or port, then an attacker can cause the server
-to send a stateless reset.  To defend against this style of denial service,
-endpoints that share a static key for stateless reset (see {{reset-token}}) MUST
-be arranged so that packets with a given connection ID always arrive at an
-instance that has connection state, unless that connection is no longer active.
-
-In the case of a cluster that uses dynamic load balancing, it's possible that a
-change in load balancer configuration could happen while an active instance
-retains connection state; even if an instance retains connection state, the
-change in routing and resulting stateless reset will result in the connection
-being terminated.  If there is no chance in the packet being routed to the
-correct instance, it is better to send a stateless reset than wait for
-connections to time out.  However, this is acceptable only if the routing cannot
-be influenced by an attacker.
-
-## Version Downgrade {#version-downgrade}
-
-This document defines QUIC Version Negotiation packets {{version-negotiation}},
-which can be used to negotiate the QUIC version used between two endpoints.
-However, this document does not specify how this negotiation will be performed
-between this version and subsequent future versions.  In particular, Version
-Negotiation packets do not contain any mechanism to prevent version downgrade
-attacks.  Future versions of QUIC that use Version Negotiation packets MUST
-define a mechanism that is robust against version downgrade attacks.
+QUIC部署**应该**提供缓解流碎片攻击的措施。
+缓解措施可以包括避免过度耗费内存，
+限制跟踪数据结构的大小，延迟STREAM帧的重组，
+基于重组孔的寿命和持续时间或某种组合实现的启发式。
 
 
-# IANA Considerations
+## 流耗费攻击(Stream Commitment Attack)
 
-## QUIC Transport Parameter Registry {#iana-transport-parameters}
+敌对终端可以打开大量流，耗尽目标终端上的状态。
+并且敌对终端可以在大量连接上重复该过程，
+其方式类似于TCP中的SYN泛洪攻击。
+
+通常，客户端将按顺序打开流，如{{stream-id}}中所述。
+然而，当以短间隔启动若干流时，
+传输错误可能导致STREAM DATA帧打开流不被接收。
+如果接收到更高编号的流ID，则接收方有义务打开中间流。
+因此，在新连接上，
+打开流2000001时将按照规范的要求打开100万个流。
+
+活动流的数量受并发流限制传输参数的限制，
+如{{controlling-concurrency}}中所述。
+如果明智地选择，这个限制可以减轻流承诺攻击的影响。
+但是，当应用程序期望打开大量流时，
+将限制设置得太低可能会影响性能。
+
+## 显式拥塞通知攻击(Explicit Congestion Notification Attacks) {#security-ecn}
+
+路径上的攻击者可以操纵IP头中的
+ECN码点的值来影响发送者的速率。
+{{!RFC3168}} 更详细地讨论了操作及其影响。
+
+端到端的攻击者可以复制并发送
+带有修改的ECN码点的数据包，
+以影响发送者的速率。
+如果接收方丢弃重复的数据包，
+则路径外攻击者需要将重复的数据包
+与原始数据包竞争才能在此攻击中成功。
+因此，QUIC接收者会忽略在重复数据包中
+设置的ECN码点（请参阅{{ecn}}）。
+
+## 无状态重置Oracle(Stateless Reset Oracle) {#reset-oracle}
+
+无状态重置可能会产生类似于TCP重置注入的拒绝服务攻击。
+如果攻击者能够为具有所选连接ID的
+连接生成无状态重置令牌，
+则就有可能发起此攻击。
+能生成此令牌的攻击者可以使用相同的连接ID重置活动连接。
+
+如果数据包可以路由到共享静态密钥的不同实例
+（例如，通过更改IP地址或端口），
+则攻击者可以使服务器发送无状态重置。
+为了抵御这种拒绝服务攻击，
+**必须**安排共享静态密钥以进行无状态重置的终端
+（请参阅{{reset-token}}），
+以便具有给定连接ID的数据包始终到达具有连接状态的实例，
+除非该连接不再活动。
+
+对于使用动态负载平衡的集群，
+当活动实例保留连接状态时，
+可能会发生负载均衡器配置的更改;
+即使实例保留连接状态，
+路由更改和结果无状态重置也会导致连接终止。
+如果数据包无法路由到正确的实例，
+则最好发送无状态重置，而不是等待连接超时。
+但是，这只有在路由不受攻击者
+影响的情况下才是可接受的。
+
+## 版本降级(Version Downgrade) {#version-downgrade}
+
+本文档定义了QUIC版本协商数据包{{version-negotiation}}，
+可用于协商两个终端之间使用的QUIC版本。
+但是，本文档未指定在此版本与
+后续版本之间如何执行此协商。
+特别的是，
+版本协商数据包不包含任何防止版本降级攻击的机制。
+使用版本协商数据包的QUIC的未来版本
+**必须**定义一种对版本降级攻击具有强大功能的机制。
+
+
+# IANA注意事项(IANA Considerations)
+
+## QUIC传输参数注册信息(QUIC Transport Parameter Registry) {#iana-transport-parameters}
 
 IANA \[SHALL add/has added] a registry for "QUIC Transport Parameters" under a
 "QUIC Protocol" heading.
 
-The "QUIC Transport Parameters" registry governs a 16-bit space.  This space is
-split into two spaces that are governed by different policies.  Values with the
-first byte in the range 0x00 to 0xfe (in hexadecimal) are assigned via the
-Specification Required policy {{!RFC8126}}.  Values with the first byte 0xff are
-reserved for Private Use {{!RFC8126}}.
+“QUIC传输参数”注册信息管理了一个16位空间。
+此空间分为两个子空间，由不同的策略管理。
+具有0x00到0xfe（十六进制）范围内的第一个字节
+的值通过规范必需策略{{!RFC8126}}分配。
+第一个字节0xff的值保留给私有信息，参考{{!RFC8126}}。
 
-Registrations MUST include the following fields:
+注册**必须**包括以下字段：
 
-Value:
+值:
 
-: The numeric value of the assignment (registrations will be between 0x0000 and
-  0xfeff).
+: 分配的数值 (范围在0x0000~0xfeff).
 
-Parameter Name:
+参数名:
 
-: A short mnemonic for the parameter.
+: 参数的缩写名称。
 
-Specification:
+格式:
 
-: A reference to a publicly available specification for the value.
+: 值的公开可用规范的参考。
 
-The nominated expert(s) verify that a specification exists and is readily
-accessible.  Expert(s) are encouraged to be biased towards approving
-registrations unless they are abusive, frivolous, or actively harmful (not
-merely aesthetically displeasing, or architecturally dubious).
+指定专家验证规范是否存在且易于访问。
+鼓励专家偏向批准注册，除非他们是滥用，
+草率或有意产生危害的（不能仅仅是
+美学上令人不悦，或在架构上存疑的）。
 
-The initial contents of this registry are shown in {{iana-tp-table}}.
+此注册信息的初始内容显示在{{iana-tp-table}}中。
 
 | Value  | Parameter Name              | Specification                       |
 |:-------|:----------------------------|:------------------------------------|
