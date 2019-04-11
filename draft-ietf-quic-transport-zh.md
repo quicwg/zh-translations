@@ -4493,148 +4493,125 @@ The first byte in the stream has an offset of 0.  The largest offset delivered
 on a stream - the sum of the offset and data length - MUST be less than 2^62.
 
 
-## MAX_DATA Frame {#frame-max-data}
+## MAX_DATA Frame帧(MAX_DATA Frame) {#frame-max-data}
 
-The MAX_DATA frame (type=0x10) is used in flow control to inform the peer of
-the maximum amount of data that can be sent on the connection as a whole.
+在流控制中使用MAX_DATA帧(类型0x10)来通知对端连接上可以发送的最大数据量。
 
-The MAX_DATA frame is as follows:
-
-~~~
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Maximum Data (i)                     ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-~~~
-
-MAX_DATA frames contain the following fields:
-
-Maximum Data:
-
-: A variable-length integer indicating the maximum amount of data that can be
-  sent on the entire connection, in units of bytes.
-
-All data sent in STREAM frames counts toward this limit.  The sum of the largest
-received offsets on all streams - including streams in terminal states - MUST
-NOT exceed the value advertised by a receiver.  An endpoint MUST terminate a
-connection with a FLOW_CONTROL_ERROR error if it receives more data than the
-maximum data value that it has sent, unless this is a result of a change in
-the initial limits (see {{zerortt-parameters}}).
-
-
-## MAX_STREAM_DATA Frame {#frame-max-stream-data}
-
-The MAX_STREAM_DATA frame (type=0x11) is used in flow control to inform a peer
-of the maximum amount of data that can be sent on a stream.
-
-A MAX_STREAM_DATA frame can be sent for streams in the Recv state (see
-{{stream-send-states}}). Receiving a MAX_STREAM_DATA frame for a
-locally-initiated stream that has not yet been created MUST be treated as a
-connection error of type STREAM_STATE_ERROR.  An endpoint that receives a
-MAX_STREAM_DATA frame for a receive-only stream MUST terminate the connection
-with error STREAM_STATE_ERROR.
-
-The MAX_STREAM_DATA frame is as follows:
+MAX_DATA帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream ID (i)                        ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Maximum Stream Data (i)                  ...
+|                       最大数据位数(Maximum Data) (i)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-MAX_STREAM_DATA frames contain the following fields:
+MAX_DATA帧包含以下字段:
 
-Stream ID:
+最大数据量(Maximum Data):
+  一个可变长度整数，以字节为单位，指示在整个连接上可以发送的最大数据量。
 
-: The stream ID of the stream that is affected encoded as a variable-length
-  integer.
-
-Maximum Stream Data:
-
-: A variable-length integer indicating the maximum amount of data that can be
-  sent on the identified stream, in units of bytes.
-
-When counting data toward this limit, an endpoint accounts for the largest
-received offset of data that is sent or received on the stream.  Loss or
-reordering can mean that the largest received offset on a stream can be greater
-than the total size of data received on that stream.  Receiving STREAM frames
-might not increase the largest received offset.
-
-The data sent on a stream MUST NOT exceed the largest maximum stream data value
-advertised by the receiver.  An endpoint MUST terminate a connection with a
-FLOW_CONTROL_ERROR error if it receives more data than the largest maximum
-stream data that it has sent for the affected stream, unless this is a result of
-a change in the initial limits (see {{zerortt-parameters}}).
+所有在STREAM帧中发送的数据都算下来都小于这个极限。所有流(包括处于终端状态的流)
+上接收到的最大偏移量的总和**不得**超过接收方公布的值。
+如果终端接收到的数据超过其发送的最大数据值，
+则**必须**使用FLOW_CONTROL_ERROR错误终止连接，
+除非这是初始限制更改的结果(请参阅{{zerortt-parameters}})。
 
 
-## MAX_STREAMS Frames {#frame-max-streams}
+## MAX_STREAM_DATA帧 (MAX_STREAM_DATA Frame) {#frame-max-stream-data}
 
-The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the cumulative
-number of streams of a given type it is permitted to open.  A MAX_STREAMS frame
-with a type of 0x12 applies to bidirectional streams, and a MAX_STREAMS frame
-with a type of 0x13 applies to unidirectional streams.
+在流控制中使用MAX_STREAM_DATA帧(类型=0x11)来通知对端在流上可以发送的最大数据量。
 
-The MAX_STREAMS frames are as follows:
+处于Recv状态的流可以发送MAX_STREAM_DATA帧(参见{{stream-send-states}})。
+为尚未创建的本地发起的流接收MAX_STREAM_DATA帧**必须**被视为类型
+为STREAM_STATE_ERROR的连接错误。
+为仅接收流接收MAX_STREAM_DATA帧的终端**必须**使用错误STREAM_STATE_ERROR终止连接。
+
+MAX_STREAM_DATA帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Maximum Streams (i)                     ...
+|                       流ID(Stream ID) (i)                        ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                   最大的流数据(Maximum Stream Data)(i)                  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-MAX_STREAMS frames contain the following fields:
+MAX_STREAM_DATA帧包含以下字段:
 
-Maximum Streams:
+流ID (Stream ID):
 
-: A count of the cumulative number of streams of the corresponding type that
-  can be opened over the lifetime of the connection.
+: 受影响的流的流ID编码为可变长度整数。
 
-Loss or reordering can cause a MAX_STREAMS frame to be received which states a
-lower stream limit than an endpoint has previously received.  MAX_STREAMS frames
-which do not increase the stream limit MUST be ignored.
+最大的流数据 (Maximum Stream Data):
 
-An endpoint MUST NOT open more streams than permitted by the current stream
-limit set by its peer.  For instance, a server that receives a unidirectional
-stream limit of 3 is permitted to open stream 3, 7, and 11, but not stream 15.
-An endpoint MUST terminate a connection with a STREAM_LIMIT_ERROR error if a
-peer opens more streams than was permitted.
+: 一种可变长度整数，以字节为单位，指示可在标识的流上发送的最大数据量。
 
-Note that these frames (and the corresponding transport parameters) do not
-describe the number of streams that can be opened concurrently.  The limit
-includes streams that have been closed as well as those that are open.
+当将数据计数到这个极限时，终端占有流上发送或接收的数据的最大接收偏移量。
+丢失或重新排序可能意味着流上接收到的最大偏移量可能大于该流上接收到的数据的总大小。
+接收STREAM帧可能不会增加最大的接收偏移量。
+
+在流上发送的数据**不能**超过接收方公布的最大的最大流数据值。
+如果终端接收到的数据多于它为受影响的流发送的最大最大流数据值，
+则必须使用FLOW_CONTROL_ERROR错误终止连接，
+除非这是初始限制更改的结果(请参见{{zerortt-parameters}})。
 
 
-## DATA_BLOCKED Frame {#frame-data-blocked}
+## MAX_STREAMS(MAX_STREAMS Frames) {#frame-max-streams}
 
-A sender SHOULD send a DATA_BLOCKED frame (type=0x14) when it wishes to send
-data, but is unable to due to connection-level flow control (see
-{{flow-control}}).  DATA_BLOCKED frames can be used as input to tuning of flow
-control algorithms (see {{fc-credit}}).
+MAX_STREAMS帧(类型为0x12和0x13)通知对端打开允许的给定类型的流的累计数量。
+类型为0x12的MAX_STREAMS帧应用于双向流，类型为0x13的MAX_STREAMS帧应用于单向流。
 
-The DATA_BLOCKED frame is as follows:
+MAX_STREAMS帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Data Limit (i)                        ...
+|                     最大流(Maximum Streams) (i)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-DATA_BLOCKED frames contain the following fields:
+MAX_STREAMS帧包含以下字段:
 
-Data Limit:
+最大流(Maximum Streams):
 
-: A variable-length integer indicating the connection-level limit at which
-  blocking occurred.
+: 在连接的生存期内可以打开的相应类型的流的累计数量的计数。
 
+丢失或重新排序可能导致接收声明流限制低于终端之前接收到的流限制MAX_STREAMS帧。
+不增加流限制的MAX_STREAMS帧**必须**被忽略。
+
+终端打开的流**不能**超过其对端设置的当前流限制。
+例如，接收单向流限制为3的服务器可以打开流3、7和11，但不能打开流15。
+如果对端打开多于允许的流数，终端**必须**使用STREAM_LIMIT_ERROR错误终止连接。
+
+注意，这些帧(以及相应的传输参数)并不描述可以并发打开的流的数量。
+这流数的限制包括已关闭的流和已打开的流。
+
+## DATA_BLOCKED帧(DATA_BLOCKED Frame) {#frame-data-blocked}
+
+当发送方希望发送数据但由于连接级流控制而无法发送数据时(参见{{flow-control}})，
+它**应该**发送DATA_BLOCKED帧(类型=0x14)。
+DATA_BLOCKED帧可以用作流控制算法调优的输入(参见{{fc-credit}})。
+
+DATA_BLOCKED帧如下:
+
+~~~
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       数据限制(Data Limit) (i)                        ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~
+
+DATA_BLOCKED帧包含以下字段:
+
+数据限制(Data Limit):
+
+: 一个可变长度整数，指示发生阻塞时的连接级别限制。 
 
 ## STREAM_DATA_BLOCKED Frame {#frame-stream-data-blocked}
 
