@@ -3258,56 +3258,56 @@ integers, but do not use this encoding.
 
 
 
-# Packet Formats {#packet-formats}
+# 包格式（Packet Formats） {#packet-formats}
 
-All numeric values are encoded in network byte order (that is, big-endian) and
-all field sizes are in bits.  Hexadecimal notation is used for describing the
-value of fields.
-
-
-## Packet Number Encoding and Decoding {#packet-encoding}
-
-Packet numbers are integers in the range 0 to 2^62-1 ({{packet-numbers}}).  When
-present in long or short packet headers, they are encoded in 1 to 4 bytes.  The
-number of bits required to represent the packet number is reduced by including
-the least significant bits of the packet number.
-
-The encoded packet number is protected as described in Section 5.4 of
-{{QUIC-TLS}}.
-
-The sender MUST use a packet number size able to represent more than twice as
-large a range than the difference between the largest acknowledged packet and
-packet number being sent.  A peer receiving the packet will then correctly
-decode the packet number, unless the packet is delayed in transit such that it
-arrives after many higher-numbered packets have been received.  An endpoint
-SHOULD use a large enough packet number encoding to allow the packet number to
-be recovered even if the packet arrives after packets that are sent afterwards.
-
-As a result, the size of the packet number encoding is at least one bit more
-than the base-2 logarithm of the number of contiguous unacknowledged packet
-numbers, including the new packet.
-
-For example, if an endpoint has received an acknowledgment for packet 0xabe8bc,
-sending a packet with a number of 0xac5c02 requires a packet number encoding
-with 16 bits or more; whereas the 24-bit packet number encoding is needed to
-send a packet with a number of 0xace8fe.
-
-At a receiver, protection of the packet number is removed prior to recovering
-the full packet number. The full packet number is then reconstructed based on
-the number of significant bits present, the value of those bits, and the largest
-packet number received on a successfully authenticated packet. Recovering the
-full packet number is necessary to successfully remove packet protection.
-
-Once header protection is removed, the packet number is decoded by finding the
-packet number value that is closest to the next expected packet.  The next
-expected packet is the highest received packet number plus one.  For example, if
-the highest successfully authenticated packet had a packet number of 0xa82f30ea,
-then a packet containing a 16-bit value of 0x9b32 will be decoded as 0xa82f9b32.
-Example pseudo-code for packet number decoding can be found in
-{{sample-packet-number-decoding}}.
+所有数字以大端法编码，
+所有字段大小均以位为单位。
+使用十六进制描述字段的值。
 
 
-## Long Header Packets {#long-header}
+## 包编号的编码和解码（Packet Number Encoding and Decoding） {#packet-encoding}
+
+包编号是从0到2^64-1的数字（{{packet-numbers}}）。
+在长或短包头中，以1到4个字节进行编码。
+通过包含包编号的最低有效位来减少
+其所需的字节数。
+
+编码后的包编号使用5.4章中描述的{{QUIC-TLS}}
+进行保护。
+
+发送方**必须**必须预留足够大的包编号范围，这个范围必须是
+最大的已确认包的编号大小和已发送包数量的
+两倍。接收包的对端将正确的解码该包编号，
+除非该包延迟了，使得它
+在许多较高编号的包之后到达。终端
+**应该**使用足够大的包编号编码，以允许包编号被接收，
+即使是此包在它之后发送的包之后才到达。
+
+所以，包编号编码的大小至少比包含新包在内的连续的
+未确认的包数量的以2为底的对数多一位。
+log2(len(包含新包在内的连续的未确认的包))+1。
+
+例如，如果一个终端收到了0xabe8bc包的确认，
+在发送编号为0xac5c02的包的时候需要16位以上
+的包编号编码；发送编号为0xace8fe就需要24位
+包编号编码。
+
+在接收方，在恢复完整的包编号之前要移除对包编号
+的保护。然后，根据存在的有效位的数量、这些位的
+值以及在成功验证的数据包上接收的最大数据包数，
+重新构造完整的数据包号。成功移除包保护依赖于
+恢复完整的包编号。
+
+一旦包头保护被移除，就可以根据最接近下一个预期包的
+包编号来解码包编号。下一个
+预期的包是接收到的最高包编号加1。例如，如果
+成功通过验证的包中最高包编号为0xa82f30ea，
+包含16位编码0x9b32的包编码将被解码位0xa82f9b32。
+包解码的为代码示例在
+{{sample-packet-number-decoding}}中提供。
+
+
+## 长包头数据包（Long Header Packets） {#long-header}
 
 ~~~~~
  0                   1                   2                   3
@@ -3315,128 +3315,128 @@ Example pseudo-code for packet number decoding can be found in
 +-+-+-+-+-+-+-+-+
 |1|1|T T|X X X X|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                       版本（Version） (32)                      |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|         目标连接ID（Destination Connection ID）(0/32..144)    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|               源连接ID（Source Connection ID）(0/32..144)     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~
-{: #fig-long-header title="Long Header Packet Format"}
+{: #fig-long-header title="长包头数据包格式"}
 
-Long headers are used for packets that are sent prior to the establishment
-of 1-RTT keys. Once both conditions are
-met, a sender switches to sending packets using the short header
-({{short-header}}).  The long form allows for special packets - such as the
-Version Negotiation packet - to be represented in this uniform fixed-length
-packet format. Packets that use the long header contain the following fields:
+长包头用于那些遭遇建立1-RTT密钥的包。
+满足两个条件后，
+发送方切换到使用短包头来发送包
+（{{short-header}}）。长格式允许特殊的包 - 比如
+版本协商包 - 食用这样统一固定长度的
+包格式。使用长包头的包包含如下字段：
 
-Header Form:
+头表单：
 
-: The most significant bit (0x80) of byte 0 (the first byte) is set to 1 for
-  long headers.
+: 0字节（第一个字节）最高有效位（0x80）设置为1
+  代表长包头。
 
-Fixed Bit:
+固定位：
 
-: The next bit (0x40) of byte 0 is set to 1.  Packets containing a zero value
-  for this bit are not valid packets in this version and MUST be discarded.
+: 0字节中的下一个位（0x40）被设置成1。这一位为0
+  的包在这个版本下是无效的并且**必须**被丢弃。
 
-Long Packet Type (T):
+长包类型（T）：
 
-: The next two bits (those with a mask of 0x30) of byte 0 contain a packet type.
-  Packet types are listed in {{long-packet-types}}.
+: 0字节接下来的两位（0x30）包含包类型。
+  包类型在{{long-packet-types}}中列举了。
 
-Type-Specific Bits (X):
+类型限定位（X）：
 
-: The lower four bits (those with a mask of 0x0f) of byte 0 are type-specific.
+: 0字节较低的4位（0x0f）是类型限定位。
 
-Version:
+版本：
 
-: The QUIC Version is a 32-bit field that follows the first byte.  This field
-  indicates which version of QUIC is in use and determines how the rest of the
-  protocol fields are interpreted.
+: QUIC版本是一个紧跟着第一个字节的32位字段。这个字段
+  标明了正在使用的QUIC版本，并标明了如何解释剩余
+  的协议字段如何解释。
 
-DCIL and SCIL:
+DCIL和SCIL：
 
-: The byte following the version contains the lengths of the two connection ID
-  fields that follow it.  These lengths are encoded as two 4-bit unsigned
-  integers. The Destination Connection ID Length (DCIL) field occupies the 4
-  high bits of the byte and the Source Connection ID Length (SCIL) field
-  occupies the 4 low bits of the byte.  An encoded length of 0 indicates that
-  the connection ID is also 0 bytes in length.  Non-zero encoded lengths are
-  increased by 3 to get the full length of the connection ID, producing a length
-  between 4 and 18 bytes inclusive.  For example, an byte with the value 0x50
-  describes an 8-byte Destination Connection ID and a zero-length Source
-  Connection ID.
+: 紧接着版本之后的字节标明了两个链接ID
+  字段的长度。这两个长度被编码位4位无符号
+  证书。目标连接ID长度（DCIL）为高4位
+  源连接ID长度（SCIL）
+  为低4位。0值表示
+  连接ID的长度是0字节。非0值
+  需要加3以获取连接ID的完整长度，ID长度
+  在4到18字节（包含4和18）之间。例如，0x50这个字节
+  描述了目标连接ID长度位8为，
+  源连接ID长度为0。
 
-Destination Connection ID:
+目标连接ID：
 
-: The Destination Connection ID field follows the connection ID lengths and is
-  either 0 bytes in length or between 4 and 18 bytes.
-  {{negotiating-connection-ids}} describes the use of this field in more detail.
+: 目标连接ID字段紧接着ID长度字段，它
+  可能是0字节或者4到18字节长。
+  {{negotiating-connection-ids}}描述了更多此字段的细节。
 
-Source Connection ID:
+源连接ID：
 
-: The Source Connection ID field follows the Destination Connection ID and is
-  either 0 bytes in length or between 4 and 18 bytes.
-  {{negotiating-connection-ids}} describes the use of this field in more detail.
+: 源连接ID字段紧跟着目标连接ID字段，它
+  也是0字节或者4到18字节长。
+  {{negotiating-connection-ids}}描述了更多关于此字段的细节。
 
-In this version of QUIC, the following packet types with the long header are
-defined:
+如下给出了在此版本的QUIC中长包头包中类型的
+定义：
 
-| Type | Name                          | Section                     |
+| 类型  | 名称                          | 章节                         |
 |-----:|:------------------------------|:----------------------------|
 |  0x0 | Initial                       | {{packet-initial}}          |
 |  0x1 | 0-RTT                         | {{packet-0rtt}}             |
 |  0x2 | Handshake                     | {{packet-handshake}}        |
 |  0x3 | Retry                         | {{packet-retry}}            |
-{: #long-packet-types title="Long Header Packet Types"}
+{: #long-packet-types title="长包头包类型"}
 
-The header form bit, connection ID lengths byte, Destination and Source
-Connection ID fields, and Version fields of a long header packet are
-version-independent. The other fields in the first byte are version-specific.
-See {{QUIC-INVARIANTS}} for details on how packets from different versions of
-QUIC are interpreted.
+长包头当中描述连接ID长度的字段、目标和源地址的字段
+以及版本字段
+是版本无关的。第一个字节中其他的字段是版本特殊的。
+参考{{QUIC-INVARIANTS}}中描述的不同版本的QUIC
+是如何解释包格式的。
 
-The interpretation of the fields and the payload are specific to a version and
-packet type.  While type-specific semantics for this version are described in
-the following sections, several long-header packets in this version of QUIC
-contain these additional fields:
+字段和有效负载的解释在各个版本和包类型之间是
+不同的。以下各节介绍了
+此版本的特殊信息，此版本的QUIC中一些长包头包
+包含额外的字段。
 
-Reserved Bits (R):
+保留位（R）：
 
-: Two bits (those with a mask of 0x0c) of byte 0 are reserved across multiple
-  packet types.  These bits are protected using header protection (see Section
-  5.4 of {{QUIC-TLS}}). The value included prior to protection MUST be set to 0.
-  An endpoint MUST treat receipt of a packet that has a non-zero value for these
-  bits, after removing both packet and header protection, as a connection error
-  of type PROTOCOL_VIOLATION. Discarding such a packet after only removing
-  header protection can expose the endpoint to attacks (see Section 9.3 of
-  {{QUIC-TLS}}).
+: 0字节中的两位（0x0c）是跨包类型
+  保留的。这些位使用包头保护进行保护（参见章节
+  5.4{{QUIC-TLS}}）。这个字段的原是值必须是0。
+  如果终端在移除包和包头保护之后发现此字段为非0值，
+  则终端**必须**将这种情况视为PROTOCOL_VIOLATION
+  类型的连接错误。在仅移除包头包头保护之后丢弃
+  这样的包可能导致终端收到攻击
+  （参见章节9.3{{QUIC-TLS}}）。
 
-Packet Number Length (P):
+包编号长度（P）：
 
-: In packet types which contain a Packet Number field, the least significant two
-  bits (those with a mask of 0x03) of byte 0 contain the length of the packet
-  number, encoded as an unsigned, two-bit integer that is one less than the
-  length of the packet number field in bytes.  That is, the length of the packet
-  number field is the value of this field, plus one.  These bits are protected
-  using header protection (see Section 5.4 of {{QUIC-TLS}}).
+: 在包含包编号字段的包中，0字节的最低两个有效
+  位（0x03）包含包编号的长度。
+  编码位2位无符号整数，次整数比包编
+  号的长度小1。也就是说，包编号字段的
+  长度是此字段的值加1。这些位使用
+  包头保护进行保护（参见5.4{{QUIC-TLS}}）。
 
-Length:
+长度：
 
-: The length of the remainder of the packet (that is, the Packet Number and
-  Payload fields) in bytes, encoded as a variable-length integer
-  ({{integer-encoding}}).
+: 包中剩下的部分（包编号和有效负载字段）
+  以字节为单位的长度，编码为可变长度的整数
+  （{{integer-encoding}}）。
 
-Packet Number:
+包编号：
 
-: The packet number field is 1 to 4 bytes long. The packet number has
-  confidentiality protection separate from packet protection, as described in
-  Section 5.4 of {{QUIC-TLS}}. The length of the packet number field is encoded
-  in the Packet Number Length bits of byte 0 (see above).
+: 包编号字段的长度为1到4字节。包编号具有独立于
+  包保护的机密性保护，如章节5.4{{QUIC-TLS}}
+  中描述的。包编号字段的长度被编码在字节0的
+  包编号位中（见上文）。
 
 ### Version Negotiation Packet {#packet-version}
 
