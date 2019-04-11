@@ -4760,16 +4760,14 @@ Data Limit:
   blocking occurred.
 
 
-## STREAM_DATA_BLOCKED Frame {#frame-stream-data-blocked}
+## 流数据阻塞帧(STREAM_DATA_BLOCKED Frame) {#frame-stream-data-blocked}
 
-A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x15) when it wishes to
-send data, but is unable to due to stream-level flow control.  This frame is
-analogous to DATA_BLOCKED ({{frame-data-blocked}}).
+发送者当希望发送数据但是因为流级别的流量控制不能发送的时候**应该**发送一个STREAM_DATA_BLOCKED帧(类型是0x15)。
+这个帧是和DATA_BLOCKED({{frame-data-blocked}})类似的。
 
-An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only stream
-MUST terminate the connection with error STREAM_STATE_ERROR.
+对于一个仅发送的流，接受到STREAM_DATA_BLOCKED帧的终端**必须**以STREAM_STATE_ERROR的异常中断连接。
 
-The STREAM_DATA_BLOCKED frame is as follows:
+STREAM_DATA_BLOCKED帧结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4781,30 +4779,27 @@ The STREAM_DATA_BLOCKED frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-STREAM_DATA_BLOCKED frames contain the following fields:
+STREAM_DATA_BLOCKED帧包含以下字段:
 
-Stream ID:
+流ID(Stream ID):
 
-: A variable-length integer indicating the stream which is flow control blocked.
+: 一个变长整数，标识被流控阻塞的流。
 
-Stream Data Limit:
+流数据限额(Stream Data Limit):
 
-: A variable-length integer indicating the offset of the stream at which the
-  blocking occurred.
+: 一个变长的整数，标识流阻塞出现的偏移量。
 
 
-## STREAMS_BLOCKED Frames {#frame-streams-blocked}
+## 流阻塞帧(STREAMS_BLOCKED Frames) {#frame-streams-blocked}
 
-A sender SHOULD send a STREAMS_BLOCKED frame (type=0x16 or 0x17) when it wishes
-to open a stream, but is unable to due to the maximum stream limit set by its
-peer (see {{frame-max-streams}}).  A STREAMS_BLOCKED frame of type 0x16 is used
-to indicate reaching the bidirectional stream limit, and a STREAMS_BLOCKED frame
-of type 0x17 indicates reaching the unidirectional stream limit.
+当希望打开一个流，但是因为对端设置的最大流上限(详见{{frame-max-streams}})无法打开的时候，
+发送者**应该**发送一个STREAMS_BLOCKED帧(类型0x16或者0x17)。
+类型0x16的STREAMS_BLOCKED帧用于表示到达了双向流上限，类型0x17的STREAMS_BLOCKED帧用于表示到达了单向流上限。
 
-A STREAMS_BLOCKED frame does not open the stream, but informs the peer that a
-new stream was needed and the stream limit prevented the creation of the stream.
 
-The STREAMS_BLOCKED frames are as follows:
+STREAMS_BLOCKED帧不打开流，但是告知对端需要一个新的流并且流控制阻止了流的创建。
+
+STREAMS_BLOCKED帧的结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4814,21 +4809,19 @@ The STREAMS_BLOCKED frames are as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-STREAMS_BLOCKED frames contain the following fields:
+STREAMS_BLOCKED帧包含以下字段:
 
-Stream Limit:
+流上限(Stream Limit):
 
-: A variable-length integer indicating the stream limit at the time the frame
-  was sent.
+: 一个变长整数，表示帧发送时的流上限。
 
 
-## NEW_CONNECTION_ID Frame {#frame-new-connection-id}
+## 新连接ID帧(NEW_CONNECTION_ID Frame) {#frame-new-connection-id}
 
-An endpoint sends a NEW_CONNECTION_ID frame (type=0x18) to provide its peer with
-alternative connection IDs that can be used to break linkability when migrating
-connections (see {{migration-linkability}}).
+终端发送NEW_CONNECTION_ID帧(类型0x18)来给对端提供
+可用于当连接迁移的时候中断可连接性(详见{{migration-linkability}})的代替连接ID。
 
-The NEW_CONNECTION_ID frame is as follows:
+NEW_CONNECTION_ID 帧结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4850,61 +4843,46 @@ The NEW_CONNECTION_ID frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-NEW_CONNECTION_ID frames contain the following fields:
+NEW_CONNECTION_ID 帧包含以下字段:
 
-Sequence Number:
+序列号(Sequence Number):
 
-: The sequence number assigned to the connection ID by the sender.  See
-  {{issue-cid}}.
+: 由发送者复制给连接ID的序列号。详见{{issue-cid}}。
 
-Length:
+长度(Length):
 
-: An 8-bit unsigned integer containing the length of the connection ID.  Values
-  less than 4 and greater than 18 are invalid and MUST be treated as a
-  connection error of type PROTOCOL_VIOLATION.
+: 一个八位无符号的整数，包含连接ID的长度。小于4和大于18的值都是无效的而且**必须**以PROTOCOL_VIOLATION类型连接异常来处理。
 
-Connection ID:
+连接ID(Connection ID):
 
-: A connection ID of the specified length.
+: 指定长度的连接ID。
 
-Stateless Reset Token:
+无状态重置凭证(Stateless Reset Token):
 
-: A 128-bit value that will be used for a stateless reset when the associated
-  connection ID is used (see {{stateless-reset}}).
+: 一个128位的值，用于当使用关联的连接ID时的无状态连接重置(详见{{stateless-reset}})。
 
-An endpoint MUST NOT send this frame if it currently requires that its peer send
-packets with a zero-length Destination Connection ID.  Changing the length of a
-connection ID to or from zero-length makes it difficult to identify when the
-value of the connection ID changed.  An endpoint that is sending packets with a
-zero-length Destination Connection ID MUST treat receipt of a NEW_CONNECTION_ID
-frame as a connection error of type PROTOCOL_VIOLATION.
+如果它现在需要对端使用0长度的目标连接ID发送包，终端**禁止**发送这个帧。
+从0长度或到0长度的对连接ID的长度的改变将会使得很难辨别何时连接ID的值发生了改变。
+以0长度目的连接ID发送包的终端**必须**以PROTOCOL_VIOLATION类型的连接异常处理接收到的NEW_CONNECTION_ID帧。
 
-Transmission errors, timeouts and retransmissions might cause the same
-NEW_CONNECTION_ID frame to be received multiple times.  Receipt of the same
-frame multiple times MUST NOT be treated as a connection error.  A receiver can
-use the sequence number supplied in the NEW_CONNECTION_ID frame to identify new
-connection IDs from old ones.
+传输异常，超时和重传可能导致相同的NEW_CONNECTION_ID帧被收到多次。
+多次相同NEW_CONNECTION_ID帧的接收**禁止**被处理为连接异常。
+接收者可以使用提供在NEW_CONNECTION_ID帧中的序列号来辨别新旧链接ID。
 
-If an endpoint receives a NEW_CONNECTION_ID frame that repeats a previously
-issued connection ID with a different Stateless Reset Token or a different
-sequence number, or if a sequence number is used for different connection
-IDs, the endpoint MAY treat that receipt as a connection error of type
-PROTOCOL_VIOLATION.
+如果终端接收到了一个与之前发出的链接ID拥有不同的无状态重置凭证或不同序列号或者序列号用于其他连接ID的NEW_CONNECTION_ID帧，
+终端**可以**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
 
-## RETIRE_CONNECTION_ID Frame {#frame-retire-connection-id}
+## 销毁连接ID帧(RETIRE_CONNECTION_ID Frame) {#frame-retire-connection-id}
 
-An endpoint sends a RETIRE_CONNECTION_ID frame (type=0x19) to indicate that it
-will no longer use a connection ID that was issued by its peer. This may include
-the connection ID provided during the handshake.  Sending a RETIRE_CONNECTION_ID
-frame also serves as a request to the peer to send additional connection IDs for
-future use (see {{connection-id}}).  New connection IDs can be delivered to a
-peer using the NEW_CONNECTION_ID frame ({{frame-new-connection-id}}).
+终端发送RETIRE_CONNECTION_ID帧(类型0x19)来表示它将不再会使用对端发出的连接ID。
+这可能包括握手期间提供的连接ID。
+发送RETIRE_CONNECTION_ID帧也用于请求对端发送额外的连接ID供未来使用(详见 {{connection-id}})。
+新连接ID可以用NEW_CONNECTION_ID帧来发送到对端。({{frame-new-connection-id}})
 
-Retiring a connection ID invalidates the stateless reset token associated with
-that connection ID.
+销毁连接ID也无效化了关联这个连接ID的无状态重置凭证。
 
-The RETIRE_CONNECTION_ID frame is as follows:
+RETIRE_CONNECTION_ID帧结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4914,26 +4892,20 @@ The RETIRE_CONNECTION_ID frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-RETIRE_CONNECTION_ID frames contain the following fields:
+RETIRE_CONNECTION_ID 帧包含以下字段:
 
-Sequence Number:
+序列号(Sequence Number):
 
-: The sequence number of the connection ID being retired.  See
-  {{retiring-cids}}.
+: 将要销毁的连接ID的序列号。详见{{retiring-cids}}.
 
-Receipt of a RETIRE_CONNECTION_ID frame containing a sequence number greater
-than any previously sent to the peer MAY be treated as a connection error of
-type PROTOCOL_VIOLATION.
+终端接收到包含大于任何之前发送到对端的序列号的 RETIRE_CONNECTION_ID
+帧**可以**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
-The sequence number specified in a RETIRE_CONNECTION_ID frame MUST NOT refer
-to the Destination Connection ID field of the packet in which the frame is
-contained.  The peer MAY treat this as a connection error of type
-PROTOCOL_VIOLATION.
+在 RETIRE_CONNECTION_ID 帧中指定的序列号**禁止**引用包含此帧的包的目标连接ID字段。
+对端**可以**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
-An endpoint cannot send this frame if it was provided with a zero-length
-connection ID by its peer.  An endpoint that provides a zero-length connection
-ID MUST treat receipt of a RETIRE_CONNECTION_ID frame as a connection error of
-type PROTOCOL_VIOLATION.
+如果对端已经提供过了0长度的连接ID，终端不能发送此帧。
+提供0长度的连接ID的终端若收到RETIRE_CONNECTION_ID帧，**必须**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
 
 ## PATH_CHALLENGE Frame {#frame-path-challenge}
