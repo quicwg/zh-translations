@@ -170,7 +170,7 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
 ## 术语和定义(Document Structure)
 
 关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
-"让我们(SHALL)"， "让我们不(SHALL NOT)"， "应该(SHOULD)"，
+"应当(SHALL)"， "应当不(SHALL NOT)"， "应该(SHOULD)"，
 "不应该(SHOULD NOT)"， "推荐(RECOMMENDED)"，
 "不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
 在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
@@ -5348,81 +5348,69 @@ IANA \[SHALL add/has added] a registry for "QUIC Transport Parameters" under a
 | 0x000d | preferred_address           | {{transport-parameter-definitions}} |
 {: #iana-tp-table title="Initial QUIC Transport Parameters Entries"}
 
-## QUIC Frame Type Registry {#iana-frames}
+## QUIC 帧种类注册处(QUIC Frame Type Registry) {#iana-frames}
 
-IANA \[SHALL add/has added] a registry for "QUIC Frame Types" under a
-"QUIC Protocol" heading.
+IANA \[**应当**增加/已增加]一个在"QUIC协议"打头的用于QUIC 帧种类的注册处。
 
-The "QUIC Frame Types" registry governs a 62-bit space.  This space is split
-into three spaces that are governed by different policies.  Values between 0x00
-and 0x3f (in hexadecimal) are assigned via the Standards Action or IESG Review
-policies {{!RFC8126}}.  Values from 0x40 to 0x3fff operate on the Specification
-Required policy {{!RFC8126}}.  All other values are assigned to Private Use
-{{!RFC8126}}.
+QUIC 帧种类注册处管理着一个62位的空间。
+这个空间划分为由不同策略管理的三块空间。
+在0x00到0x3f(十六进制)之间的值通过标准行为或者IESG审核策略{{!RFC8126}}分配。
+在0x40到0x3fff之间的值通过声明必须政策{{!RFC8126}}进行操作分配。
+所有其他值由私有策略{{!RFC8126}}分配。
 
-Registrations MUST include the following fields:
+注册**必须**包含以下字段:
 
-Value:
+值:
 
-: The numeric value of the assignment (registrations will be between 0x00 and
-  0x3fff).  A range of values MAY be assigned.
+: 数值类型的值(注册会在0x00到0x3fff之间)。这区间内的值可能会被赋予。
 
-Frame Name:
+帧名字:
 
-: A short mnemonic for the frame type.
+: 一个帧种类的简短词语。
 
-Specification:
+说明:
 
-: A reference to a publicly available specification for the value.
+: 一个引用到公开访问的关于这个值的说明。
 
-The nominated expert(s) verify that a specification exists and is readily
-accessible.  Specifications for new registrations need to describe the means by
-which an endpoint might determine that it can send the identified type of frame.
-An accompanying transport parameter registration (see
-{{iana-transport-parameters}}) is expected for most registrations.  The
-specification needs to describe the format and assigned semantics of any fields
-in the frame.
+提名专家校验说明存在而且便利易读。
+对于新的注册的说明需要描述哪一边终端可能决定它可以发送指定种类的帧。
+大部分注册都需要伴随着的传输参数注册(详见{{iana-transport-parameters}})。
+说明需要描述帧中的所有字段的格式和语义。
 
-Expert(s) are encouraged to be biased towards approving registrations unless
-they are abusive, frivolous, or actively harmful (not merely aesthetically
-displeasing, or architecturally dubious).
+鼓励专家偏向批准注册，除非他们是滥用，草率或有意产生危害的。（不能仅仅是美学上令人不悦，或在架构上存疑的）
 
-The initial contents of this registry are tabulated in {{frame-types}}.
+注册处的初始内容列在{{frame-types}}中。
 
 
-## QUIC Transport Error Codes Registry {#iana-error-codes}
+## QUIC 传输错误码注册处(QUIC Transport Error Codes Registry) {#iana-error-codes}
 
-IANA \[SHALL add/has added] a registry for "QUIC Transport Error Codes" under a
-"QUIC Protocol" heading.
+IANA \[**应当**增加/已增加]一个在"QUIC协议"打头的用于QUIC 传输错误码的注册处。
 
-The "QUIC Transport Error Codes" registry governs a 16-bit space.  This space is
-split into two spaces that are governed by different policies.  Values with the
-first byte in the range 0x00 to 0xfe (in hexadecimal) are assigned via the
-Specification Required policy {{!RFC8126}}.  Values with the first byte 0xff are
-reserved for Private Use {{!RFC8126}}.
+"QUIC 传输错误码"注册处管理着一个十六位的空间。
+这个空间被分为由不同策略管理的两个空间。
+在第一个字节在0x00到0xfe(十六进制)范围内的值通过声明必须策略 {{!RFC8126}}分配。
+第一字节的值是0xff的值保留用于私有策略{{!RFC8126}}。
 
-Registrations MUST include the following fields:
+注册处**必须**包含以下字段:
 
-Value:
+值:
 
-: The numeric value of the assignment (registrations will be between 0x0000 and
-  0xfeff).
+: 数值类型的值(注册会在0x0000到0xfeff之间)。
 
-Code:
+错误码:
 
-: A short mnemonic for the parameter.
+: 一个表示参数的简短词语。
 
-Description:
+描述:
 
-: A brief description of the error code semantics, which MAY be a summary if a
-  specification reference is provided.
+: 一个错误码语义的简短描述，如果提供了说明引用，**可能**是一个总结。
 
-Specification:
+说明:
 
-: A reference to a publicly available specification for the value.
+: 一个引用到公开访问的关于这个值的说明。
 
-The initial contents of this registry are shown in {{iana-error-table}}.  Values
-from 0xFF00 to 0xFFFF are reserved for Private Use {{!RFC8126}}.
+注册处的初始内容列在{{iana-error-table}}中。
+在0xFF00 到 0xFFFF 之间的值保留用于私有{{!RFC8126}}。
 
 | Value | Error                     | Description                   | Specification   |
 |:------|:--------------------------|:------------------------------|:----------------|
@@ -5437,7 +5425,7 @@ from 0xFF00 to 0xFFFF are reserved for Private Use {{!RFC8126}}.
 | 0x8   | TRANSPORT_PARAMETER_ERROR | Error in transport parameters | {{error-codes}} |
 | 0xA   | PROTOCOL_VIOLATION        | Generic protocol violation    | {{error-codes}} |
 | 0xC   | INVALID_MIGRATION         | Violated disabled migration   | {{error-codes}} |
-{: #iana-error-table title="Initial QUIC Transport Error Codes Entries"}
+{: #iana-error-table title="初始QUIC 传输错误码条目(Initial QUIC Transport Error Codes Entries)"}
 
 
 --- back
