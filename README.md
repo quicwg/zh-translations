@@ -5,7 +5,9 @@
 翻译将会基于 IETF-QUIC-draft version 18 的文档并在翻译完成后尽可能的跟进新的版本。
 
 ## 在线预览
-点击[draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)在线预览。
+点击以下链接在线预览。
+[传输 draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)
+[HTTP draft-ietf-quic-http-zh](http://docs.wxclimb.top/draft-ietf-quic-http-zh.html)
 
 ## 翻译格式与翻译相关
 
