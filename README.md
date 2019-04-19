@@ -6,8 +6,10 @@
 
 ## 在线预览
 点击以下链接在线预览。
-[传输 draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)
-[HTTP draft-ietf-quic-http-zh](http://docs.wxclimb.top/draft-ietf-quic-http-zh.html)
+
+[QUIC传输协议 draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)
+
+[QUIC-HTTP语义映射 draft-ietf-quic-http-zh](http://docs.wxclimb.top/draft-ietf-quic-http-zh.html)
 
 ## 翻译格式与翻译相关
 
