@@ -4400,192 +4400,193 @@ Final Size:
   RESET_STREAM sender, in unit of bytes.
 
 
-## STOP_SENDING Frame {#frame-stop-sending}
+## STOP_SENDING帧（STOP_SENDING Frame） {#frame-stop-sending}
 
-An endpoint uses a STOP_SENDING frame (type=0x05) to communicate that incoming
-data is being discarded on receipt at application request.  STOP_SENDING
-requests that a peer cease transmission on a stream.
+终端使用STOP_SENDING帧（类型标记为0x05）来告诉发送方应用程序要求
+丢弃传入的数据。STOP_SENDING要求
+对端停止在流当中的传输。
 
-A STOP_SENDING frame can be sent for streams in the Recv or Size Known states
-(see {{stream-send-states}}). Receiving a STOP_SENDING frame for a
-locally-initiated stream that has not yet been created MUST be treated as a
-connection error of type STREAM_STATE_ERROR.  An endpoint that receives a
-STOP_SENDING frame for a receive-only stream MUST terminate the connection with
-error STREAM_STATE_ERROR.
+STOP_SENDING帧可以在状态为Rec和Size Known的流当中发送
+（详见{{stream-send-states}}）。在一个本地初始化之后但
+还未创建的流中收到STOP_SENDING帧**必须**引发
+STREAM_STATE_ERROR类型的连接异常。终端在一个仅
+接收的流中收到STOP_SENDING帧**必须**引发STREAM_STATE_ERROR
+类型的连接异常。
 
-The STOP_SENDING frame is as follows:
+STOP_SENDING帧如下说述：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream ID (i)                        ...
+|                        流 ID (i)                            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Application Error Code (16)  |
+|       应用程序错误码 (16)       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-STOP_SENDING frames contain the following fields:
+STOP_SENDING帧包含如下字段
 
-Stream ID:
+流ID：
 
-: A variable-length integer carrying the Stream ID of the stream being ignored.
+: 可变长度的整数，表示被忽略的流ID。
 
-Application Error Code:
+应用程序错误码：
 
-: A 16-bit, application-specified reason the sender is ignoring the stream (see
-  {{app-error-codes}}).
+: 16位的，由应用程序指定的，发送方忽略此流的原因
+  （详见{{app-error-codes}}）。
 
 
-## CRYPTO Frame {#frame-crypto}
+## CRYPTO帧（CRYPTO Frame） {#frame-crypto}
 
-The CRYPTO frame (type=0x06) is used to transmit cryptographic handshake
-messages. It can be sent in all packet types. The CRYPTO frame offers the
-cryptographic protocol an in-order stream of bytes.  CRYPTO frames are
-functionally identical to STREAM frames, except that they do not bear a stream
-identifier; they are not flow controlled; and they do not carry markers for
-optional offset, optional length, and the end of the stream.
+CRYPTO帧（类型标记为0x06）是用来传输加密握手信息的。
+它可以被包含在所有类型的包当中被发送。CRYPTO帧为加密
+协议提供了有顺序的字节流。CRYPTO帧和STREAM帧在
+功能上相同，但是他们具有不同的流标示
+符；他们不受流控制的限制；并且它们不包含
+可选偏移、可选长度和流末端的标记。
 
-The CRYPTO frame is as follows:
+CRYPTO帧如下所述：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Offset (i)                         ...
+|                          偏移 (i)                           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Length (i)                         ...
+|                          长度 (i)                           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Crypto Data (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #crypto-format title="CRYPTO Frame Format"}
+{: #crypto-format title="CRYPTO帧格式"}
 
-CRYPTO frames contain the following fields:
+CRYPTO帧包含如下字段：
 
-Offset:
+偏移：
 
-: A variable-length integer specifying the byte offset in the stream for the
-  data in this CRYPTO frame.
+: 可变长度的整数，指定流中在此CRYPTO帧中的数据的
+  偏移。
 
-Length:
+长度：
 
-: A variable-length integer specifying the length of the Crypto Data field in
-  this CRYPTO frame.
+: 可变长度整数，指定此CRYPTO帧中Crypto Data字段的
+  长度。
 
 Crypto Data:
 
-: The cryptographic message data.
+: 加密信息数据。
 
-There is a separate flow of cryptographic handshake data in each encryption
-level, each of which starts at an offset of 0. This implies that each encryption
-level is treated as a separate CRYPTO stream of data.
+对于每一个加密级别有单独的加密
+握手流，每个流都从偏移量0开始。这意味着每一个加密
+级别都被视为单独的CRYPTO数据流。
 
-Unlike STREAM frames, which include a Stream ID indicating to which stream the
-data belongs, the CRYPTO frame carries data for a single stream per encryption
-level. The stream does not have an explicit end, so CRYPTO frames do not have a
-FIN bit.
+CRYPTO帧不像STREAM帧那样含有用于指定数据属于那个流的
+流ID，CRYPTO帧在每一个加密级别上为单个流
+传输数据。流没有明确的结尾，所以CRYPTO帧没有
+FIN位。
 
 
-## NEW_TOKEN Frame {#frame-new-token}
+## NEW_TOKEN帧（NEW_TOKEN Frame） {#frame-new-token}
 
-A server sends a NEW_TOKEN frame (type=0x07) to provide the client with a token
-to send in the header of an Initial packet for a future connection.
+服务器通过NEW_TOKEN帧（类型标记为0x07）给客户端发送一个token，
+这个token是用在以后连接的Initial包的包头的。
 
-The NEW_TOKEN frame is as follows:
+NEW_TOKEN帧结构如下：
+
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Token Length (i)  ...
+|                         Token 长度 (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                            Token (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-NEW_TOKEN frames contain the following fields:
+NEW_TOKEN包含如下字段：
 
-Token Length:
+Token长度：
 
-: A variable-length integer specifying the length of the token in bytes.
+: 可变长度整数，表明token按位算的长度。
 
-Token:
+Token：
 
-: An opaque blob that the client may use with a future Initial packet.
+: 一个不透明的小玩意，客户端可能会用在以后的Initial包中。
 
 
-## STREAM Frames {#frame-stream}
+## STREAM帧（STREAM Frames） {#frame-stream}
 
-STREAM frames implicitly create a stream and carry stream data.  The STREAM
-frame takes the form 0b00001XXX (or the set of values from 0x08 to 0x0f).  The
-value of the three low-order bits of the frame type determine the fields that
-are present in the frame.
+STREAM帧隐式的创建一个流并运送流数据。STREAM帧
+采用0b00001XXX（或从0x08到0x0f的一组值）。
+帧类型当中较低的3位标明了帧
+当中存在的字段。
 
-* The OFF bit (0x04) in the frame type is set to indicate that there is an
-  Offset field present.  When set to 1, the Offset field is present.  When set
-  to 0, the Offset field is absent and the Stream Data starts at an offset of 0
-  (that is, the frame contains the first bytes of the stream, or the end of a
-  stream that includes no data).
+* OFF位（0x04）在帧类型中表明帧中有
+  偏移字段。设置为1时，偏移字段存在。
+  设置为0时，偏移字段不存在并且流数据从偏移0开始
+  （也就是说，此帧包含这批流数据当中最开始的部分，或
+  最后不包含数据的一部分。）
 
-* The LEN bit (0x02) in the frame type is set to indicate that there is a Length
-  field present.  If this bit is set to 0, the Length field is absent and the
-  Stream Data field extends to the end of the packet.  If this bit is set to 1,
-  the Length field is present.
+* LEN位（0x02）在帧类型中表明帧中有
+  长度字段。设置为0时，长度字段不存在并且流数据
+  字段延续到包的末尾。设置为1时，
+  长度字段存在。
 
-* The FIN bit (0x01) of the frame type is set only on frames that contain the
-  final size of the stream.  Setting this bit indicates that the frame
-  marks the end of the stream.
+* FIN位（0x01）在帧类型中表明此帧包含此流
+  最后的数据。此位被设置表明此帧
+  标志着流的结束。
 
-An endpoint that receives a STREAM frame for a send-only stream MUST terminate
-the connection with error STREAM_STATE_ERROR.
+当一个终端从一个仅发送的流当中收到STREAM帧时，它**必须**关闭
+连接并附带STEAM_STATE_ERROR错误。
 
-The STREAM frames are as follows:
+STEAM帧结构如下：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Stream ID (i)                       ...
+|                           流 ID (i)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         [Offset (i)]                        ...
+|                           [偏移 (i)]                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         [Length (i)]                        ...
+|                          [长度 (i)]                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream Data (*)                      ...
+|                           流数据 (*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #stream-format title="STREAM Frame Format"}
+{: #stream-format title="STREAM帧格式"}
 
-STREAM frames contain the following fields:
+STEREAM帧包含如下字段：
 
-Stream ID:
+流ID：
 
-: A variable-length integer indicating the stream ID of the stream (see
-  {{stream-id}}).
+: 可变长度的整数，标明此流的流ID（参见
+{{stream-id}}）。
 
-Offset:
+偏移：
 
-: A variable-length integer specifying the byte offset in the stream for the
-  data in this STREAM frame.  This field is present when the OFF bit is set to
-  1.  When the Offset field is absent, the offset is 0.
+: 可变长度整数，标明STREAM帧当中数据字段的
+  偏移位。当OFF位设置为1时此字段存在。
+  当偏移字段不存在时，偏移为0.
 
-Length:
+长度：
 
-: A variable-length integer specifying the length of the Stream Data field in
-  this STREAM frame.  This field is present when the LEN bit is set to 1.  When
-  the LEN bit is set to 0, the Stream Data field consumes all the remaining
-  bytes in the packet.
+: 可变成都整数，标明STREAM帧中流数据字段
+  的长度。当LEN位设置为1时此字段存在。当
+  LEN位设置为0时，流数据占据了此包
+  剩下的所有位。
 
-Stream Data:
+流数据：
 
-: The bytes from the designated stream to be delivered.
+: 要传递的指定流中的字节。
 
-When a Stream Data field has a length of 0, the offset in the STREAM frame is
-the offset of the next byte that would be sent.
+当流数据字段的长度为0时，STREAM帧当中的偏移标明的是
+下一个将要发送的位的偏移。
 
-The first byte in the stream has an offset of 0.  The largest offset delivered
-on a stream - the sum of the offset and data length - MUST be less than 2^62.
+流的第一位的偏移为0。在流上传递的最大
+偏移量 - 偏移量和数据长度之和 - **必须**小于2^62。
 
 
 ## MAX_DATA Frame {#frame-max-data}
