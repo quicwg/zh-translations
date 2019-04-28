@@ -606,29 +606,31 @@ MUST be treated as a connection error of type HTTP_WRONG_STREAM.
 PRIORITY frames received by a client MUST be treated as a stream error of type
 HTTP_UNEXPECTED_FRAME.
 
-### CANCEL_PUSH {#frame-cancel-push}
+### CANCEL_PUSH帧 {#frame-cancel-push}
 
-The CANCEL_PUSH frame (type=0x3) is used to request cancellation of a server
-push prior to the push stream being received.  The CANCEL_PUSH frame identifies
-a server push by Push ID (see {{frame-push-promise}}), encoded as a
-variable-length integer.
+CANCEL_PUSH帧(type=0x3)用于在接收到
+推送流之前请求取消服务器的推送。
+CANCEL_PUSH帧通过推送ID标识服务器的
+推送(请参阅{{frame-push-promise}})，
+推送ID被编码为可变长度整数。
 
-When a server receives this frame, it aborts sending the response for the
-identified server push.  If the server has not yet started to send the server
-push, it can use the receipt of a CANCEL_PUSH frame to avoid opening a push
-stream.  If the push stream has been opened by the server, the server SHOULD
-send a QUIC RESET_STREAM frame on that stream and cease transmission of the
-response.
+当服务器接收到此帧时，它将中止发送
+帧标识的服务器推送流的响应。
+如果服务器尚未开始发送服务器推送，
+则可以通过接收CANCEL_PUSH帧来避免
+打开推送流。如果服务器已打开推送流，
+则服务器应在该流上发送QUIC RESET_STREAM帧
+并停止响应的传输。
 
-A server can send the CANCEL_PUSH frame to indicate that it will not be
-fulfilling a promise prior to creation of a push stream.  Once the push stream
-has been created, sending CANCEL_PUSH has no effect on the state of the push
-stream.  A QUIC RESET_STREAM frame SHOULD be used instead to abort transmission
-of the server push response.
+服务器可以在创建推送流之前发送CANCEL_PUSH帧
+以表明它不会创建推送流。
+一旦推送流建立后，再发送CANCEL_PUSH将不会
+对推送流的状态产生影响。
+**应该**改用QUIC RESET_STREAM帧中止服务器推送响应的传输。
 
-A CANCEL_PUSH frame is sent on the control stream.  Receiving a CANCEL_PUSH
-frame on a stream other than the control stream MUST be treated as a stream
-error of type HTTP_WRONG_STREAM.
+CANCEL_PUSH帧是在控制流上发送的。
+在控制流以外的流上接收到CANCEL_PUSH帧时，
+必须将其视为类型为HTTP_OWRY_STREAM的流错误。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -639,48 +641,52 @@ error of type HTTP_WRONG_STREAM.
 ~~~~~~~~~~
 {: #fig-cancel-push title="CANCEL_PUSH frame payload"}
 
-The CANCEL_PUSH frame carries a Push ID encoded as a variable-length integer.
-The Push ID identifies the server push that is being cancelled (see
-{{frame-push-promise}}).
+CANCEL_PUSH帧携带一个可变长度整数编码的推送ID，
+推送ID用于标识被取消的服务器推送(请参阅{{frame-push-promise}})。
 
-If the client receives a CANCEL_PUSH frame, that frame might identify a Push ID
-that has not yet been mentioned by a PUSH_PROMISE frame.
+如果客户端接收到CANCEL_PUSH帧，
+则该帧可能标识PUSH_PROMISE帧
+尚未提及的推送ID。
 
 
-### SETTINGS {#frame-settings}
+### SETTINGS帧 {#frame-settings}
 
-The SETTINGS frame (type=0x4) conveys configuration parameters that affect how
-endpoints communicate, such as preferences and constraints on peer behavior.
-Individually, a SETTINGS parameter can also be referred to as a "setting"; the
-identifier and value of each setting parameter can be referred to as a "setting
-identifier" and a "setting value".
+SETTINGS帧(type=0x4)用于传递影响端点
+通信方式的配置参数，
+例如对端行为的默认项和约束。
+单独地，SETTINGS参数也可以称为“设置”；
+每个设置参数的标识符和值可以称为“设置标识符”和“设置值”。
 
-SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS
-frame MUST be sent as the first frame of each control stream (see
-{{control-streams}}) by each peer, and MUST NOT be sent subsequently or on any
-other stream. If an endpoint receives a SETTINGS frame on a different stream,
-the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM. If
-an endpoint receives a second SETTINGS frame, the endpoint MUST respond with a
-connection error of type HTTP_UNEXPECTED_FRAME.
+SETTINGS帧始终应用于连接，而不是单个流。
+每个对端**必须**将SETTINGS帧作为每个
+控制流(请参见{{control-streams}})的第一个帧
+发送，并且**禁止**在非流的开始时或
+在任何其他流上发送SETTINGS帧。
+如果终端接收到同个链接不同流上的SETTINGS帧，
+则该终端**必须**响应类型为HTTP_OWRY_STREAM的连接错误。
+如果终端接收到第二个设置帧，
+则该终端**必须**响应类型为HTTP_UNIRECTION_FRAME的连接错误。
 
-SETTINGS parameters are not negotiated; they describe characteristics of the
-sending peer, which can be used by the receiving peer. However, a negotiation
-can be implied by the use of SETTINGS - each peer uses SETTINGS to advertise a
-set of supported values. The definition of the setting would describe how each
-peer combines the two sets to conclude which choice will be used.  SETTINGS does
-not provide a mechanism to identify when the choice takes effect.
+SETTINGS参数不是通过协商确立的；
+它们描述了接收端可以支持的发送端的特性。
+但是，协商可以通过使用SETTINGS来暗中进行-
+每个对端使用SETTINGS来通告一组受支持的值。
+设置的定义将描述每个对端如何组合这两个集，
+以确定将使用哪个选项。SETTINGS
+没有提供标识选择何时生效的机制。
 
-Different values for the same parameter can be advertised by each peer. For
-example, a client might be willing to consume a very large response header,
-while servers are more cautious about request size.
+每个对端可以通告同一参数的不同值。
+例如，客户端可能愿意使用非常大的响应头，
+而服务器则对请求大小更加谨慎。
 
-Parameters MUST NOT occur more than once in the SETTINGS frame.  A receiver MAY
-treat the presence of the same parameter more than once as a connection error of
-type HTTP_MALFORMED_FRAME.
+参数**禁止**在SETTINGS帧中出现多次。
+接收方**可以**将同一参数的多次出现
+视为类型为HTTP_MALMALFORM_FRAME的
+连接错误。
 
-The payload of a SETTINGS frame consists of zero or more parameters.  Each
-parameter consists of a setting identifier and a value, both encoded as QUIC
-variable-length integers.
+SETTINGS帧的有效负载由零个或多个参数组成。
+每个参数由一个设置标识符和一个值组成，
+两者都编码为QUIC可变长度整数。
 
 ~~~~~~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -693,8 +699,7 @@ variable-length integers.
 ~~~~~~~~~~~~~~~
 {: #fig-ext-settings title="SETTINGS parameter format"}
 
-An implementation MUST ignore the contents for any SETTINGS identifier it does
-not understand.
+实现**必须**忽略它不理解的任何SETTINGS标识符的内容。
 
 
 #### Defined SETTINGS Parameters {#settings-parameters}
