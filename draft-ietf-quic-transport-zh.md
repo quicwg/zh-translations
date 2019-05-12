@@ -170,7 +170,7 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
 ## 术语和定义(Document Structure)
 
 关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
-"让我们(SHALL)"， "让我们不(SHALL NOT)"， "应该(SHOULD)"，
+"应当(SHALL)"， "应当不(SHALL NOT)"， "应该(SHOULD)"，
 "不应该(SHOULD NOT)"， "推荐(RECOMMENDED)"，
 "不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
 在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
@@ -789,63 +789,69 @@ RESET_STREAM对相反方向的数据流没有影响。
 或者直到其中一个终端发送CONNECTION_CLOSE为止。
 
 
-## Stream Final Size {#final-size}
+## 流最终大小(Stream Final Size) {#final-size}
 
-The final size is the amount of flow control credit that is consumed by a
-stream.  Assuming that every contiguous byte on the stream was sent once, the
-final size is the number of bytes sent.  More generally, this is one higher
-than the largest byte offset sent on the stream.
+最终大小是流消费的流量控制的额度。
+假设流上的每一个连续的字节都发送一次，
+最终大小就是字节发送的数量。
+更常见的，这会比发送的最大字节偏移量大一。
 
-For a stream that is reset, the final size is carried explicitly in a
-RESET_STREAM frame.  Otherwise, the final size is the offset plus the length of
-a STREAM frame marked with a FIN flag, or 0 in the case of incoming
-unidirectional streams.
+对于一个被重置的流，
+最终大小会明确的被携带在 RESET_STREAM 帧中。
+或者说，最终大小是偏移量加用 FIN 标志位标记的帧的长度。
 
-An endpoint will know the final size for a stream when the receiving part of the
-stream enters the "Size Known" or "Reset Recvd" state ({{stream-states}}).
+终端在接收到流进入“Size Known" 或者
+”Reset Recvd" 的部分的时候，
+将会知道流的最终大小。
 
-An endpoint MUST NOT send data on a stream at or beyond the final size.
+终端**禁止**在或超过最终大小后发送数据。
 
-Once a final size for a stream is known, it cannot change.  If a RESET_STREAM or
-STREAM frame is received indicating a change in the final size for the stream,
-an endpoint SHOULD respond with a FINAL_SIZE_ERROR error (see
-{{error-handling}}).  A receiver SHOULD treat receipt of data at or beyond the
-final size as a FINAL_SIZE_ERROR error, even after a stream is closed.
-Generating these errors is not mandatory, but only because requiring that an
-endpoint generate these errors also means that the endpoint needs to maintain
-the final size state for closed streams, which could mean a significant state
-commitment.
+一旦流的最终大小确定了，它就不能再改变。
+如果接收到了指示改变流最终大小的
+RESET_STREAM 或者 STREAM 帧，
+终端**应该**返回 FINAL_SIZE_ERROR 错误(详见{{error-handling}})。
+接收者**应该**对在或超过最终大小的确认
+用 FINAL_SIZE_ERROR 错误进行处理，
+即使是在流已经关闭的情况下。
+生成这些错误不是强制的，
+但是这只是因为要求终端生成这些错误也意味着终端
+对关闭的流也需要维护最终大小的状态，
+这可能意味着严重的状态维持花销。
 
 ## Controlling Concurrency {#controlling-concurrency}
 
-An endpoint limits the cumulative number of incoming streams a peer can open.
-Only streams with a stream ID less than (max_stream * 4 +
-initial_stream_id_for_type) can be opened (see {{long-packet-types}}).  Initial
-limits are set in the transport parameters (see
-{{transport-parameter-definitions}}) and subsequently limits are advertised
-using MAX_STREAMS frames ({{frame-max-streams}}). Separate limits apply to
-unidirectional and bidirectional streams.
+终端限制了对端能发起的流的数量。
+只有带着流 ID 小于
+`(max_stream * 4 + initial_stream_id_for_type)`
+才可以以被发起。(详见{{long-packet-types}})。
+初始限制在传输参数中设置
+(详见{{transport-parameter-definitions}}），
+随后限制通过使用 MAX_STREAMS 帧进行建议调整。
+单向流与双向流应用相互独立的限制。
 
-Endpoints MUST NOT exceed the limit set by their peer.  An endpoint that
-receives a STREAM frame with a stream ID exceeding the limit it has sent MUST
-treat this as a stream error of type STREAM_LIMIT_ERROR ({{error-handling}}).
+终端**禁止**超过对端设置的限制。
+终端接收带有超过它已经发送的限制的流 ID 的 STREAM 帧，
+**必须**用一个 STREAM_LIMIT_ERROR({{error-handling}})
+种类的异常进行处理。
 
-A receiver cannot renege on an advertisement. That is, once a receiver
-advertises a stream limit using the MAX_STREAMS frame, advertising a smaller
-limit has no effect.  A receiver MUST ignore any MAX_STREAMS frame that does not
-increase the stream limit.
+接收者不能违背建议者。
+这是说，一旦接收者使用 MAX_STREAMS 帧建议了流上限，
+建议一个更小的限制没有任何效果。
+接收者**必须**无视任何不增加流上限的 MAX_STREAMS 帧。
 
-As with stream and connection flow control, this document leaves when and how
-many streams to advertise to a peer via MAX_STREAMS to implementations.
-Implementations might choose to increase limits as streams close to keep the
-number of streams available to peers roughly consistent.
+关于流与连接流量控制，
+这篇文档留下了何时以及如何实现
+许多流通过 MAX_STREAMS 帧建议对端的问题。
+实现上可能选择当可用流数量接近保持与对端粗
+略一致的时候增加上限。
 
-An endpoint that is unable to open a new stream due to the peer's limits SHOULD
-send a STREAMS_BLOCKED frame ({{frame-streams-blocked}}).  This signal is
-considered useful for debugging. An endpoint MUST NOT wait to receive this
-signal before advertising additional credit, since doing so will mean that the
-peer will be blocked for at least an entire round trip, and potentially for
-longer if the peer chooses to not send STREAMS_BLOCKED frames.
+因为对端的限制不能打开一个新的流的终端**应该**
+发送一个 STREAMS_BLOCKED 帧{{frame-streams-blocked}}。
+这个信号在 debug 的时候很有用。
+终端**禁止**在建议额外的额度之前等待接收这个信号，
+因为这么做将会意味着对端将会阻塞至少一整个往返周期，
+而且如果对端选择不发送 STREAMS_BLOCKED 帧可能更长。
+
 
 # 连接(Connections) {#connections}
 
@@ -2032,77 +2038,84 @@ preferred_address传输参数来传达一个首选的地址。
 如果链路验证失败，客户端**必须**继续
 向原有的服务端地址发送后续的包。
 
-### Responding to Connection Migration
+### 对连接迁移的响应(Responding to Connection Migration)
 
-A server might receive a packet addressed to its preferred IP address at any
-time after it accepts a connection.  If this packet contains a PATH_CHALLENGE
-frame, the server sends a PATH_RESPONSE frame as per {{migrate-validate}}.  The
-server MUST send other non-probing frames from its original address until it
-receives a non-probing packet from the client at its preferred address and until
-the server has validated the new path.
+服务端可能在它接受链接后的任何时候接收到
+指向它首选的 IP 地址的包。
+如果这个包包含了一个 PATH_CHALLENGE 帧，
+服务端发送一个和对端一样的 PATH_RESPONSE 帧{{migrate-validate}}。
+服务端**必须**从其原始地址发送其它非探测帧，
+直到它在自己首选地址从客户端收到了非探测包，
+且服务端已经验证了新的路径。
 
-The server MUST probe on the path toward the client from its preferred address.
-This helps to guard against spurious migration initiated by an attacker.
+服务端**必须**从首选地址探测到客户端的路径。
+这有助于防卫来自攻击者的伪造的连接迁移请求。
 
-Once the server has completed its path validation and has received a non-probing
-packet with a new largest packet number on its preferred address, the server
-begins sending non-probing packets to the client exclusively from its preferred
-IP address.  It SHOULD drop packets for this connection received on the old IP
-address, but MAY continue to process delayed packets.
+一旦服务端完成了路径探测并且已经在首选地址
+收到了一个带着新的最大包数非探测包，
+服务端开始仅从首选地址发送非探测包给客户端。
+它**应该**丢弃这个连接上接收到的旧 IP 地址的包，
+但是**可能**继续处理延迟的包。
 
 
-### Interaction of Client Migration and Preferred Address
+### 首选地址与链接迁移之间的交互(Interaction of Client Migration and Preferred Address)
 
-A client might need to perform a connection migration before it has migrated to
-the server's preferred address.  In this case, the client SHOULD perform path
-validation to both the original and preferred server address from the client's
-new address concurrently.
+客户端可能需要在它迁移到服务端的首选地址
+之前执行连接迁移。
+在这种场景下，客户端**应该**并行的执行从
+客户端的新地址到原始地址和首选地址之间的路径验证。
 
-If path validation of the server's preferred address succeeds, the client MUST
-abandon validation of the original address and migrate to using the server's
-preferred address.  If path validation of the server's preferred address fails
-but validation of the server's original address succeeds, the client MAY migrate
-to its new address and continue sending to the server's original address.
+如果到服务端首选地址的路径验证成功，
+客户端**必须**放弃到原始地址的验证
+并且迁移去使用服务端的首选地址。
+如果到服务端首选地址的路径验证失败
+但是到原始地址的路径验证成功，
+客户端**可能**迁移到新的地址
+并且继续发送到服务端的原始地址。
 
-If the connection to the server's preferred address is not from the same client
-address, the server MUST protect against potential attacks as described in
-{{address-spoofing}} and {{on-path-spoofing}}.  In addition to intentional
-simultaneous migration, this might also occur because the client's access
-network used a different NAT binding for the server's preferred address.
+如果到服务端首选地址的连接并
+不是来自相同的客户端地址，
+服务端**必须**防御在{{address-spoofing}} 和
+{{on-path-spoofing}}中描述的可能的潜在攻击者。
+除了有意的迁移之外，这也可能因为客户端使用了绑定
+在服务端首选地址上的不同的NAT连接网络出现。
 
-Servers SHOULD initiate path validation to the client's new address upon
-receiving a probe packet from a different address.  Servers MUST NOT send more
-than a minimum congestion window's worth of non-probing packets to the new
-address before path validation is complete.
+服务端**应该**在接收到来自不同地址的探测包的时候
+初始化到客户端新地址的路径验证。
+服务端**禁止**在路径验证完成前发送
+超过最小拥塞窗口的值的非探测包到新的地址。
 
-A client that migrates to a new address SHOULD use a preferred address from the
-same address family for the server.
+迁移去新地址的客户端**应该**
+使用与服务端相同地址族的首选地址。
 
-## Use of IPv6 Flow-Label and Migration {#ipv6-flow-label}
 
-Endpoints that send data using IPv6 SHOULD apply an IPv6 flow label
-in compliance with {{!RFC6437}}, unless the local API does not allow
-setting IPv6 flow labels.
+## IPv6流标签与迁移的使用(Use of IPv6 Flow-Label and Migration) {#ipv6-flow-label}
 
-The IPv6 flow label SHOULD be a pseudo-random function of the source
-and destination addresses, source and destination UDP ports, and the destination
-CID. The flow label generation MUST be designed to minimize the chances of
-linkability with a previously used flow label, as this would enable correlating
-activity on multiple paths (see {{migration-linkability}}).
+使用 IPv6 发送数据的终端**应该**
+应用符合{{!RFC6437}}的 IPv6 流标签，
+除非本地的 API 不允许设置 IPv6 流标签。
 
-A possible implementation is to compute the flow label as a cryptographic hash
-function of the source and destination addresses, source and destination
-UDP ports, destination CID, and a local secret.
+IPv6 流标签**应该**是一个源与目标地址、
+源于目标UDP端口以及目标CID的伪随机函数。
+流标签的生成**必须**设计为最小化
+使用与之前使用过的流标签的可连接性，
+因为这将允许在多个路径上进行关联行为。
+(详见{{migration-linkability}})
 
-# Connection Termination {#termination}
+一种可能的实现是将流标签作为源和目标地址、
+源和目标UDP端口，
+目标CID以及本地密钥的加密哈希函数来计算。
 
-Connections should remain open until they become idle for a pre-negotiated
-period of time.  A QUIC connection, once established, can be terminated in one
-of three ways:
 
-* idle timeout ({{idle-timeout}})
-* immediate close ({{immediate-close}})
-* stateless reset ({{stateless-reset}})
+# 连接终止(Connection Termination) {#termination}
+
+连接应该保持打开直到它们预协商的
+一段时间内处于空闲状态。
+一个 QUIC 的连接，建立后能被以下三种方式的终止：
+
+* 空闲超时 ({{idle-timeout}})
+* 立即关闭 ({{immediate-close}})
+* 无状态重置 ({{stateless-reset}})
 
 
 ## Closing and Draining Connection States {#draining}
@@ -3095,126 +3108,127 @@ PMTU probe packets, on the affected path.  An endpoint MAY terminate the
 connection if an alternative path cannot be found.
 
 
-## ICMP Packet Too Big Messages {#icmp-pmtud}
+## ICMP 包太大消息(ICMP Packet Too Big Messages) {#icmp-pmtud}
 
-PMTU discovery {{!RFC1191}} {{!RFC8201}} relies on reception of ICMP messages
-(e.g., IPv6 Packet Too Big messages) that indicate when a packet is dropped
-because it is larger than the local router MTU. DPLPMTUD can also optionally use
-these messages.  This use of ICMP messages is potentially vulnerable to off-path
-attacks that successfully guess the addresses used on the path and reduce the
-PMTU to a bandwidth-inefficient value.
+PMTU发现{{!RFC1191}} {{!RFC8201}} 依赖于
+暗示因为比本地路由MTU大丢包的 IMCP 消息的接
+收。(例如: IPv6 包太大消息)
+DPLPMTUD 也可选的使用这些信息。
+ICMP 消息的这种应用可能容易受到路境外攻击，
+这些攻击成功猜测到了路径上使用的地址，
+并且使 PMTU 降低到带宽低效值。
 
-An endpoint MUST ignore an ICMP message that claims the PMTU has decreased below
-1280 bytes.
+终端**必须**无视要求 PMTU 降低到
+1280 字节 以下的 ICMP 消息。
 
-The requirements for generating ICMP ({{?RFC1812}}, {{?RFC4443}}) state that the
-quoted packet should contain as much of the original packet as possible without
-exceeding the minimum MTU for the IP version.  The size of the quoted packet can
-actually be smaller, or the information unintelligible, as described in Section
-1.1 of {{!DPLPMTUD}}.
+生成 ICMP({{?RFC1812}}, {{?RFC4443}}) 的要求说明
+所引用包应该在不超过对于这个 IP 版本的最小 MTU 的情况下
+尽可能多的包含原包。
+所引用包的大小实际上可以更小，
+或者是不可理解的信息，如 {{!DPLPMTUD}} 1.1章节中的描述。
 
-QUIC endpoints SHOULD validate ICMP messages to protect from off-path injection
-as specified in {{!RFC8201}} and Section 5.2 of {{!RFC8085}}. This validation
-SHOULD use the quoted packet supplied in the payload of an ICMP message to
-associate the message with a corresponding transport connection {{!DPLPMTUD}}.
+QUIC 终端**应该**校验 ICMP 消息来防止在
+{{!RFC8201}}以及{{!RFC8085}}中5.2章节
+中指出的路境外注入。
+这个验证**应该**使用在 ICMP 消息载荷中提供的
+所引用包来联系这条消息与相对于的传输连接 {{!DPLPMTUD}}。
 
-ICMP message validation MUST include matching IP addresses and UDP ports
-{{!RFC8085}} and, when possible, connection IDs to an active QUIC session.
+ICMP 消息校验**必须**包括匹配 IP 地址和
+UDP 端口{{!RFC8085}}，可能的话，
+还要包括对应一个活动的QUIC会话的连接 ID。
 
-Further validation can also be provided:
+可以提供如下更多的校验：
 
-* An IPv4 endpoint could set the Don't Fragment (DF) bit on a small proportion
-  of packets, so that most invalid ICMP messages arrive when there are no DF
-  packets outstanding, and can therefore be identified as spurious.
+* IPv4 终端可能在小比例的包中设置禁止分片(DF)位，
+以便当没有DF的包未处理时，
+若大部分的不可用的 ICMP 消息抵达了，
+然后这些包因此可能被鉴定为可疑的。
 
-* An endpoint could store additional information from the IP or UDP headers to
-  use for validation (for example, the IP ID or UDP checksum).
+* 终端可以存储 IP 或者 UDP 包头中的附加信息用于
+校验(例如，IP IP 或者 UDP 校验和)。
 
-The endpoint SHOULD ignore all ICMP messages that fail validation.
+终端**应该**无视所有的校验不通过的 ICMP 消息。
 
-An endpoint MUST NOT increase PMTU based on ICMP messages.  Any reduction in the
-QUIC maximum packet size MAY be provisional until QUIC's loss detection
-algorithm determines that the quoted packet has actually been lost.
-
-
-## Datagram Packetization Layer PMTU Discovery
-
-Section 6.4 of {{!DPLPMTUD}} provides considerations for implementing Datagram
-Packetization Layer PMTUD (DPLPMTUD) with QUIC.
-
-When implementing the algorithm in Section 5.3 of {{!DPLPMTUD}}, the initial
-value of BASE_PMTU SHOULD be consistent with the minimum QUIC packet size (1232
-bytes for IPv6 and 1252 bytes for IPv4).
-
-PING and PADDING frames can be used to generate PMTU probe packets. These frames
-might not be retransmitted if a probe packet containing them is lost.  However,
-these frames do consume congestion window, which could delay the transmission of
-subsequent application data.
-
-A PING frame can be included in a PMTU probe to ensure that a valid probe is
-acknowledged.
-
-The considerations for processing ICMP messages in the previous section also
-apply if these messages are used by DPLPMTUD.
+终端**禁止**基于 ICMP 消息增大 PMTU 。
+直到 QUIC 丢包检测算法确定所引用包已经丢失为止，
+任何 QUIC 最大包大小的减小都**可能**是暂时的。
 
 
-# Versions {#versions}
+## 数据包包装层 PMTU 发现(Datagram Packetization Layer PMTU Discovery)
 
-QUIC versions are identified using a 32-bit unsigned number.
+{{!DPLPMTUD}}中 6.4 章节中提供了实现
+QUIC 数据包装层 PMTUD (DPLPMTUD)的思考。
 
-The version 0x00000000 is reserved to represent version negotiation.  This
-version of the specification is identified by the number 0x00000001.
+当实现在{{!DPLPMTUD}}中5.3章节描述的算法时候，
+BASE_PMTU的初始值**应该**和最小 QUIC 包大小一致。
+(IPv6为1232 字节而 IPv4位1252字节)
 
-Other versions of QUIC might have different properties to this version.  The
-properties of QUIC that are guaranteed to be consistent across all versions of
-the protocol are described in {{QUIC-INVARIANTS}}.
+PING 和 PADDING 帧可用于生成 PMTU 探测包。
+如果包含他们的探测包丢失，这些帧可能不会重传。
+然而，这些帧确实消费了拥塞窗口，
+这可能会延迟子流应用数据的传输。
 
-Version 0x00000001 of QUIC uses TLS as a cryptographic handshake protocol, as
-described in {{QUIC-TLS}}.
+PING帧可以被包含在一个 PMTU 探测中，
+用于确保一个可用的探测已经被确认了。
 
-Versions with the most significant 16 bits of the version number cleared are
-reserved for use in future IETF consensus documents.
+如果这些消息被 DPLPMTUD 使用，
+则在之前的章节关于处理 ICMP 消息的思考也适用。
 
-Versions that follow the pattern 0x?a?a?a?a are reserved for use in forcing
-version negotiation to be exercised.  That is, any version number where the low
-four bits of all bytes is 1010 (in binary).  A client or server MAY advertise
-support for any of these reserved versions.
 
-Reserved version numbers will probably never represent a real protocol; a client
-MAY use one of these version numbers with the expectation that the server will
-initiate version negotiation; a server MAY advertise support for one of these
-versions and can expect that clients ignore the value.
+# 版本(Versions) {#versions}
 
-\[\[RFC editor: please remove the remainder of this section before
-publication.]]
+QUIC 版本用一个32位的无符号整数标识。
 
-The version number for the final version of this specification (0x00000001), is
-reserved for the version of the protocol that is published as an RFC.
+版本 0x00000000 保留用于代表版本协商。
+这个特定的版本用 0x00000001 来标识。
 
-Version numbers used to identify IETF drafts are created by adding the draft
-number to 0xff000000.  For example, draft-ietf-quic-transport-13 would be
-identified as 0xff00000D.
+其他版本的 QUIC 可能有和此版本不同的属性。
+QUIC保证在所有协议版本中都一致的属性描述在
+{{QUIC-INVARIANTS}}中。
 
-Implementors are encouraged to register version numbers of QUIC that they are
-using for private experimentation on the GitHub wiki at
+版本 0x00000001 的 QUIC 使用 TLS 作为
+加密握手协议，如{{QUIC-TLS}}中所描述。
+
+版本号中最高16位被清除的版本将保留
+用于未来 IETF 协商一致的文档。
+
+遵循0x?a?a?a?a规律的版本保留用于将要实践的强制版本协商。
+这是说，任何所有比特中的低四位是1010(二进制)的版本号。
+客户端或者服务器**可以**建议支持这些保留的任意版本。
+
+保留的版本号可能永远不代表一个真实的协议；
+客户端**可以**在预期服务端将初始化版本协商
+的情况下使用这些中任意一个；
+服务端**可以**建议支持这些版本中的一个，
+并且预期客户端会无视这个值。
+
+\[\[RFC 编辑者: 请在发布之前删除此章节。]]
+
+此草案的最终版本号为0x00000001，
+保留此版本用于此草案作为 RFC 公布时的版本。
+
+用于标识 IETF 草案的版本号可用
+草案数字加上0xff000000得到。
+例如draft-ietf-quic-transport-13
+可能标识为 0xff00000D.
+
+实现鼓励注册用于私有实验的QUIC的版本号
+到Github wiki，地址为
 \<https://github.com/quicwg/base-drafts/wiki/QUIC-Versions\>.
 
 
+# 可变长度数字编码(Variable-Length Integer Encoding) {#integer-encoding}
 
-# Variable-Length Integer Encoding {#integer-encoding}
+QUIC 包和帧通常对非负整数使用可变长度编码。
+这种编码确保了小整数值需要更少的空间来编码。
 
-QUIC packets and frames commonly use a variable-length encoding for non-negative
-integer values.  This encoding ensures that smaller integer values need fewer
-bytes to encode.
+QUIC 可变长度整数编码保留了第一个字节的两个最高有效位，
+用于保存对整数长度取以2为底数的对数。
+整数值以网络字节顺序编码在剩余位中。
 
-The QUIC variable-length integer encoding reserves the two most significant bits
-of the first byte to encode the base 2 logarithm of the integer encoding length
-in bytes.  The integer value is encoded on the remaining bits, in network byte
-order.
-
-This means that integers are encoded on 1, 2, 4, or 8 bytes and can encode 6,
-14, 30, or 62 bit values respectively.  {{integer-summary}} summarizes the
-encoding properties.
+这意味着整数编码成了1, 2, 4或者8字节，
+对应编码了6, 14, 30或者62位的值。
+{{integer-summary}}概括了编码规则。
 
 | 2Bit | Length | Usable Bits | Range                 |
 |:-----|:-------|:------------|:----------------------|
@@ -3222,15 +3236,17 @@ encoding properties.
 | 01   | 2      | 14          | 0-16383               |
 | 10   | 4      | 30          | 0-1073741823          |
 | 11   | 8      | 62          | 0-4611686018427387903 |
-{: #integer-summary title="Summary of Integer Encodings"}
+{: #integer-summary title="编码规则概括"}
 
-For example, the eight byte sequence c2 19 7c 5e ff 14 e8 8c (in hexadecimal)
-decodes to the decimal value 151288809941952652; the four byte sequence 9d 7f 3e
-7d decodes to 494878333; the two byte sequence 7b bd decodes to 15293; and the
-single byte 25 decodes to 37 (as does the two byte sequence 40 25).
+例如，八字节序列c2 19 7c 5e ff 14 e8 8c(十六进制)
+解码为十进制值151288809941952652；
+四字节序列9d 7f 3e 7d解码为494878333;
+二字节序列7b bd解码为15293;
+单字节序列25解码为37。(同二字节序列40 25的值)
 
-Error codes ({{error-codes}}) and versions {{versions}} are described using
-integers, but do not use this encoding.
+
+错误编码({{error-codes}})和版本
+{{versions}}使用整数描述，但不使用这种编码。
 
 
 
@@ -4219,14 +4235,15 @@ ECN Counts:
 : The three ECN Counts, see {{ack-ecn-counts}}.
 
 
-### ACK Ranges {#ack-ranges}
+### ACK范围(ACK Ranges) {#ack-ranges}
 
-The ACK Ranges field consists of alternating Gap and ACK Range values in
-descending packet number order.  The number of Gap and ACK Range values is
-determined by the ACK Range Count field; one of each value is present for each
-value in the ACK Range Count field.
+“ACK范围”字段由按数据包编号降序排列的
+“间隙”值和“ACK范围”值交替组成。
+“间隙”(Gap)和“ACK范围”(ACK Range)值的数量
+由“ACK范围计数”(ACK Range Count)字段确定；
+ACK范围计数(Range Count)字段中的每个值都对应一个值。
 
-ACK Ranges are structured as follows:
+ACK范围结构如下组织:
 
 ~~~
  0                   1                   2                   3
@@ -4247,69 +4264,64 @@ ACK Ranges are structured as follows:
 |                          [ACK Range (i)]                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #ack-range-format title="ACK Ranges"}
+{: #ack-range-format title="ACK范围(ACK Ranges)"}
 
-The fields that form the ACK Ranges are:
+新城ACK范围的字段有:
 
-Gap (repeated):
+间隙(重复的):
 
-: A variable-length integer indicating the number of contiguous unacknowledged
-  packets preceding the packet number one lower than the smallest in the
-  preceding ACK Range.
+: 一个变长整数，表示比在之前的ACK范围中
+最小包编号小一的连续未确认包的编号。
 
-ACK Range (repeated):
+ACK 范围(重复的):
 
-: A variable-length integer indicating the number of contiguous acknowledged
-  packets preceding the largest packet number, as determined by the
-  preceding Gap.
+: 一个变长整数，表示小于当前最大包编号连续
+确认包的编号，由之前的Gap确定。
 
-Gap and ACK Range value use a relative integer encoding for efficiency.  Though
-each encoded value is positive, the values are subtracted, so that each ACK
-Range describes progressively lower-numbered packets.
+间隙和ACK范围值使用相对整数编码以提高效率。
+尽管每个编码的值都是正的，由于该值是被减去的，
+所以每个ACK范围描述了编码降序的数据包。
 
-Each ACK Range acknowledges a contiguous range of packets by indicating the
-number of acknowledged packets that precede the largest packet number in that
-range.  A value of zero indicates that only the largest packet number is
-acknowledged.  Larger ACK Range values indicate a larger range, with
-corresponding lower values for the smallest packet number in the range.  Thus,
-given a largest packet number for the range, the smallest value is determined by
-the formula:
+每个ACK范围通过指示在该范围内最大数据包编号之前的
+已确认数据包的编号来确认连续的数据包范围。
+值为零表示仅确认最大的数据包号。
+较大的ACK范围值表示较大的范围，
+该范围内最小的数据包编号对应较小的值。
+因此，给定范围内的最大数据包编号，
+最小值由以下公式确定:
 
 ~~~
    smallest = largest - ack_range
 ~~~
 
-An ACK Range acknowledges all packets between the smallest packet number and the
-largest, inclusive.
+ACK范围确认了最小包编号和最大包编号之间的所有数据包。
 
-The largest value for an ACK Range is determined by cumulatively subtracting the
-size of all preceding ACK Ranges and Gaps.
+ACK范围的最大值是通过累计减去
+前面所有ACK范围和间隙的大小来确定的。
 
-Each Gap indicates a range of packets that are not being acknowledged.  The
-number of packets in the gap is one higher than the encoded value of the Gap
-field.
+每个间隙表示了未确认的包的范围。
+间隙中的包的编号比间隙字段的编码值大一。
 
-The value of the Gap field establishes the largest packet number value for the
-subsequent ACK Range using the following formula:
+间隙字段的值使用以下公式确定后续ACK范围的最大包编号值:
 
 ~~~
    largest = previous_smallest - gap - 2
 ~~~
 
-If any computed packet number is negative, an endpoint MUST generate a
-connection error of type FRAME_ENCODING_ERROR indicating an error in an ACK
-frame.
+如果任何计算出的包编号是负值，
+终端**必须**生成一个FRAME_ENCODING_ERROR
+类型的连接异常表示ACK帧中的错误。
 
 
-### ECN Counts {#ack-ecn-counts}
+### ECN计数(ECN Counts) {#ack-ecn-counts}
 
-The ACK frame uses the least significant bit (that is, type 0x03) to indicate
-ECN feedback and report receipt of QUIC packets with associated ECN codepoints
-of ECT(0), ECT(1), or CE in the packet's IP header.  ECN Counts are only present
-when the ACK frame type is 0x03.
+ACK帧使用最低有效位(即类型0x03)来指示ECN反馈，
+并且在数据包的IP报头中报告收到的QUIC包的关联的ECN码点
+ECN(0), ECT(1), 或者 CE。
+ECN计数仅仅在ACK帧类型是0x03的时候存在。
 
-ECN Counts are only parsed when the ACK frame type is 0x03.  There are 3 ECN
-counts, as follows:
+只有ACK帧类型是0x03的时候，ECN计数才会被解析。
+有三个ECN计数，如下表示：
 
 ~~~
  0                   1                   2                   3
@@ -4323,36 +4335,32 @@ counts, as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-The three ECN Counts are:
+三个ECN计数分别是：
 
-ECT(0) Count:
-: A variable-length integer representing the total number packets received with
-  the ECT(0) codepoint.
+ECT(0) 计数:
+: 一个变长的整数，表示接收到的带有ECT(0)码点的包的总数。
 
-ECT(1) Count:
-: A variable-length integer representing the total number packets received with
-  the ECT(1) codepoint.
+ECT(1) 计数:
+: 一个变长的整数，表示接收到的带有ECT(1)码点的包的总数。
 
-CE Count:
-: A variable-length integer representing the total number packets received with
-  the CE codepoint.
+CE 计数:
+: 一个变长的整数，表示接收到的带有CE码点的包的总数。
 
-ECN counts are maintained separately for each packet number space.
+ECN 计数对每个包编码空间进行独立的维护。
 
+## RESET_STREAM帧(RESET_STREAM Frame) {#frame-reset-stream}
 
-## RESET_STREAM Frame {#frame-reset-stream}
+终端使用RESET_STREAM帧(类型=0x04)来立刻中断一个流。
 
-An endpoint uses a RESET_STREAM frame (type=0x04) to abruptly terminate a
-stream.
+在发送RESET_STREAM帧之后，
+终端停止在标识的流上的数据包的传输与重传。
+收到RESET_STREAM的终端可以丢弃
+它在这个流上已经收到的任何数据。
 
-After sending a RESET_STREAM, an endpoint ceases transmission and retransmission
-of STREAM frames on the identified stream.  A receiver of RESET_STREAM can
-discard any data that it already received on that stream.
+在一个仅发送流上接收到RESET_STREAM帧的终端
+**必须**以STREAM_STATE_ERROR异常来中断连接。
 
-An endpoint that receives a RESET_STREAM frame for a send-only stream MUST
-terminate the connection with error STREAM_STATE_ERROR.
-
-The RESET_STREAM frame is as follows:
+RESET_STREAM帧如下表示:
 
 ~~~
  0                   1                   2                   3
@@ -4366,23 +4374,21 @@ The RESET_STREAM frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-RESET_STREAM frames contain the following fields:
+RESET_STREAM 帧包含下列字段:
 
-Stream ID:
+流 ID(Stream ID):
 
-: A variable-length integer encoding of the Stream ID of the stream being
-  terminated.
+: 一个变长整数，编码将要终止的流的ID。
 
-Application Protocol Error Code:
+应用协议错误码(Application Error Code):
 
-: A 16-bit application protocol error code (see {{app-error-codes}}) which
-  indicates why the stream is being closed.
+: 一个十六位的应用协议错误码(详见{{app-error-codes}})
+，表示为什么流要被关闭。
 
-Final Size:
+最终大小(Final Size):
 
-: A variable-length integer indicating the final size of the stream by the
-  RESET_STREAM sender, in unit of bytes.
-
+: 一个变长整数，
+表示以位为单位的发送者定义的流的最终大小。
 
 ## STOP_SENDING Frame {#frame-stop-sending}
 
@@ -4715,16 +4721,14 @@ Data Limit:
   blocking occurred.
 
 
-## STREAM_DATA_BLOCKED Frame {#frame-stream-data-blocked}
+## 流数据阻塞帧(STREAM_DATA_BLOCKED Frame) {#frame-stream-data-blocked}
 
-A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x15) when it wishes to
-send data, but is unable to due to stream-level flow control.  This frame is
-analogous to DATA_BLOCKED ({{frame-data-blocked}}).
+发送者当希望发送数据但是因为流级别的流量控制不能发送的时候**应该**发送一个STREAM_DATA_BLOCKED帧(类型是0x15)。
+这个帧是和DATA_BLOCKED({{frame-data-blocked}})类似的。
 
-An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only stream
-MUST terminate the connection with error STREAM_STATE_ERROR.
+对于一个仅发送的流，接受到STREAM_DATA_BLOCKED帧的终端**必须**以STREAM_STATE_ERROR的异常中断连接。
 
-The STREAM_DATA_BLOCKED frame is as follows:
+STREAM_DATA_BLOCKED帧结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4736,30 +4740,27 @@ The STREAM_DATA_BLOCKED frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-STREAM_DATA_BLOCKED frames contain the following fields:
+STREAM_DATA_BLOCKED帧包含以下字段:
 
-Stream ID:
+流ID(Stream ID):
 
-: A variable-length integer indicating the stream which is flow control blocked.
+: 一个变长整数，标识被流控阻塞的流。
 
-Stream Data Limit:
+流数据限额(Stream Data Limit):
 
-: A variable-length integer indicating the offset of the stream at which the
-  blocking occurred.
+: 一个变长的整数，标识流阻塞出现的偏移量。
 
 
-## STREAMS_BLOCKED Frames {#frame-streams-blocked}
+## 流阻塞帧(STREAMS_BLOCKED Frames) {#frame-streams-blocked}
 
-A sender SHOULD send a STREAMS_BLOCKED frame (type=0x16 or 0x17) when it wishes
-to open a stream, but is unable to due to the maximum stream limit set by its
-peer (see {{frame-max-streams}}).  A STREAMS_BLOCKED frame of type 0x16 is used
-to indicate reaching the bidirectional stream limit, and a STREAMS_BLOCKED frame
-of type 0x17 indicates reaching the unidirectional stream limit.
+当希望打开一个流，但是因为对端设置的最大流上限(详见{{frame-max-streams}})无法打开的时候，
+发送者**应该**发送一个STREAMS_BLOCKED帧(类型0x16或者0x17)。
+类型0x16的STREAMS_BLOCKED帧用于表示到达了双向流上限，类型0x17的STREAMS_BLOCKED帧用于表示到达了单向流上限。
 
-A STREAMS_BLOCKED frame does not open the stream, but informs the peer that a
-new stream was needed and the stream limit prevented the creation of the stream.
 
-The STREAMS_BLOCKED frames are as follows:
+STREAMS_BLOCKED帧不打开流，但是告知对端需要一个新的流并且流控制阻止了流的创建。
+
+STREAMS_BLOCKED帧的结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4769,21 +4770,19 @@ The STREAMS_BLOCKED frames are as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-STREAMS_BLOCKED frames contain the following fields:
+STREAMS_BLOCKED帧包含以下字段:
 
-Stream Limit:
+流上限(Stream Limit):
 
-: A variable-length integer indicating the stream limit at the time the frame
-  was sent.
+: 一个变长整数，表示帧发送时的流上限。
 
 
-## NEW_CONNECTION_ID Frame {#frame-new-connection-id}
+## 新连接ID帧(NEW_CONNECTION_ID Frame) {#frame-new-connection-id}
 
-An endpoint sends a NEW_CONNECTION_ID frame (type=0x18) to provide its peer with
-alternative connection IDs that can be used to break linkability when migrating
-connections (see {{migration-linkability}}).
+终端发送NEW_CONNECTION_ID帧(类型0x18)来给对端提供
+可用于当连接迁移的时候中断可连接性(详见{{migration-linkability}})的代替连接ID。
 
-The NEW_CONNECTION_ID frame is as follows:
+NEW_CONNECTION_ID 帧结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4805,61 +4804,46 @@ The NEW_CONNECTION_ID frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-NEW_CONNECTION_ID frames contain the following fields:
+NEW_CONNECTION_ID 帧包含以下字段:
 
-Sequence Number:
+序列号(Sequence Number):
 
-: The sequence number assigned to the connection ID by the sender.  See
-  {{issue-cid}}.
+: 由发送者复制给连接ID的序列号。详见{{issue-cid}}。
 
-Length:
+长度(Length):
 
-: An 8-bit unsigned integer containing the length of the connection ID.  Values
-  less than 4 and greater than 18 are invalid and MUST be treated as a
-  connection error of type PROTOCOL_VIOLATION.
+: 一个八位无符号的整数，包含连接ID的长度。小于4和大于18的值都是无效的而且**必须**以PROTOCOL_VIOLATION类型连接异常来处理。
 
-Connection ID:
+连接ID(Connection ID):
 
-: A connection ID of the specified length.
+: 指定长度的连接ID。
 
-Stateless Reset Token:
+无状态重置凭证(Stateless Reset Token):
 
-: A 128-bit value that will be used for a stateless reset when the associated
-  connection ID is used (see {{stateless-reset}}).
+: 一个128位的值，用于关联的连接ID被使用时的无状态连接重置(详见{{stateless-reset}})。
 
-An endpoint MUST NOT send this frame if it currently requires that its peer send
-packets with a zero-length Destination Connection ID.  Changing the length of a
-connection ID to or from zero-length makes it difficult to identify when the
-value of the connection ID changed.  An endpoint that is sending packets with a
-zero-length Destination Connection ID MUST treat receipt of a NEW_CONNECTION_ID
-frame as a connection error of type PROTOCOL_VIOLATION.
+如果它现在需要对端使用0长度的目标连接ID发送包，终端**禁止**发送这个帧。
+从0长度或到0长度的对连接ID的长度的改变将会使得很难辨别何时连接ID的值发生了改变。
+以0长度目的连接ID发送包的终端**必须**以PROTOCOL_VIOLATION类型的连接异常处理接收到的NEW_CONNECTION_ID帧。
 
-Transmission errors, timeouts and retransmissions might cause the same
-NEW_CONNECTION_ID frame to be received multiple times.  Receipt of the same
-frame multiple times MUST NOT be treated as a connection error.  A receiver can
-use the sequence number supplied in the NEW_CONNECTION_ID frame to identify new
-connection IDs from old ones.
+传输异常，超时和重传可能导致相同的NEW_CONNECTION_ID帧被收到多次。
+多次相同NEW_CONNECTION_ID帧的接收**禁止**被处理为连接异常。
+接收者可以使用提供在NEW_CONNECTION_ID帧中的序列号来辨别新旧链接ID。
 
-If an endpoint receives a NEW_CONNECTION_ID frame that repeats a previously
-issued connection ID with a different Stateless Reset Token or a different
-sequence number, or if a sequence number is used for different connection
-IDs, the endpoint MAY treat that receipt as a connection error of type
-PROTOCOL_VIOLATION.
+如果终端接收到了一个与之前发出的链接ID拥有不同的无状态重置凭证或不同序列号或者序列号用于其他连接ID的NEW_CONNECTION_ID帧，
+终端**可以**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
 
-## RETIRE_CONNECTION_ID Frame {#frame-retire-connection-id}
+## 销毁连接ID帧(RETIRE_CONNECTION_ID Frame) {#frame-retire-connection-id}
 
-An endpoint sends a RETIRE_CONNECTION_ID frame (type=0x19) to indicate that it
-will no longer use a connection ID that was issued by its peer. This may include
-the connection ID provided during the handshake.  Sending a RETIRE_CONNECTION_ID
-frame also serves as a request to the peer to send additional connection IDs for
-future use (see {{connection-id}}).  New connection IDs can be delivered to a
-peer using the NEW_CONNECTION_ID frame ({{frame-new-connection-id}}).
+终端发送RETIRE_CONNECTION_ID帧(类型0x19)来表示它将不再会使用对端发出的连接ID。
+这可能包括握手期间提供的连接ID。
+发送RETIRE_CONNECTION_ID帧也用于请求对端发送额外的连接ID供未来使用(详见 {{connection-id}})。
+新连接ID可以用NEW_CONNECTION_ID帧来发送到对端。({{frame-new-connection-id}})
 
-Retiring a connection ID invalidates the stateless reset token associated with
-that connection ID.
+销毁连接ID也无效化了关联这个连接ID的无状态重置凭证。
 
-The RETIRE_CONNECTION_ID frame is as follows:
+RETIRE_CONNECTION_ID帧结构如下:
 
 ~~~
  0                   1                   2                   3
@@ -4869,26 +4853,20 @@ The RETIRE_CONNECTION_ID frame is as follows:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-RETIRE_CONNECTION_ID frames contain the following fields:
+RETIRE_CONNECTION_ID 帧包含以下字段:
 
-Sequence Number:
+序列号(Sequence Number):
 
-: The sequence number of the connection ID being retired.  See
-  {{retiring-cids}}.
+: 将要销毁的连接ID的序列号。详见{{retiring-cids}}.
 
-Receipt of a RETIRE_CONNECTION_ID frame containing a sequence number greater
-than any previously sent to the peer MAY be treated as a connection error of
-type PROTOCOL_VIOLATION.
+终端接收到包含大于任何之前发送到对端的序列号的 RETIRE_CONNECTION_ID
+帧**可以**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
-The sequence number specified in a RETIRE_CONNECTION_ID frame MUST NOT refer
-to the Destination Connection ID field of the packet in which the frame is
-contained.  The peer MAY treat this as a connection error of type
-PROTOCOL_VIOLATION.
+在 RETIRE_CONNECTION_ID 帧中指定的序列号**禁止**引用包含此帧的包的目标连接ID字段。
+对端**可以**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
-An endpoint cannot send this frame if it was provided with a zero-length
-connection ID by its peer.  An endpoint that provides a zero-length connection
-ID MUST treat receipt of a RETIRE_CONNECTION_ID frame as a connection error of
-type PROTOCOL_VIOLATION.
+如果对端已经提供过了0长度的连接ID，终端不能发送此帧。
+提供0长度的连接ID的终端若收到RETIRE_CONNECTION_ID帧，**必须**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
 
 ## PATH_CHALLENGE Frame {#frame-path-challenge}
@@ -5331,81 +5309,69 @@ IANA \[SHALL add/has added] a registry for "QUIC Transport Parameters" under a
 | 0x000d | preferred_address           | {{transport-parameter-definitions}} |
 {: #iana-tp-table title="Initial QUIC Transport Parameters Entries"}
 
-## QUIC Frame Type Registry {#iana-frames}
+## QUIC 帧种类注册处(QUIC Frame Type Registry) {#iana-frames}
 
-IANA \[SHALL add/has added] a registry for "QUIC Frame Types" under a
-"QUIC Protocol" heading.
+IANA \[**应当**增加/已增加]一个在"QUIC协议"打头的用于QUIC 帧种类的注册处。
 
-The "QUIC Frame Types" registry governs a 62-bit space.  This space is split
-into three spaces that are governed by different policies.  Values between 0x00
-and 0x3f (in hexadecimal) are assigned via the Standards Action or IESG Review
-policies {{!RFC8126}}.  Values from 0x40 to 0x3fff operate on the Specification
-Required policy {{!RFC8126}}.  All other values are assigned to Private Use
-{{!RFC8126}}.
+QUIC 帧种类注册处管理着一个62位的空间。
+这个空间划分为由不同策略管理的三块空间。
+在0x00到0x3f(十六进制)之间的值通过标准行为或者IESG审核策略{{!RFC8126}}分配。
+在0x40到0x3fff之间的值通过声明必须政策{{!RFC8126}}进行操作分配。
+所有其他值由私有策略{{!RFC8126}}分配。
 
-Registrations MUST include the following fields:
+注册**必须**包含以下字段:
 
-Value:
+值:
 
-: The numeric value of the assignment (registrations will be between 0x00 and
-  0x3fff).  A range of values MAY be assigned.
+: 数值类型的值(注册会在0x00到0x3fff之间)。这区间内的值可能会被赋予。
 
-Frame Name:
+帧名字:
 
-: A short mnemonic for the frame type.
+: 一个帧种类的简短词语。
 
-Specification:
+说明:
 
-: A reference to a publicly available specification for the value.
+: 一个引用到公开访问的关于这个值的说明。
 
-The nominated expert(s) verify that a specification exists and is readily
-accessible.  Specifications for new registrations need to describe the means by
-which an endpoint might determine that it can send the identified type of frame.
-An accompanying transport parameter registration (see
-{{iana-transport-parameters}}) is expected for most registrations.  The
-specification needs to describe the format and assigned semantics of any fields
-in the frame.
+提名专家校验说明存在而且便利易读。
+对于新的注册的说明需要描述哪一边终端可能决定它可以发送指定种类的帧。
+大部分注册都需要伴随着的传输参数注册(详见{{iana-transport-parameters}})。
+说明需要描述帧中的所有字段的格式和语义。
 
-Expert(s) are encouraged to be biased towards approving registrations unless
-they are abusive, frivolous, or actively harmful (not merely aesthetically
-displeasing, or architecturally dubious).
+鼓励专家偏向批准注册，除非他们是滥用，草率或有意产生危害的。（不能仅仅是美学上令人不悦，或在架构上存疑的）
 
-The initial contents of this registry are tabulated in {{frame-types}}.
+注册处的初始内容列在{{frame-types}}中。
 
 
-## QUIC Transport Error Codes Registry {#iana-error-codes}
+## QUIC 传输错误码注册处(QUIC Transport Error Codes Registry) {#iana-error-codes}
 
-IANA \[SHALL add/has added] a registry for "QUIC Transport Error Codes" under a
-"QUIC Protocol" heading.
+IANA \[**应当**增加/已增加]一个在"QUIC协议"打头的用于QUIC 传输错误码的注册处。
 
-The "QUIC Transport Error Codes" registry governs a 16-bit space.  This space is
-split into two spaces that are governed by different policies.  Values with the
-first byte in the range 0x00 to 0xfe (in hexadecimal) are assigned via the
-Specification Required policy {{!RFC8126}}.  Values with the first byte 0xff are
-reserved for Private Use {{!RFC8126}}.
+"QUIC 传输错误码"注册处管理着一个十六位的空间。
+这个空间被分为由不同策略管理的两个空间。
+在第一个字节在0x00到0xfe(十六进制)范围内的值通过声明必须策略 {{!RFC8126}}分配。
+第一字节的值是0xff的值保留用于私有策略{{!RFC8126}}。
 
-Registrations MUST include the following fields:
+注册处**必须**包含以下字段:
 
-Value:
+值:
 
-: The numeric value of the assignment (registrations will be between 0x0000 and
-  0xfeff).
+: 数值类型的值(注册会在0x0000到0xfeff之间)。
 
-Code:
+错误码:
 
-: A short mnemonic for the parameter.
+: 一个表示参数的简短词语。
 
-Description:
+描述:
 
-: A brief description of the error code semantics, which MAY be a summary if a
-  specification reference is provided.
+: 一个错误码语义的简短描述，如果提供了说明引用，**可能**是一个总结。
 
-Specification:
+说明:
 
-: A reference to a publicly available specification for the value.
+: 一个引用到公开访问的关于这个值的说明。
 
-The initial contents of this registry are shown in {{iana-error-table}}.  Values
-from 0xFF00 to 0xFFFF are reserved for Private Use {{!RFC8126}}.
+注册处的初始内容列在{{iana-error-table}}中。
+在0xFF00 到 0xFFFF 之间的值保留用于私有{{!RFC8126}}。
 
 | Value | Error                     | Description                   | Specification   |
 |:------|:--------------------------|:------------------------------|:----------------|
@@ -5420,7 +5386,7 @@ from 0xFF00 to 0xFFFF are reserved for Private Use {{!RFC8126}}.
 | 0x8   | TRANSPORT_PARAMETER_ERROR | Error in transport parameters | {{error-codes}} |
 | 0xA   | PROTOCOL_VIOLATION        | Generic protocol violation    | {{error-codes}} |
 | 0xC   | INVALID_MIGRATION         | Violated disabled migration   | {{error-codes}} |
-{: #iana-error-table title="Initial QUIC Transport Error Codes Entries"}
+{: #iana-error-table title="初始QUIC 传输错误码条目(Initial QUIC Transport Error Codes Entries)"}
 
 
 --- back
