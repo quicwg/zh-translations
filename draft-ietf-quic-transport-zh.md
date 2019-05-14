@@ -3568,7 +3568,7 @@ subsequent to the first do not need to fit within a single UDP datagram.
 #### 放弃初始数据包(Abandoning Initial Packets) {#discard-initial}
 
 客户端在发送第一个握手数据包时停止发送和处理初始数据包。服务器在收到第一个握手数据包
-时停止发送和处理初始数据包。虽然数据包可能仍在飞行或等待确认，但在此之后无需再交换初
+时停止发送和处理初始数据包。虽然数据包可能仍在传输或等待确认，但在此之后无需再交换初
 始数据包。丢弃初始数据包保护密钥(参见{{QUIC-TLS}}第4.10节)以及任何丢失追回和阻塞控
 制状态(参见{{QUIC-RECOVERY}}的第5.3.1.2和6.9节)。
 
@@ -3577,7 +3577,7 @@ subsequent to the first do not need to fit within a single UDP datagram.
 ### 0-RTT {#packet-0rtt}
 
 0-RTT数据包使用类型值为0x1的长报头，后跟长度和数据包号字段。第一个字节包含保留和数据
-包号长度位。它用于在握手完成之前，将“早期”数据从客户端传送到服务器，作为第一次飞行的
+包号长度位。它用于在握手完成之前，将“早期”数据从客户端传送到服务器，作为第一次传输的
 一部分。作为TLS握手的一部分，服务器可以接受或拒绝此早期数据。
 
 有关0-RTT数据及其限制的讨论，请参见{{!TLS13}}的2.3节。
