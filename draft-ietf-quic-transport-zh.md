@@ -852,7 +852,6 @@ RESET_STREAM 或者 STREAM 帧，
 因为这么做将会意味着对端将会阻塞至少一整个往返周期，
 而且如果对端选择不发送 STREAMS_BLOCKED 帧可能更长。
 
-
 # 连接(Connections) {#connections}
 
 如 {{handshake}}所述，QUIC 的连接建立将版本协商与加密、
@@ -2116,7 +2115,6 @@ IPv6 流标签**应该**是一个源与目标地址、
 * 空闲超时 ({{idle-timeout}})
 * 立即关闭 ({{immediate-close}})
 * 无状态重置 ({{stateless-reset}})
-
 
 ## Closing and Draining Connection States {#draining}
 
@@ -3581,129 +3579,104 @@ and will contain a CRYPTO frame with an offset matching the size of the CRYPTO
 frame sent in the first Initial packet.  Cryptographic handshake messages
 subsequent to the first do not need to fit within a single UDP datagram.
 
-#### Abandoning Initial Packets {#discard-initial}
+#### 放弃初始数据包(Abandoning Initial Packets) {#discard-initial}
 
-A client stops both sending and processing Initial packets when it sends its
-first Handshake packet.  A server stops sending and processing Initial packets
-when it receives its first Handshake packet.  Though packets might still be in
-flight or awaiting acknowledgment, no further Initial packets need to be
-exchanged beyond this point.  Initial packet protection keys are discarded (see
-Section 4.10 of {{QUIC-TLS}}) along with any loss recovery and congestion
-control state (see Sections 5.3.1.2 and 6.9 of {{QUIC-RECOVERY}}).
+客户端在发送第一个握手数据包时停止发送和处理初始数据包。服务器在收到第一个握手数据包
+时停止发送和处理初始数据包。虽然数据包可能仍在传输或等待确认，但在此之后无需再交换初
+始数据包。丢弃初始数据包保护密钥(参见{{QUIC-TLS}}第4.10节)以及任何丢失追回和阻塞控
+制状态(参见{{QUIC-RECOVERY}}的第5.3.1.2和6.9节)。
 
-Any data in CRYPTO frames is discarded - and no longer retransmitted - when
-Initial keys are discarded.
+当丢弃初始密钥时，CRYPTO帧中的任何数据都将被丢弃，且不再重新传输。
 
 ### 0-RTT {#packet-0rtt}
 
-A 0-RTT packet uses long headers with a type value of 0x1, followed by the
-Length and Packet Number fields. The first byte contains the Reserved and Packet
-Number Length bits.  It is used to carry "early" data from the client to the
-server as part of the first flight, prior to handshake completion. As part of
-the TLS handshake, the server can accept or reject this early data.
+0-RTT数据包使用类型值为0x1的长报头，后跟长度和数据包号字段。第一个字节包含保留和数据
+包号长度位。它用于在握手完成之前，将“早期”数据从客户端传送到服务器，作为第一次传输的
+一部分。作为TLS握手的一部分，服务器可以接受或拒绝此早期数据。
 
-See Section 2.3 of {{!TLS13}} for a discussion of 0-RTT data and its
-limitations.
+有关0-RTT数据及其限制的讨论，请参见{{!TLS13}}的2.3节。
 
 ~~~
 +-+-+-+-+-+-+-+-+
 |1|1| 1 |R R|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                         版本 (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|                     目标链接编号 (0/32..144)                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|                    源链接编号 (0/32..144)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                           Length (i)                        ...
+|                           长度 (i)                          ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Packet Number (8/16/24/32)               ...
+|                      包号 (8/16/24/32)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Payload (*)                        ...
+|                          负载 (*)                           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #0rtt-format title="0-RTT Packet"}
-
-Packet numbers for 0-RTT protected packets use the same space as 1-RTT protected
-packets.
-
-After a client receives a Retry packet, 0-RTT packets are
-likely to have been lost or discarded by the server.  A client MAY attempt to
-resend data in 0-RTT packets after it sends a new Initial packet.
-
-A client MUST NOT reset the packet number it uses for 0-RTT packets.  The keys
-used to protect 0-RTT packets will not change as a result of responding to a
-Retry packet unless the client also regenerates the
-cryptographic handshake message.  Sending packets with the same packet number in
-that case is likely to compromise the packet protection for all 0-RTT packets
-because the same key and nonce could be used to protect different content.
-
-Receiving a Retry packet, especially a Retry that changes
-the connection ID used for subsequent packets, indicates a strong possibility
-that 0-RTT packets could be lost.  A client only receives acknowledgments for
-its 0-RTT packets once the handshake is complete.  Consequently, a server might
-expect 0-RTT packets to start with a packet number of 0.  Therefore, in
-determining the length of the packet number encoding for 0-RTT packets, a client
-MUST assume that all packets up to the current packet number are in flight,
-starting from a packet number of 0.  Thus, 0-RTT packets could need to use a
-longer packet number encoding.
-
-A client SHOULD instead generate a fresh cryptographic handshake message and
-start packet numbers from 0.  This ensures that new 0-RTT packets will not use
-the same keys, avoiding any risk of key and nonce reuse; this also prevents
-0-RTT packets from previous handshake attempts from being accepted as part of
-the connection.
+{: #0rtt-format title="0-RTT 包"}
 
 
-### Handshake Packet {#packet-handshake}
+0-RTT保护数据包的数据包号与1-RTT保护数据包使用相同的空间。
 
-A Handshake packet uses long headers with a type value of 0x2, followed by the
-Length and Packet Number fields.  The first byte contains the Reserved and
-Packet Number Length bits.  It is used to carry acknowledgments and
-cryptographic handshake messages from the server and client.
+客户端收到重试数据包后，0-RTT数据包可能已丢失或被服务器丢弃。客户端在发送新的初始数据
+包后，**可能**会尝试在0-RTT数据包中重新发送数据。
+
+客户端**禁止**重置其用于0-RTT数据包的数据包号。用于保护0-RTT数据包的密钥不会因响应重试数据
+包而更改，除非客户端也重新生成加密握手消息。在这种情况下，发送具有相同数据包号的数据包
+可能会损害所有0-RTT数据包的数据包保护，因为相同的密钥和nonce可用于保护不同的内容。
+
+接收重试数据包，特别是更改用于后续数据包的连接ID的重试，表示0-RTT数据包丢失的可能性很大。
+只有在握手完成后，客户端才会收到对其0-RTT数据包的确认。因此，服务器可能期望0-RTT数据包从
+数据包编号0开始。因此，在确定0-RTT数据包编码的数据包号长度时，客户端必须假设当前数据包号
+之前的所有数据包都在运行，从数据包号0开始。因此，0-RTT数据包可能需要使用更长的数据包编号
+编码。
+
+相反，客户端**应该**生成一个新的加密握手消息，并从0开始数据包号。这确保了新的0-RTT数据包不会
+使用相同的密钥，从而避免了密钥和一次性重复使用的任何风险；这还可以防止以前的握手尝试将
+0-RTT数据包作为连接的一部分接受。
+
+
+### 握手数据包(Handshake Packet) {#packet-handshake}
+
+握手数据包使用类型值为0x2的长报头，后跟长度和数据包号字段。第一个字节包含保留和数据包号
+长度位。它用于传送来自服务器和客户端的确认和加密握手消息。
 
 ~~~
 +-+-+-+-+-+-+-+-+
 |1|1| 2 |R R|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                           版本 (32)                           |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|                     目标链接编号 (0/32..144)                 ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|                    源链接编号 (0/32..144)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                           Length (i)                        ...
+|                           长度 (i)                          ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Packet Number (8/16/24/32)               ...
+|                      包号 (8/16/24/32)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Payload (*)                        ...
+|                          负载 (*)                           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #handshake-format title="Handshake Protected Packet"}
+{: #handshake-format title="握手保护包"}
 
-Once a client has received a Handshake packet from a server, it uses Handshake
-packets to send subsequent cryptographic handshake messages and acknowledgments
-to the server.
+一旦客户端从服务器收到握手数据包，它就会使用握手数据包向服务器发送后续加密握手消息和
+确认。
 
-The Destination Connection ID field in a Handshake packet contains a connection
-ID that is chosen by the recipient of the packet; the Source Connection ID
-includes the connection ID that the sender of the packet wishes to use (see
-{{negotiating-connection-ids}}).
+握手包中的目的地连接ID字段包含由包的接收者选择的连接ID; 源连接ID包括数据包发送方希望
+使用的连接ID（参见{{negotiating-connection-ids}}）。
 
-Handshake packets are their own packet number space, and thus the first
-Handshake packet sent by a server contains a packet number of 0.
+握手包是它们自己的包号空间，因此服务器发送的第一个握手包中包含的包号为0。
 
-The payload of this packet contains CRYPTO frames and could contain PADDING, or
-ACK frames. Handshake packets MAY contain CONNECTION_CLOSE frames.  Endpoints
-MUST treat receipt of Handshake packets with other frames as a connection error.
+该数据包的有效负载包含CRYPTO帧，可能包含PADDING或ACK帧。 握手包**可能**包含
+CONNECTION_CLOSE帧。 对端**必须**将包含其他帧的握手数据包视为连接错误。。
 
-Like Initial packets (see {{discard-initial}}), data in CRYPTO frames at the
-Handshake encryption level is discarded - and no longer retransmitted - when
-Handshake protection keys are discarded.
+与初始数据包(参见{{discard-initial}})一样，握手加密级别的CRYPTO帧中的数据在丢弃握
+手保护密钥时将被丢弃，且不再重新传输。
 
 ### Retry Packet {#packet-retry}
 
