@@ -84,48 +84,40 @@ code and issues list for this draft can be found at
 --- middle
 
 
-# Introduction
+# 简介(Introduction)
 
-HTTP semantics are used for a broad range of services on the Internet. These
-semantics have commonly been used with two different TCP mappings, HTTP/1.1 and
-HTTP/2.  HTTP/2 introduced a framing and multiplexing layer to improve latency
-without modifying the transport layer.  However, TCP's lack of visibility into
-parallel requests in both mappings limited the possible performance gains.
+HTTP 语义用于互联网上的广泛服务。这些语义一般用于两不同端的TCP映射，HTTP/1.1以及HTTP/2。
+HTTp/2 引入了帧和多路复用来不修改传输层的改善延迟。
+然而，TCP在两端映射中对并行请求的可见性的缺失限制了性能提高的可能空间。
 
-The QUIC transport protocol incorporates stream multiplexing and per-stream flow
-control, similar to that provided by the HTTP/2 framing layer. By providing
-reliability at the stream level and congestion control across the entire
-connection, it has the capability to improve the performance of HTTP compared to
-a TCP mapping.  QUIC also incorporates TLS 1.3 at the transport layer, offering
-comparable security to running TLS over TCP, but with improved connection setup
-latency (unless TCP Fast Open {{?RFC7413}}} is used).
+QUIC 传输协议包含了类似于HTTP/2在成帧层提供的流多路复用与基于流的流量控制。
+提供在流级别可靠性和对整个连接的拥塞控制，与HTTP映射相比，提高HTTP性能有了空间。
+QUIC 在传输层同样包含了 TLS 1.3，在提供了类似于在TCP上的运行TLS的安全性的前提下，
+提高了连接建立阶段的延迟(除非开启了TCP快速打开{{?RFC7413}})。
 
-This document defines a mapping of HTTP semantics over the QUIC transport
-protocol, drawing heavily on the design of HTTP/2. This document identifies
-HTTP/2 features that are subsumed by QUIC, and describes how the other features
-can be implemented atop QUIC.
+这篇文档定义了HTTP语义在QUIC传输协议上的映射，在很大程度上依赖了HTTP/2的设计。
+这篇文档标识了QUIC拥有的HTTP/2特性，并且描述了其他可在QUIC上实现的特性。
 
-QUIC is described in {{QUIC-TRANSPORT}}.  For a full description of HTTP/2, see
-{{!RFC7540}}.
+QUIC 描述于{{QUIC-TRANSPORT}}。
+关于完整的HTTP/2的描述，详见{{!RFC7540}}。
 
 
-## Notational Conventions
+## 通用术语(Notational Conventions)
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词“必须(MUST)”，“禁止(MUST NOT)”，“必需(REQUIRED)”，“应当(SHALL)”，
+“应当不(SHALL NOT)”，“应该(SHOULD)”，“不应该(SHOULD NOT)”，“推荐(RECOMMENDED)”，
+“不推荐(NOT RECOMMENDED)”，“可以(MAY)”，“可选(OPTIONAL)”
+在这篇文档中将会如 BCP 14{{!RFC2119}} {{!RFC8174}}中描述的，当且仅当他们如此例子显示的以加粗的形式出现时。
+文档中常用的术语在下方描述。
 
-Field definitions are given in Augmented Backus-Naur Form (ABNF), as defined in
-{{!RFC5234}}.
+字段描述以扩展的巴科斯范式(Augmented Backus-Naur Form 即ABNF)给出，定义在{{!RFC5234}}中。
 
-This document uses the variable-length integer encoding from
-{{QUIC-TRANSPORT}}.
+这篇文档使用了{{QUIC-TRANSPORT}}中的变长的整数编码。
 
-Protocol elements called "frames" exist in both this document and
-{{QUIC-TRANSPORT}}. Where frames from {{QUIC-TRANSPORT}} are referenced, the
-frame name will be prefaced with "QUIC."  For example, "QUIC CONNECTION_CLOSE
-frames."  References without this preface refer to frames defined in {{frames}}.
+称呼为"帧"的协议元素存在于本文档和{{QUIC-TRANSPORT}}。
+当引用的帧是{{QUIC-TRANSPORT}}中的，帧名字会以"QUIC"打头。
+例如"QUIC CONNECTION_CLOSE 帧"。
+不以这个开头的引用的帧定义于{{frames}}。
 
 
 # Connection Setup and Management
@@ -493,118 +485,102 @@ QPACK. See [QPACK] for more details.
 
 HEADERS frames can only be sent on request / push streams.
 
-### PRIORITY {#frame-priority}
+### 优先级帧(PRIORITY) {#frame-priority}
 
-The PRIORITY (type=0x02) frame specifies the client-advised priority of a
-request, server push or placeholder.
 
-A PRIORITY frame identifies an element to prioritize, and an element upon which
-it depends.  A Prioritized ID or Dependency ID identifies a client-initiated
-request using the corresponding stream ID, a server push using a Push ID (see
-{{frame-push-promise}}), or a placeholder using a Placeholder ID (see
-{{placeholders}}).
+PRIORITY帧(类型=0x02)指定请求、服务器推送或占位符的客户端建议的优先级。
 
-When a client initiates a request, a PRIORITY frame MAY be sent as the first
-frame of the stream, creating a dependency on an existing element.  In order to
-ensure that prioritization is processed in a consistent order, any subsequent
-PRIORITY frames for that request MUST be sent on the control stream.  A
-PRIORITY frame received after other frames on a request stream MUST be treated
-as a stream error of type HTTP_UNEXPECTED_FRAME.
+PRIORITY帧标识要优先排序的元素以及它所依赖的元素。优先级ID或依赖ID使用
+相应的流ID标识客户端发起的请求，使用推送ID标识服务器推送(请参见
+{{frame-push-promise}})，或使用占位符ID标识占位符(请参见{{placeholders}})。
 
-If, by the time a new request stream is opened, its priority information
-has already been received via the control stream, the PRIORITY frame
-sent on the request stream MUST be ignored.
+当客户端发起请求时，**可以**将PRIORITY帧作为流的第一帧发送，从而创建对现有
+元素的依赖。为了确保以一致的顺序处理优先级，该请求的任何后续PRIORITY帧都
+**必须**在控制流上发送。在请求流上的其他帧之后接收到的PRIORITY帧**必须**被视为
+HTTP_UNEXPECTED_FRAME类型的流错误。
+
+如果在打开新的请求流时，已通过控制流接收到其优先级信息，则必须忽略在请求
+流上发送的PRIORITY帧。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|PT |DT | Empty |         [Prioritized Element ID (i)]        ...
+|PT |DT | 空 |               [优先级元素ID(i)]             ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                [Element Dependency ID (i)]                  ...
+|                         [元素依赖ID(i)]                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Weight (8)  |
+|  权重 (8)  |
 +-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
 {: #fig-priority title="PRIORITY frame payload"}
 
-The PRIORITY frame payload has the following fields:
+PRIORITY帧有效负载具有以下字段：
 
-  PT (Prioritized Element Type):
-  : A two-bit field indicating the type of element being prioritized (see
-    {{prioritized-element-types}}). When sent on a request stream, this MUST be
-    set to `11`.  When sent on the control stream, this MUST NOT be set to `11`.
+  PT (优先元素类型):
+  : 一个两位字段，指示被优先处理的元素的类型(参见
+    {{prioritized-element-types}}). 在请求流中发送时，
+    **必须**将其设置为`11`。在控制流上发送时，**禁止**将其设置为`11`。
 
-  DT (Element Dependency Type):
-  : A two-bit field indicating the type of element being depended on (see
-    {{element-dependency-types}}).
+  DT (元素依赖类型):
+  : 指示所依赖的元素类型的两位字段(参见
+    {{element-dependency-types}})。
 
-  Empty:
-  : A four-bit field which MUST be zero when sent and MUST be ignored
-    on receipt.
+  空:
+  : 发送时**必须**为零且在收到时**必须**忽略的四位字段。
 
-  Prioritized Element ID:
-  : A variable-length integer that identifies the element being prioritized.
-    Depending on the value of Prioritized Type, this contains the Stream ID of a
-    request stream, the Push ID of a promised resource, a Placeholder ID of a
-    placeholder, or is absent.
+  优先元素ID:
+  : 标识要优先处理的元素的可变长度整数。根据优先类型的值，它包含请求流的流ID、
+  承诺资源的推送ID、占位符的占位符ID或缺失。
 
-  Element Dependency ID:
-  : A variable-length integer that identifies the element on which a dependency
-    is being expressed. Depending on the value of Dependency Type, this contains
-    the Stream ID of a request stream, the Push ID of a promised resource, the
-    Placeholder ID of a placeholder, or is absent.  For details of
-    dependencies, see {{priority}} and {{!RFC7540}}, Section 5.3.
+  元素依赖ID:
+  : 一个可变长度整数，用于标识表示依赖项的元素。根据依赖类型的值，它包含请求流的
+  流ID、承诺资源的推送ID、占位符的占位符ID或缺失。有关依赖项的详细信息，请参见
+  {{priority}}和{{!RFC7540}}, 第5.3节.
 
-  Weight:
-  : An unsigned 8-bit integer representing a priority weight for the prioritized
-    element (see {{!RFC7540}}, Section 5.3). Add one to the value to obtain a
-    weight between 1 and 256.
+  权重:
+  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。 
+  向值中添加一个以获得介于1和256之间的权重。
 
-The values for the Prioritized Element Type ({{prioritized-element-types}}) and
-Element Dependency Type ({{element-dependency-types}}) imply the interpretation
-of the associated Element ID fields.
+优先元素类型({{prioritized-element-types}})和元素依赖类型({{element-dependency-types}})
+的值隐含着关联元素ID字段的解释。
 
-| PT Bits | Type Description | Prioritized Element ID Contents |
+| PT 位 | 类型描述 | 优先元素ID内容 |
 | ------- | ---------------- | ------------------------------- |
-| 00      | Request stream   | Stream ID                       |
-| 01      | Push stream      | Push ID                         |
-| 10      | Placeholder      | Placeholder ID                  |
-| 11      | Current stream   | Absent                          |
+| 00      | 请求流  | 流ID                      |
+| 01      | 推送流      | 推送ID                       |
+| 10      | 占位符      | 占位符ID                 |
+| 11      | 当前流   | 缺失                         |
 {: #prioritized-element-types title="Prioritized Element Types"}
 
-| DT Bits | Type Description | Element Dependency ID Contents |
+| DT 位   | 类型描述 | 元素依赖ID内容 |
 | ------- | ---------------- | ------------------------------ |
-| 00      | Request stream   | Stream ID                      |
-| 01      | Push stream      | Push ID                        |
-| 10      | Placeholder      | Placeholder ID                 |
-| 11      | Root of the tree | Absent                         |
+| 00      | 请求流   | 流ID                    |
+| 01      | 推送流     | 推送ID                   |
+| 10      | 占位符      | 占位符ID                |
+| 11      | 树的根节点 | 缺失                         |
 {: #element-dependency-types title="Element Dependency Types"}
 
-Note that unlike in {{!RFC7540}}, the root of the tree cannot be referenced
-using a Stream ID of 0, as in QUIC stream 0 carries a valid HTTP request.  The
-root of the tree cannot be reprioritized.  A PRIORITY frame sent on a request
-stream with the Prioritized Element Type set to any value other than `11` or
-which expresses a dependency on a request with a greater Stream ID than the
-current stream MUST be treated as a stream error of type HTTP_MALFORMED_FRAME.
-Likewise, a PRIORITY frame sent on a control stream with the Prioritized Element
-Type set to `11` MUST be treated as a connection error of type
-HTTP_MALFORMED_FRAME.
+请注意，与{{!RFC7540}}不同，不能使用为0的流ID引用树的根节点，因为
+QUIC流0包含有效的HTTP请求。树的根节点不能被重新排序。在优先级元素类型
+设置为“11”以外的任何值的请求流上发送的PRIORITY帧，或者在具有大于当前流的
+流ID的请求流上表达依赖关系的PRIORITY帧**必须**被视为HTTP_MALFORMED_FRAME
+类型的流错误。必须将当前流视为类型为HTTP_MERFORM_FRAME的流错误。
+同样，在优先级元素类型设置为`11`的控制流上发送的优先级帧**必须**被视
+为HTTP_MALFORMED_FRAME类型的连接错误。
 
-When a PRIORITY frame claims to reference a request, the associated ID MUST
-identify a client-initiated bidirectional stream.  A server MUST treat receipt
-of a PRIORITY frame identifying a stream of any other type as a connection error
-of type HTTP_MALFORMED_FRAME.
+当PRIORITY帧声称引用请求时，关联的ID**必须**标识客户端启动的双向流。
+服务器**必须**将接收到标识任何其他类型的流的PRIORITY帧视为类型为
+HTTP_MALFORMED_FRAME的连接错误。
 
-A PRIORITY frame that references a non-existent Push ID, a Placeholder ID
-greater than the server's limit, or a Stream ID the client is not yet permitted
-to open MUST be treated as an HTTP_LIMIT_EXCEEDED error.
+引用不存在的推送ID、超过服务器限制的占位符ID或客户端尚不允许打开
+的流ID的PRIORITY帧**必须**视为HTTP_LIMIT_EXCEEDED错误。
 
-A PRIORITY frame received on any stream other than a request or control stream
-MUST be treated as a connection error of type HTTP_WRONG_STREAM.
+在请求或控制流以外的任何流上接收到的PRIORITY帧**必须**被视为类型为
+HTTP_WRONG_STREAM的连接错误。
 
-PRIORITY frames received by a client MUST be treated as a stream error of type
-HTTP_UNEXPECTED_FRAME.
+客户端接收到的PRIORITY帧**必须**被视为HTTP_UNEXPECTED_FRAME类型
+的流错误。 
 
 ### CANCEL_PUSH {#frame-cancel-push}
 
