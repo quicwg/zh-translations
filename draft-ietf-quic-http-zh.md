@@ -881,115 +881,83 @@ uses a Push ID that they have since consumed and discarded are forced to ignore
 the DUPLICATE_PUSH.
 
 
-### Reserved Frame Types {#frame-grease}
+### 保留帧类型(Reserved Frame Types) {#frame-grease}
 
-Frame types of the format `0x1f * N + 0x21` for integer values of N are reserved
-to exercise the requirement that unknown types be ignored ({{extensions}}).
-These frames have no semantics, and can be sent when application-layer padding
-is desired. They MAY also be sent on connections where no data is currently
-being transferred. Endpoints MUST NOT consider these frames to have any meaning
-upon receipt.
+帧类型是以`0x1f * N + 0x21`格式的，其中整数值 N 保留用于满足未知种类被忽略的需求 ({{extensions}})。
+这些帧没有语义，而且可以当需要应用层填充的时候发送。
+他们也**可能**在当前没有数据传输的连接上发送。
+终端在收到时**禁止**认为这些帧有任何有意义。
 
-The payload and length of the frames are selected in any manner the
-implementation chooses.
+载荷和帧的长度是通过实现的某种规则选择的。
 
 
-# HTTP Request Lifecycle
+# HTTP请求生命周期(HTTP Request Lifecycle)
 
-## HTTP Message Exchanges {#request-response}
+## HTTP消息交换(HTTP Message Exchanges) {#request-response}
 
-A client sends an HTTP request on a client-initiated bidirectional QUIC
-stream. A client MUST send only a single request on a given stream.
-A server sends one or more HTTP responses on the same stream as the request,
-as detailed below.
+客户端通过一个客户端建立的双向 QUIC 流发送一个 HTTP 请求。
+客户端在给定的流上**必须**仅发送一个请求。
+服务端在和请求发起的同一个流上发送一个或多个 HTTP 回复，详见下文描述。
 
-An HTTP message (request or response) consists of:
+一条 HTTP 消息(请求或回复)包含:
 
-1. the message header (see {{!RFC7230}}, Section 3.2), sent as a single HEADERS
-   frame (see {{frame-headers}}),
+1. 消息头(详见 {{!RFC7230}}, 章节 3.2)，作为单个 HEADERS 帧发送(详见{{frame-headers}})。
 
-2. the payload body (see {{!RFC7230}}, Section 3.3), sent as a series of DATA
-   frames (see {{frame-data}}),
+2. 载荷消息体(详见{{!RFC7230}}, 章节 3.3)，作为一系列 DATA 帧发送(详见{{frame-data}})。
 
-3. optionally, one HEADERS frame containing the trailer-part, if present (see
-   {{!RFC7230}}, Section 4.1.2).
+3. (可选的)一个包含活动部分的 HEADERS 帧，如果存在(详见{{!RFC7230}} , 章节 4.1.2)。
 
-A server MAY interleave one or more PUSH_PROMISE frames (see
-{{frame-push-promise}}) with the frames of a response message. These
-PUSH_PROMISE frames are not part of the response; see {{server-push}} for more
-details.
+服务端**可能**在回复消息的帧中插入一个或更多 PUSH_PROMISE 帧(详见 {{frame-push-promise}})。
+这些 PUSH_PROMISE 帧不是回复的一部分；查看{{server-push}}获得更多细节。
 
-The "chunked" transfer encoding defined in Section 4.1 of {{!RFC7230}} MUST NOT
-be used.
+在{{!RFC7230}}章节4.1中定义的"大块"的传输编码**禁止**使用。
 
-Trailing header fields are carried in an additional HEADERS frame following the
-body. Senders MUST send only one HEADERS frame in the trailers section;
-receivers MUST discard any subsequent HEADERS frames.
+紧接着载荷消息体之后的预告头字段通过一个附加的 HEADERS 帧携带。
+发送者在一个预告部分中**必须**仅发送一个 HEADERS 帧。
+接收者**必须**丢弃任何随后的 HEADERS 帧。
 
-A response MAY consist of multiple messages when and only when one or more
-informational responses (1xx, see {{!RFC7231}}, Section 6.2) precede a final
-response to the same request.  Non-final responses do not contain a payload body
-or trailers.
+回复当且仅当一个或更多的信息性回复(1xx, 详见{{!RFC7231}}, 章节 6.2)先于同一个请求的最终回复时**可能**包含多条消息。
+非最终回复不包含载荷消息体或者预告。
 
-An HTTP request/response exchange fully consumes a bidirectional QUIC stream.
-After sending a request, a client MUST close the stream for sending.  Unless
-using the CONNECT method (see {{the-connect-method}}), clients MUST NOT make
-stream closure dependent on receiving a response to their request. After sending
-a final response, the server MUST close the stream for sending. At this point,
-the QUIC stream is fully closed.
+一个 HTTP 请求/回复交换完全的利用了一个双向 QUIC 流。
+在发送一个请求之后，客户端**必须**关闭发送用的流。
+除非使用 CONNECT 方法(详见{{the-connect-method}})，客户端**禁止**使得流的关闭与否依赖于接收他们请求的回复。
+在发送一个最终回复之后，服务端**必须**关闭发送用的流。
+在这种角度上，QUIC 流被完全关闭了。
 
-When a stream is closed, this indicates the end of an HTTP message. Because some
-messages are large or unbounded, endpoints SHOULD begin processing partial HTTP
-messages once enough of the message has been received to make progress.  If a
-client stream terminates without enough of the HTTP message to provide a
-complete response, the server SHOULD abort its response with the error code
-HTTP_INCOMPLETE_REQUEST.
+当一个流被关闭了，这预示着一个 HTTP 消息的终结。
+因为一些消息过大或者无限，终端当已经收到可供处理的足够的消息时**应该**开始处理仅收到部分的 HTTP 消息。
+如果一个客户端流没有收到足够的 HTTP 消息来提供一个完整的回复就关闭了，服务端**应该**以错误码HTTP_INCOMPLETE_REQUEST放弃它的回复。
 
-A server can send a complete response prior to the client sending an entire
-request if the response does not depend on any portion of the request that has
-not been sent and received. When this is true, a server MAY request that the
-client abort transmission of a request without error by triggering a QUIC
-STOP_SENDING frame with error code HTTP_EARLY_RESPONSE, sending a complete
-response, and cleanly closing its stream. Clients MUST NOT discard complete
-responses as a result of having their request terminated abruptly, though
-clients can always discard responses at their discretion for other reasons.
+如果回复不依赖于任何还没有被发送或者还没有接收到的部分，服务端可以发送一个完整的回复优先级给发送一个完整请求的客户端。
+当这出现了，服务端**可能**通过触发一个带有 HTTP_EARLY_RESPONSE 错误码的 QUIC STOP_SENDING 帧请求客户端不带错误的放弃传输请求，发送一个完整的回复，并且干净的关闭流。
+客户端**禁止**因为他们的请求被突然终结而丢弃完整的回复，尽管客户端总是可以以任何其他理由自由的丢弃回复。
 
 
-### Header Formatting and Compression {#header-formatting}
+### 头格式化与压缩(Header Formatting and Compression) {#header-formatting}
 
-HTTP message headers carry information as a series of key-value pairs, called
-header fields. For a listing of registered HTTP header fields, see the "Message
-Header Field" registry maintained at
-<https://www.iana.org/assignments/message-headers>.
+HTTP 消息头以一系列键值对的形式来携带信息，称呼为头字段。
+关于列举注册过的 HTTP 头字段，详见"消息头字段(Message Header Field)" 维护于<https://www.iana.org/assignments/message-headers>的仓库。
 
-Just as in previous versions of HTTP, header field names are strings of ASCII
-characters that are compared in a case-insensitive fashion.  Properties of HTTP
-header field names and values are discussed in more detail in Section 3.2 of
-{{!RFC7230}}, though the wire rendering in HTTP/3 differs.  As in HTTP/2, header
-field names MUST be converted to lowercase prior to their encoding.  A request
-or response containing uppercase header field names MUST be treated as
-malformed.
+和之前版本的 HTTP 一样, 头字段名是 ASCII 字符的字符串，以不区分大小写的方式进行比较。
+HTTP 头字段名字和值的属性在{{!RFC7230}}章节 3.2 中有详细的讨论，尽管网络渲染在 HTTP/3 中有所不同。
+同 HTTP/2 中，头字段名**必须**被转化为小写来进行编码。
+请求或者回复包含大写的头字段名**必须**被认为是畸形的处理。
 
-As in HTTP/2, HTTP/3 uses special pseudo-header fields beginning with the ':'
-character (ASCII 0x3a) to convey the target URI, the method of the request, and
-the status code for the response.  These pseudo-header fields are defined in
-Section 8.1.2.3 and 8.1.2.4 of {{!RFC7540}}. Pseudo-header fields are not HTTP
-header fields.  Endpoints MUST NOT generate pseudo-header fields other than
-those defined in {{!RFC7540}}.  The restrictions on the use of pseudo-header
-fields in Section 8.1.2.1 of {{!RFC7540}} also apply to HTTP/3.
+如 HTTP/2 中，HTTP/3 使用了以":"字符(ASCII 0x3a)开头的特殊的假头部字段来表达 URI，请求的方法，以及返回的状态码。
+这些假头部字段定义于{{!RFC7540}}章节8.1.2.3和8.1.2.4中。
+假头部字段不是 HTTP 头字段。
+终端**禁止**生成除了定义在{{!RFC7540}}中的那些之外的假头部字段。
+在{{!RFC7540}}章节8.1.2.1中描述的使用假头部字段的使用上的限制也适用于 HTTP/3。
 
-HTTP/3 uses QPACK header compression as described in [QPACK], a variation of
-HPACK which allows the flexibility to avoid header-compression-induced
-head-of-line blocking.  See that document for additional details.
+HTTP/3 使用 QPACK 如在[QPACK]中描述头压缩，这是一种允许灵活避免头压缩导致的队头阻塞的HPACK 的变体。
+详见文档获取附加细节。
 
-An HTTP/3 implementation MAY impose a limit on the maximum size of the header it
-will accept on an individual HTTP message; encountering a larger message header
-SHOULD be treated as a stream error of type `HTTP_EXCESSIVE_LOAD`.  If an
-implementation wishes to advise its peer of this limit, it can be conveyed as a
-number of bytes in the `SETTINGS_MAX_HEADER_LIST_SIZE` parameter. The size of a
-header list is calculated based on the uncompressed size of header fields,
-including the length of the name and value in bytes plus an overhead of 32 bytes
-for each header field.
+HTTP/3 的实现**可能**强制要求一个它在单个 HTTP 消息上会接受的头部的最大大小的限制值;
+收到一个更大的消息头部**应该**以`HTTP_EXCESSIVE_LOAD`类型流错误进行处理。
+如果实现是希望建议对端这个限制值，它可以在`SETTINGS_MAX_HEADER_LIST_SIZE`参数中以字节数的形式传递给对端。
+头部列表的大小基于未压缩的头字段的大小进行计算，包含名字和值以字节为单位的长度，再加上每个头字段 32 字节的开销。
+
 
 ### Request Cancellation and Rejection {#request-cancellation}
 
