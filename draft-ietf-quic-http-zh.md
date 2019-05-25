@@ -642,7 +642,8 @@ CANCEL_PUSH帧是在控制流上发送的。
 {: #fig-cancel-push title="CANCEL_PUSH frame payload"}
 
 CANCEL_PUSH帧携带一个可变长度整数编码的推送ID，
-推送ID用于标识被取消的服务器推送(请参阅{{frame-push-promise}})。
+推送ID用于标识被取消的
+服务器推送(请参阅{{frame-push-promise}})。
 
 如果客户端接收到CANCEL_PUSH帧，
 则该帧可能标识PUSH_PROMISE帧
@@ -655,7 +656,8 @@ SETTINGS帧(type=0x4)用于传递影响端点
 通信方式的配置参数，
 例如对端行为的默认项和约束。
 单独地，SETTINGS参数也可以称为“设置”；
-每个设置参数的标识符和值可以称为“设置标识符”和“设置值”。
+每个设置参数的标识符和值可以称为
+“设置标识符”和“设置值”。
 
 SETTINGS帧始终应用于连接，而不是单个流。
 每个对端**必须**将SETTINGS帧作为每个
@@ -1377,129 +1379,134 @@ connection error.
 This section describes HTTP/3-specific error codes which can be used to express
 the cause of a connection or stream error.
 
-## HTTP/3 Error Codes {#http-error-codes}
+## HTTP/3 错误码 {#http-error-codes}
 
-The following error codes are defined for use in QUIC RESET_STREAM frames,
-STOP_SENDING frames, and CONNECTION_CLOSE frames when using HTTP/3.
+以下错误码被定义用于HTTP/3协议下的
+QUIC RESET_STREAM帧、STOP_SESSING帧和
+CONNECTION_CLOSE帧。
 
-HTTP_NO_ERROR (0x00):
-: No error.  This is used when the connection or stream needs to be closed, but
-  there is no error to signal.
+HTTP_NO_ERROR（HTTP无误） (0x00):
+: 没有错误。当需要关闭连接或者流，
+ 但没有错误要发送的时候使用。
 
-HTTP_WRONG_SETTING_DIRECTION (0x01):
-: A client-only setting was sent by a server, or a server-only setting by a
-  client.
+HTTP_WRONG_SETTING_DIRECTION（HTTP设置方错误） (0x01):
+: 一个客户端限定的设置项由服务端发送，
+ 或者服务端限定的设置项由客户端发送时使用。
 
-HTTP_PUSH_REFUSED (0x02):
-: The server has attempted to push content which the client will not accept
-  on this connection.
+HTTP_PUSH_REFUSED（HTTP推送被拒绝） (0x02):
+: 服务端尝试在该连接中推送客户端不能接受的内容。
 
-HTTP_INTERNAL_ERROR (0x03):
-: An internal error has occurred in the HTTP stack.
+HTTP_INTERNAL_ERROR（HTTP内部错误） (0x03):
+: 在HTTP栈内部发生错误。
 
-HTTP_PUSH_ALREADY_IN_CACHE (0x04):
-: The server has attempted to push content which the client has cached.
+HTTP_PUSH_ALREADY_IN_CACHE（HTTP推送内容已存在） (0x04):
+: 服务端尝试推送的内容已经在客户端缓存。
 
-HTTP_REQUEST_CANCELLED (0x05):
-: The request or its response is cancelled.
+HTTP_REQUEST_CANCELLED（HTTP请求取消） (0x05):
+: 请求或者请求的响应被取消
 
-HTTP_INCOMPLETE_REQUEST (0x06):
-: The client's stream terminated without containing a fully-formed request.
+HTTP_INCOMPLETE_REQUEST（HTTP请求未完成） (0x06):
+: 客户端流在没有完成完整格式的请求的情况下终止。
 
-HTTP_CONNECT_ERROR (0x07):
-: The connection established in response to a CONNECT request was reset or
-  abnormally closed.
+HTTP_CONNECT_ERROR（HTTP连接错误） (0x07):
+: 响应CONNECT请求而建立的连接被重置或异常关闭。
 
-HTTP_EXCESSIVE_LOAD (0x08):
-: The endpoint detected that its peer is exhibiting a behavior that might be
-  generating excessive load.
+HTTP_EXCESSIVE_LOAD（HTTP过载）(0x08):
+: 终端检测到其对等端正在表现出可能会产生
+ 过多负载的行为。
 
-HTTP_VERSION_FALLBACK (0x09):
-: The requested operation cannot be served over HTTP/3.  The
-  peer should retry over HTTP/1.1.
+HTTP_VERSION_FALLBACK（HTTP版本降级） (0x09):
+: 请求的操作无法通过HTTP/3提供。对端应通过HTTP/1.1重试。
 
-HTTP_WRONG_STREAM (0x0A):
-: A frame was received on a stream where it is not permitted.
+HTTP_WRONG_STREAM（HTTP流错误） (0x0A):
+: 从流中接收到一个帧，而该流不允许发送这个帧。
 
-HTTP_LIMIT_EXCEEDED (0x0B):
-: A Stream ID, Push ID, or Placeholder ID greater than the current maximum for
-  that identifier was referenced.
+HTTP_LIMIT_EXCEEDED（HTTP超过限制） (0x0B):
+: 引用的流ID、推送ID或占位符ID大于该标识符的当前最大值。
 
-HTTP_DUPLICATE_PUSH (0x0C):
-: A Push ID was referenced in two different stream headers.
+HTTP_DUPLICATE_PUSH（HTTP重复推送） (0x0C):
+: 在两个不同的流头部中引用了相同的推送ID。
 
-HTTP_UNKNOWN_STREAM_TYPE (0x0D):
-: A unidirectional stream header contained an unknown stream type.
+HTTP_UNKNOWN_STREAM_TYPE（HTTP流类型未知） (0x0D):
+: 单向流标头包含未知的流类型。
 
-HTTP_WRONG_STREAM_COUNT (0x0E):
-: A unidirectional stream type was used more times than is permitted by that
-  type.
+HTTP_WRONG_STREAM_COUNT（HTTP流计数错误） (0x0E):
+: 单向流类型的使用次数超过了该类型所允许的次数。
 
-HTTP_CLOSED_CRITICAL_STREAM (0x0F):
-: A stream required by the connection was closed or reset.
+HTTP_CLOSED_CRITICAL_STREAM (HTTP流已关闭) (0x0F):
+: 连接所需的流已关闭或重置。
 
-HTTP_WRONG_STREAM_DIRECTION (0x0010):
+HTTP_WRONG_STREAM_DIRECTION（HTTP流方向错误） (0x0010):
 : A unidirectional stream type was used by a peer which is not permitted to do
   so.
+: 对端使用了单向流类型，但这是不允许的。
 
-HTTP_EARLY_RESPONSE (0x0011):
-: The remainder of the client's request is not needed to produce a response.
-  For use in STOP_SENDING only.
+HTTP_EARLY_RESPONSE（HTTP过早响应） (0x0011):
+: 客户端请求的其余部分不需要生成响应。仅用于STOP_SENDING。
 
-HTTP_MISSING_SETTINGS (0x0012):
-: No SETTINGS frame was received at the beginning of the control stream.
+HTTP_MISSING_SETTINGS（HTTP配置缺失） (0x0012):
+: 在控制流的开始处未接收到任何设置帧。
 
-HTTP_UNEXPECTED_FRAME (0x0013):
-: A frame was received which was not permitted in the current state.
+HTTP_UNEXPECTED_FRAME（HTTP帧类型超出范围）(0x0013):
+: 接收到当前状态下不允许接收的帧。
 
-HTTP_REQUEST_REJECTED (0x0014):
-: A server rejected a request without performing any application processing.
+HTTP_REQUEST_REJECTED（HTTP请求被拒绝）(0x0014):
+: 服务端在未执行任何应用程序处理的情况下拒绝了请求。
 
-HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):
-: Peer violated protocol requirements in a way which doesn't match a more
-  specific error code, or endpoint declines to use the more specific error code.
+HTTP_GENERAL_PROTOCOL_ERROR（HTTP一般协议错误） (0x00FF):
+: 对端违反协议要求的方式与
+不匹配更具体的错误码，或者
+终端拒绝使用更具体的错误代码。
 
-HTTP_MALFORMED_FRAME (0x01XX):
-: An error in a specific frame type.  If the frame type is `0xfe` or less, the
-  type is included as the last byte of the error code.  For example, an error in
-  a MAX_PUSH_ID frame would be indicated with the code (0x10D).  The last byte
-  `0xff` is used to indicate any frame type greater than `0xfe`.
-
-
-# Security Considerations
-
-The security considerations of HTTP/3 should be comparable to those of HTTP/2
-with TLS.  Note that where HTTP/2 employs PADDING frames and Padding fields in
-other frames to make a connection more resistant to traffic analysis, HTTP/3 can
-rely on QUIC PADDING frames or employ the reserved frame and stream types
-discussed in {{frame-grease}} and {{stream-grease}}.
-
-When HTTP Alternative Services is used for discovery for HTTP/3 endpoints, the
-security considerations of {{!ALTSVC}} also apply.
-
-Several protocol elements contain nested length elements, typically in the form
-of frames with an explicit length containing variable-length integers.  This
-could pose a security risk to an incautious implementer.  An implementation MUST
-ensure that the length of a frame exactly matches the length of the fields it
-contains.
-
-Certain HTTP implementations use the client address for logging or
-access-control purposes.  Since a QUIC client's address might change during a
-connection (and future versions might support simultaneous use of multiple
-addresses), such implementations will need to either actively retrieve the
-client's current address or addresses when they are relevant or explicitly
-accept that the original address might change.
+HTTP_MALFORMED_FRAME（HTTP帧形态不正确）(0x01XX):
+: 特定帧类型中的错误。如果帧类型
+为‘0xfe`或更小，则该类型
+将包含在错误代码的最后一个字节。
+例如，MAX_Push_ID帧中的
+错误将用代码(0x10D)指示。
+最后一个字节`0xff`用于表示
+任何大于`0xfe`的帧类型。
 
 
-# IANA Considerations
+# 安全注意事项(Security Considerations)
 
-## Registration of HTTP/3 Identification String
+HTTP/3的安全注意事项应与具有TLS的
+HTTP/2的安全注意事项类似。
+请注意，如果HTTP/2在其他帧
+中使用PADDING帧和填充字段来使连接
+更不受流量分析的影响，则HTTP/3可以
+依赖QUIC PADDING帧或使用在{{frame-grease}}和
+{{stream-grease}}中讨论的保留帧和流类型。
 
-This document creates a new registration for the identification of
-HTTP/3 in the "Application Layer Protocol Negotiation (ALPN)
-Protocol IDs" registry established in {{?RFC7301}}.
+当HTTP替代服务被用于发现HTTP/3终端时，
+{{!ALTSVC}}的安全注意事项也适用。
 
-The "h3" string identifies HTTP/3:
+几个协议要素包含嵌套的长度要素，
+通常以帧中带有包含可变长度整数
+显式长度形式出现。这可能会给
+一个鲁莽的实现者带来安全风险。
+实现**必须**确保帧的长度与
+其包含的字段的长度完全匹配。
+
+某些HTTP实现使用客户端地址
+进行日志记录或访问控制。
+由于QUIC客户端的地址可能
+在连接过程中发生更改
+(未来版本可能支持同时使用多个地址)，
+因此此类实现需要主动检索客户端的
+一个或多个与当前地址相关的地址，
+或者明确接受原始地址可能会更改。
+
+
+# IANA注意事项(IANA Considerations)
+
+## 注册HTTP/3标识字符串(Registration of HTTP/3 Identification String)
+
+本文档在{{?RFC7301}}中
+建立的“应用层协议协商(ALPN)协议ID”注册表
+中新注册了HTTP/3标识
+
+“h3”字符串标识HTTP/3:
 
   Protocol:
   : HTTP/3
