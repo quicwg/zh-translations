@@ -1473,11 +1473,9 @@ The "h3" string identifies HTTP/3:
   Specification:
   : This document
 
-## Registration of QUIC Version Hint Alt-Svc Parameter
+## 注册QUIC版本的提示Alt-Svc参数(Registration of QUIC Version Hint Alt-Svc Parameter)
 
-This document creates a new registration for version-negotiation hints in the
-"Hypertext Transfer Protocol (HTTP) Alt-Svc Parameter" registry established in
-{{!RFC7838}}.
+本文档为{{!RFC7838}}中注册的超文本协议(HTTP)的Alt-Svc参数创建了一个版本协商提示的新注册。
 
   Parameter:
   : "quic"
@@ -1485,36 +1483,27 @@ This document creates a new registration for version-negotiation hints in the
   Specification:
   : This document, {{alt-svc-version-hint}}
 
-## Frame Types {#iana-frames}
+## 帧类型(Frame Types) {#iana-frames}
 
-This document establishes a registry for HTTP/3 frame type codes. The "HTTP/3
-Frame Type" registry governs a 62-bit space. This space is split into three
-spaces that are governed by different policies. Values between `0x00` and `0x3f`
-(in hexadecimal) are assigned via the Standards Action or IESG Review policies
-{{!RFC8126}}. Values from `0x40` to `0x3fff` operate on the Specification
-Required policy {{!RFC8126}}. All other values are assigned to Private Use
-{{!RFC8126}}.
+本文档为HTTP/3帧类型代码建立了一个注册。 "HTTP / 3帧"类型的注册管理62-bit空间。 
+此空间分为三个空间，由不同的策略管理。 “0x00”和“0x3f”（十六进制）之间的值通过Standards Action或IESG Review策略分配 {{!RFC8126}}。
+从“0x40”到“0x3fff”的值在特定“规范要求”策略上运行{{!RFC8126}}。所有其他值都分配给私有{{!RFC8126}}。
 
-While this registry is separate from the "HTTP/2 Frame Type" registry defined in
-{{RFC7540}}, it is preferable that the assignments parallel each other where the
-code spaces overlap.  If an entry is present in only one registry, every effort
-SHOULD be made to avoid assigning the corresponding value to an unrelated
-operation.
+虽然此注册表与{{RFC7540}}中定义的“HTTP/2帧”类型的注册是分开的
+, 当代码空间重叠时最好也分开看待两者。如果一个条目只存在于一个注册中，则**应该**尽一切努力避免将相应的值分配给不相关的操作。
 
-New entries in this registry require the following information:
+此注册中的新条目需要以下信息:
 
-Frame Type:
-: A name or label for the frame type.
+帧类型(Frame Type):
+: 该类型的名称或标签
 
-Code:
-: The 62-bit code assigned to the frame type.
+代码(Code):
+: 分配给该类型帧的62-bit代码
 
-Specification:
-: A reference to a specification that includes a description of the frame layout
-  and its semantics, including any parts of the frame that are conditionally
-  present.
+格式(Specification):
+: 对规范的引用，包括对帧布局及其语义的描述，包括有条件存在的帧的任何部分。
 
-The entries in the following table are registered by this document.
+下表中的条目由本文档注册。
 
 | ---------------- | ------ | -------------------------- |
 | Frame Type       |  Code  | Specification              |
@@ -1533,39 +1522,29 @@ The entries in the following table are registered by this document.
 | DUPLICATE_PUSH   |  0xE   | {{frame-duplicate-push}}   |
 | ---------------- | ------ | -------------------------- |
 
-Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
-(that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
-assigned by IANA.
+此外，IANA的整数值（即从“0x21”，“0x40”，......，到“0x3FFFFFFFFFFFFFFE”）中满足规则为“0x1f * N + 0x21”的每个代码都**禁止**由IANA分配。
 
-## Settings Parameters {#iana-settings}
+## 设置参数(Settings Parameters) {#iana-settings}
 
-This document establishes a registry for HTTP/3 settings.  The "HTTP/3 Settings"
-registry governs a 62-bit space. This space is split into three spaces that are
-governed by different policies. Values between `0x00` and `0x3f` (in
-hexadecimal) are assigned via the Standards Action or IESG Review policies
-{{!RFC8126}}. Values from `0x40` to `0x3fff` operate on the Specification
-Required policy {{!RFC8126}}. All other values are assigned to Private Use
-{{!RFC8126}}.  The designated experts are the same as those for the "HTTP/2
-Settings" registry defined in {{RFC7540}}.
+本文档为HTTP/3设置建立了一个注册。“HTTP / 3设置”注册可管理62-bit空间。
+此空间分为三个空间，由不同的策略管理。“0x00”和“0x3f”（十六进制）之间的值通过Standards Action或IESG Review策略分配{{!RFC8126}}.
+其他所有值注册为私有{{!RFC8126}}。该项指定的专家与{{RFC7540}}中定义的“HTTP/2设置”注册的专家相同。
 
-While this registry is separate from the "HTTP/2 Settings" registry defined in
-{{RFC7540}}, it is preferable that the assignments parallel each other.  If an
-entry is present in only one registry, every effort SHOULD be made to avoid
-assigning the corresponding value to an unrelated operation.
+虽然此注册与{{RFC7540}}中定义的“HTTP/2设置”注册是分开的，最好也将两者分开看待。
+如果一个条目只存在于一个注册表中，则**应该**尽一切努力避免将相应的值分配给不相关的操作。
 
-New registrations are advised to provide the following information:
+建议新注册提供以下信息:
 
-Name:
-: A symbolic name for the setting.  Specifying a setting name is optional.
+名称(Name):
+: 设置的符号名称。可选指定设置名称。
 
-Code:
-: The 62-bit code assigned to the setting.
+代码(Code):
+: 分配给该设置的62-bit代码
 
-Specification:
-: An optional reference to a specification that describes the use of the
-  setting.
+格式(Specification):
+: 对描述使用的规范的可选引用设置。
 
-The entries in the following table are registered by this document.
+下表中的条目由本文档注册.
 
 | ---------------------------- | ------ | ------------------------- |
 | Setting Name                 |  Code  | Specification             |
@@ -1578,9 +1557,7 @@ The entries in the following table are registered by this document.
 | NUM_PLACEHOLDERS             |  0x8   | {{settings-parameters}}   |
 | ---------------------------- | ------ | ------------------------- |
 
-Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
-(that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
-assigned by IANA.
+此外，IANA的整数值（即从“0x21”，“0x40”，......，到“0x3FFFFFFFFFFFFFFE”）中满足规则为“0x1f * N + 0x21”的每个代码都**禁止**由IANA分配。
 
 ## Error Codes {#iana-error-codes}
 
