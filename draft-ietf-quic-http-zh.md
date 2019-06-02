@@ -84,48 +84,40 @@ code and issues list for this draft can be found at
 --- middle
 
 
-# Introduction
+# 简介(Introduction)
 
-HTTP semantics are used for a broad range of services on the Internet. These
-semantics have commonly been used with two different TCP mappings, HTTP/1.1 and
-HTTP/2.  HTTP/2 introduced a framing and multiplexing layer to improve latency
-without modifying the transport layer.  However, TCP's lack of visibility into
-parallel requests in both mappings limited the possible performance gains.
+HTTP 语义用于互联网上的广泛服务。这些语义一般用于两不同端的TCP映射，HTTP/1.1以及HTTP/2。
+HTTp/2 引入了帧和多路复用来不修改传输层的改善延迟。
+然而，TCP在两端映射中对并行请求的可见性的缺失限制了性能提高的可能空间。
 
-The QUIC transport protocol incorporates stream multiplexing and per-stream flow
-control, similar to that provided by the HTTP/2 framing layer. By providing
-reliability at the stream level and congestion control across the entire
-connection, it has the capability to improve the performance of HTTP compared to
-a TCP mapping.  QUIC also incorporates TLS 1.3 at the transport layer, offering
-comparable security to running TLS over TCP, but with improved connection setup
-latency (unless TCP Fast Open {{?RFC7413}}} is used).
+QUIC 传输协议包含了类似于HTTP/2在成帧层提供的流多路复用与基于流的流量控制。
+提供在流级别可靠性和对整个连接的拥塞控制，与HTTP映射相比，提高HTTP性能有了空间。
+QUIC 在传输层同样包含了 TLS 1.3，在提供了类似于在TCP上的运行TLS的安全性的前提下，
+提高了连接建立阶段的延迟(除非开启了TCP快速打开{{?RFC7413}})。
 
-This document defines a mapping of HTTP semantics over the QUIC transport
-protocol, drawing heavily on the design of HTTP/2. This document identifies
-HTTP/2 features that are subsumed by QUIC, and describes how the other features
-can be implemented atop QUIC.
+这篇文档定义了HTTP语义在QUIC传输协议上的映射，在很大程度上依赖了HTTP/2的设计。
+这篇文档标识了QUIC拥有的HTTP/2特性，并且描述了其他可在QUIC上实现的特性。
 
-QUIC is described in {{QUIC-TRANSPORT}}.  For a full description of HTTP/2, see
-{{!RFC7540}}.
+QUIC 描述于{{QUIC-TRANSPORT}}。
+关于完整的HTTP/2的描述，详见{{!RFC7540}}。
 
 
-## Notational Conventions
+## 通用术语(Notational Conventions)
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词“必须(MUST)”，“禁止(MUST NOT)”，“必需(REQUIRED)”，“应当(SHALL)”，
+“应当不(SHALL NOT)”，“应该(SHOULD)”，“不应该(SHOULD NOT)”，“推荐(RECOMMENDED)”，
+“不推荐(NOT RECOMMENDED)”，“可以(MAY)”，“可选(OPTIONAL)”
+在这篇文档中将会如 BCP 14{{!RFC2119}} {{!RFC8174}}中描述的，当且仅当他们如此例子显示的以加粗的形式出现时。
+文档中常用的术语在下方描述。
 
-Field definitions are given in Augmented Backus-Naur Form (ABNF), as defined in
-{{!RFC5234}}.
+字段描述以扩展的巴科斯范式(Augmented Backus-Naur Form 即ABNF)给出，定义在{{!RFC5234}}中。
 
-This document uses the variable-length integer encoding from
-{{QUIC-TRANSPORT}}.
+这篇文档使用了{{QUIC-TRANSPORT}}中的变长的整数编码。
 
-Protocol elements called "frames" exist in both this document and
-{{QUIC-TRANSPORT}}. Where frames from {{QUIC-TRANSPORT}} are referenced, the
-frame name will be prefaced with "QUIC."  For example, "QUIC CONNECTION_CLOSE
-frames."  References without this preface refer to frames defined in {{frames}}.
+称呼为"帧"的协议元素存在于本文档和{{QUIC-TRANSPORT}}。
+当引用的帧是{{QUIC-TRANSPORT}}中的，帧名字会以"QUIC"打头。
+例如"QUIC CONNECTION_CLOSE 帧"。
+不以这个开头的引用的帧定义于{{frames}}。
 
 
 # Connection Setup and Management
