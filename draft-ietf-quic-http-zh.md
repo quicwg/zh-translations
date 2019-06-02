@@ -1614,59 +1614,60 @@ Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
 (that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
 assigned by IANA.
 
-## Error Codes {#iana-error-codes}
+## 错误码 {#iana-error-codes}
 
-This document establishes a registry for HTTP/3 error codes. The "HTTP/3 Error
-Code" registry manages a 16-bit space.  The "HTTP/3 Error Code" registry
-operates under the "Expert Review" policy {{?RFC8126}}.
+该文档确定了HTTP/3 错误码的列表. "HTTP/3 Error
+Code" 登记表确定了16-bit的空间如何使用.  "HTTP/3 Error Code" 登记表
+在“专家评审“的方式下运作，见 {{?RFC8126}}.
 
-Registrations for error codes are required to include a description
-of the error code.  An expert reviewer is advised to examine new
-registrations for possible duplication with existing error codes.
-Use of existing registrations is to be encouraged, but not mandated.
+错误码的登记时要求包含该错误码的描述。
+专家评审者需要对新的错误码进行检查，
+防止与现有的错误码重复。鼓励使用现有登
+记的错误码，但不强制。
 
-New registrations are advised to provide the following information:
+新登记的错误码建议包括下面的信息：
 
-Name:
-: A name for the error code.  Specifying an error code name is optional.
+名称:
+: 错误码的名称。指定错误码的名称
+是可选的。 
 
-Code:
-: The 16-bit error code value.
+代号（code）:
+: 16-bit 错误码值（value）.
 
-Description:
-: A brief description of the error code semantics, longer if no detailed
-  specification is provided.
+描述:
+: 对错误码含义的简短描述，如果没有
+详细的规范可以适当增加内容。
 
-Specification:
-: An optional reference for a specification that defines the error code.
+规范:
+: 定义错误码规范的相关引用链接（可选）。
 
-The entries in the following table are registered by this document.
+下表里包括了该文档登记的错误码。
 
 | ----------------------------------- | ---------- | ---------------------------------------- | ---------------------- |
-| Name                                | Code       | Description                              | Specification          |
+| 名称                                 | 代号       | 描述                                      | 规范          |
 | ----------------------------------- | ---------- | ---------------------------------------- | ---------------------- |
-| HTTP_NO_ERROR                       | 0x0000     | No error                                 | {{http-error-codes}}   |
-| HTTP_WRONG_SETTING_DIRECTION        | 0x0001     | Setting sent in wrong direction          | {{http-error-codes}}   |
-| HTTP_PUSH_REFUSED                   | 0x0002     | Client refused pushed content            | {{http-error-codes}}   |
-| HTTP_INTERNAL_ERROR                 | 0x0003     | Internal error                           | {{http-error-codes}}   |
-| HTTP_PUSH_ALREADY_IN_CACHE          | 0x0004     | Pushed content already cached            | {{http-error-codes}}   |
-| HTTP_REQUEST_CANCELLED              | 0x0005     | Data no longer needed                    | {{http-error-codes}}   |
-| HTTP_INCOMPLETE_REQUEST             | 0x0006     | Stream terminated early                  | {{http-error-codes}}   |
-| HTTP_CONNECT_ERROR                  | 0x0007     | TCP reset or error on CONNECT request    | {{http-error-codes}}   |
-| HTTP_EXCESSIVE_LOAD                 | 0x0008     | Peer generating excessive load           | {{http-error-codes}}   |
-| HTTP_VERSION_FALLBACK               | 0x0009     | Retry over HTTP/1.1                      | {{http-error-codes}}   |
-| HTTP_WRONG_STREAM                   | 0x000A     | A frame was sent on the wrong stream     | {{http-error-codes}}   |
-| HTTP_LIMIT_EXCEEDED                 | 0x000B     | An identifier limit was exceeded         | {{http-error-codes}}   |
-| HTTP_DUPLICATE_PUSH                 | 0x000C     | Push ID was fulfilled multiple times     | {{http-error-codes}}   |
-| HTTP_UNKNOWN_STREAM_TYPE            | 0x000D     | Unknown unidirectional stream type       | {{http-error-codes}}   |
-| HTTP_WRONG_STREAM_COUNT             | 0x000E     | Too many unidirectional streams          | {{http-error-codes}}   |
-| HTTP_CLOSED_CRITICAL_STREAM         | 0x000F     | Critical stream was closed               | {{http-error-codes}}   |
-| HTTP_WRONG_STREAM_DIRECTION         | 0x0010     | Unidirectional stream in wrong direction | {{http-error-codes}}   |
-| HTTP_EARLY_RESPONSE                 | 0x0011     | Remainder of request not needed          | {{http-error-codes}}   |
-| HTTP_MISSING_SETTINGS               | 0x0012     | No SETTINGS frame received               | {{http-error-codes}}   |
-| HTTP_UNEXPECTED_FRAME               | 0x0013     | Frame not permitted in the current state | {{http-error-codes}}   |
-| HTTP_REQUEST_REJECTED               | 0x0014     | Request not processed                    | {{http-error-codes}}   |
-| HTTP_MALFORMED_FRAME                | 0x01XX     | Error in frame formatting                | {{http-error-codes}}   |
+| HTTP_NO_ERROR                       | 0x0000     | 无错误                                    | {{http-error-codes}}   |
+| HTTP_WRONG_SETTING_DIRECTION        | 0x0001     | 配置信息发错方向。                          | {{http-error-codes}}   |
+| HTTP_PUSH_REFUSED                   | 0x0002     | 客户端拒绝推送内容                          | {{http-error-codes}}   |
+| HTTP_INTERNAL_ERROR                 | 0x0003     | 内部错误                                  | {{http-error-codes}}   |
+| HTTP_PUSH_ALREADY_IN_CACHE          | 0x0004     | 推送内容已被缓存                            | {{http-error-codes}}   |
+| HTTP_REQUEST_CANCELLED              | 0x0005     | 数据不再被需要                              | {{http-error-codes}}   |
+| HTTP_INCOMPLETE_REQUEST             | 0x0006     | 流（Stream）早已被终止                      | {{http-error-codes}}   |
+| HTTP_CONNECT_ERROR                  | 0x0007     | TCP被重置 或 CONNECT 请求错误               | {{http-error-codes}}   |
+| HTTP_EXCESSIVE_LOAD                 | 0x0008     | 对端生成过长内容                            | {{http-error-codes}}   |
+| HTTP_VERSION_FALLBACK               | 0x0009     | 基于HTTP/1.1 重试                         | {{http-error-codes}}   |
+| HTTP_WRONG_STREAM                   | 0x000A     | 在错误的流（Stream）内发送帧                 | {{http-error-codes}}   |
+| HTTP_LIMIT_EXCEEDED                 | 0x000B     | 超出标识符限制                             | {{http-error-codes}}   |
+| HTTP_DUPLICATE_PUSH                 | 0x000C     | Push ID 被使用多次                         | {{http-error-codes}}   |
+| HTTP_UNKNOWN_STREAM_TYPE            | 0x000D     | 未知的单向stream类型                       | {{http-error-codes}}   |
+| HTTP_WRONG_STREAM_COUNT             | 0x000E     | 单向stream数量过多                         | {{http-error-codes}}   |
+| HTTP_CLOSED_CRITICAL_STREAM         | 0x000F     | 关键stream 被关闭                          | {{http-error-codes}}   |
+| HTTP_WRONG_STREAM_DIRECTION         | 0x0010     | 单向流（stream）在错误的方向                 | {{http-error-codes}}   |
+| HTTP_EARLY_RESPONSE                 | 0x0011     | 剩余的请求不在被需要                         | {{http-error-codes}}   |
+| HTTP_MISSING_SETTINGS               | 0x0012     | 没有接受到配置（SETTINGS）帧                 | {{http-error-codes}}   |
+| HTTP_UNEXPECTED_FRAME               | 0x0013     | 当前状态不允许帧                            | {{http-error-codes}}   |
+| HTTP_REQUEST_REJECTED               | 0x0014     | 请求没有被处理                              | {{http-error-codes}}   |
+| HTTP_MALFORMED_FRAME                | 0x01XX     | 帧格式化错误                               | {{http-error-codes}}   |
 | ----------------------------------- | ---------- | ---------------------------------------- | ---------------------- |
 
 ## Stream Types {#iana-stream-types}
