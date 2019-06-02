@@ -881,242 +881,182 @@ uses a Push ID that they have since consumed and discarded are forced to ignore
 the DUPLICATE_PUSH.
 
 
-### Reserved Frame Types {#frame-grease}
+### 保留帧类型(Reserved Frame Types) {#frame-grease}
 
-Frame types of the format `0x1f * N + 0x21` for integer values of N are reserved
-to exercise the requirement that unknown types be ignored ({{extensions}}).
-These frames have no semantics, and can be sent when application-layer padding
-is desired. They MAY also be sent on connections where no data is currently
-being transferred. Endpoints MUST NOT consider these frames to have any meaning
-upon receipt.
+帧类型是以`0x1f * N + 0x21`格式的，其中整数值 N 保留用于满足未知种类被忽略的需求 ({{extensions}})。
+这些帧没有语义，而且可以当需要应用层填充的时候发送。
+他们也**可能**在当前没有数据传输的连接上发送。
+终端在收到时**禁止**认为这些帧有任何有意义。
 
-The payload and length of the frames are selected in any manner the
-implementation chooses.
+载荷和帧的长度是通过实现的某种规则选择的。
 
 
-# HTTP Request Lifecycle
+# HTTP请求生命周期(HTTP Request Lifecycle)
 
-## HTTP Message Exchanges {#request-response}
+## HTTP消息交换(HTTP Message Exchanges) {#request-response}
 
-A client sends an HTTP request on a client-initiated bidirectional QUIC
-stream. A client MUST send only a single request on a given stream.
-A server sends one or more HTTP responses on the same stream as the request,
-as detailed below.
+客户端通过一个客户端建立的双向 QUIC 流发送一个 HTTP 请求。
+客户端在给定的流上**必须**仅发送一个请求。
+服务端在和请求发起的同一个流上发送一个或多个 HTTP 回复，详见下文描述。
 
-An HTTP message (request or response) consists of:
+一条 HTTP 消息(请求或回复)包含:
 
-1. the message header (see {{!RFC7230}}, Section 3.2), sent as a single HEADERS
-   frame (see {{frame-headers}}),
+1. 消息头(详见 {{!RFC7230}}, 章节 3.2)，作为单个 HEADERS 帧发送(详见{{frame-headers}})。
 
-2. the payload body (see {{!RFC7230}}, Section 3.3), sent as a series of DATA
-   frames (see {{frame-data}}),
+2. 载荷消息体(详见{{!RFC7230}}, 章节 3.3)，作为一系列 DATA 帧发送(详见{{frame-data}})。
 
-3. optionally, one HEADERS frame containing the trailer-part, if present (see
-   {{!RFC7230}}, Section 4.1.2).
+3. (可选的)一个包含活动部分的 HEADERS 帧，如果存在(详见{{!RFC7230}} , 章节 4.1.2)。
 
-A server MAY interleave one or more PUSH_PROMISE frames (see
-{{frame-push-promise}}) with the frames of a response message. These
-PUSH_PROMISE frames are not part of the response; see {{server-push}} for more
-details.
+服务端**可能**在回复消息的帧中插入一个或更多 PUSH_PROMISE 帧(详见 {{frame-push-promise}})。
+这些 PUSH_PROMISE 帧不是回复的一部分；查看{{server-push}}获得更多细节。
 
-The "chunked" transfer encoding defined in Section 4.1 of {{!RFC7230}} MUST NOT
-be used.
+在{{!RFC7230}}章节4.1中定义的"大块"的传输编码**禁止**使用。
 
-Trailing header fields are carried in an additional HEADERS frame following the
-body. Senders MUST send only one HEADERS frame in the trailers section;
-receivers MUST discard any subsequent HEADERS frames.
+紧接着载荷消息体之后的预告头字段通过一个附加的 HEADERS 帧携带。
+发送者在一个预告部分中**必须**仅发送一个 HEADERS 帧。
+接收者**必须**丢弃任何随后的 HEADERS 帧。
 
-A response MAY consist of multiple messages when and only when one or more
-informational responses (1xx, see {{!RFC7231}}, Section 6.2) precede a final
-response to the same request.  Non-final responses do not contain a payload body
-or trailers.
+回复当且仅当一个或更多的信息性回复(1xx, 详见{{!RFC7231}}, 章节 6.2)先于同一个请求的最终回复时**可能**包含多条消息。
+非最终回复不包含载荷消息体或者预告。
 
-An HTTP request/response exchange fully consumes a bidirectional QUIC stream.
-After sending a request, a client MUST close the stream for sending.  Unless
-using the CONNECT method (see {{the-connect-method}}), clients MUST NOT make
-stream closure dependent on receiving a response to their request. After sending
-a final response, the server MUST close the stream for sending. At this point,
-the QUIC stream is fully closed.
+一个 HTTP 请求/回复交换完全的利用了一个双向 QUIC 流。
+在发送一个请求之后，客户端**必须**关闭发送用的流。
+除非使用 CONNECT 方法(详见{{the-connect-method}})，客户端**禁止**使得流的关闭与否依赖于接收他们请求的回复。
+在发送一个最终回复之后，服务端**必须**关闭发送用的流。
+在这种角度上，QUIC 流被完全关闭了。
 
-When a stream is closed, this indicates the end of an HTTP message. Because some
-messages are large or unbounded, endpoints SHOULD begin processing partial HTTP
-messages once enough of the message has been received to make progress.  If a
-client stream terminates without enough of the HTTP message to provide a
-complete response, the server SHOULD abort its response with the error code
-HTTP_INCOMPLETE_REQUEST.
+当一个流被关闭了，这预示着一个 HTTP 消息的终结。
+因为一些消息过大或者无限，终端当已经收到可供处理的足够的消息时**应该**开始处理仅收到部分的 HTTP 消息。
+如果一个客户端流没有收到足够的 HTTP 消息来提供一个完整的回复就关闭了，
+服务端**应该**以错误码HTTP_INCOMPLETE_REQUEST放弃它的回复。
 
-A server can send a complete response prior to the client sending an entire
-request if the response does not depend on any portion of the request that has
-not been sent and received. When this is true, a server MAY request that the
-client abort transmission of a request without error by triggering a QUIC
-STOP_SENDING frame with error code HTTP_EARLY_RESPONSE, sending a complete
-response, and cleanly closing its stream. Clients MUST NOT discard complete
-responses as a result of having their request terminated abruptly, though
-clients can always discard responses at their discretion for other reasons.
+如果回复不依赖于任何还没有被发送或者还没有接收到的部分，服务端可以发送一个完整的回复优先级给发送一个完整请求的客户端。
+当这出现了，服务端**可能**通过触发一个带有 HTTP_EARLY_RESPONSE
+错误码的 QUIC STOP_SENDING 帧请求客户端不带错误的放弃传输请求，
+发送一个完整的回复，并且干净的关闭流。
+客户端**禁止**因为他们的请求被突然终结而丢弃完整的回复，尽管客户端总是可以以任何其他理由自由的丢弃回复。
 
 
-### Header Formatting and Compression {#header-formatting}
+### 头格式化与压缩(Header Formatting and Compression) {#header-formatting}
 
-HTTP message headers carry information as a series of key-value pairs, called
-header fields. For a listing of registered HTTP header fields, see the "Message
-Header Field" registry maintained at
-<https://www.iana.org/assignments/message-headers>.
+HTTP 消息头以一系列键值对的形式来携带信息，称呼为头字段。
+关于列举注册过的 HTTP 头字段，详见"消息头字段(Message Header Field)"
+维护于<https://www.iana.org/assignments/message-headers>的仓库。
 
-Just as in previous versions of HTTP, header field names are strings of ASCII
-characters that are compared in a case-insensitive fashion.  Properties of HTTP
-header field names and values are discussed in more detail in Section 3.2 of
-{{!RFC7230}}, though the wire rendering in HTTP/3 differs.  As in HTTP/2, header
-field names MUST be converted to lowercase prior to their encoding.  A request
-or response containing uppercase header field names MUST be treated as
-malformed.
+和之前版本的 HTTP 一样, 头字段名是 ASCII 字符的字符串，以不区分大小写的方式进行比较。
+HTTP 头字段名字和值的属性在{{!RFC7230}}章节 3.2 中有详细的讨论，尽管网络渲染在 HTTP/3 中有所不同。
+同 HTTP/2 中，头字段名**必须**被转化为小写来进行编码。
+请求或者回复包含大写的头字段名**必须**被认为是畸形的处理。
 
-As in HTTP/2, HTTP/3 uses special pseudo-header fields beginning with the ':'
-character (ASCII 0x3a) to convey the target URI, the method of the request, and
-the status code for the response.  These pseudo-header fields are defined in
-Section 8.1.2.3 and 8.1.2.4 of {{!RFC7540}}. Pseudo-header fields are not HTTP
-header fields.  Endpoints MUST NOT generate pseudo-header fields other than
-those defined in {{!RFC7540}}.  The restrictions on the use of pseudo-header
-fields in Section 8.1.2.1 of {{!RFC7540}} also apply to HTTP/3.
+如 HTTP/2 中，HTTP/3 使用了以":"字符(ASCII 0x3a)开头的特殊的假头部字段来表达 URI，请求的方法，以及返回的状态码。
+这些假头部字段定义于{{!RFC7540}}章节8.1.2.3和8.1.2.4中。
+假头部字段不是 HTTP 头字段。
+终端**禁止**生成除了定义在{{!RFC7540}}中的那些之外的假头部字段。
+在{{!RFC7540}}章节8.1.2.1中描述的使用假头部字段的使用上的限制也适用于 HTTP/3。
 
-HTTP/3 uses QPACK header compression as described in [QPACK], a variation of
-HPACK which allows the flexibility to avoid header-compression-induced
-head-of-line blocking.  See that document for additional details.
+HTTP/3 使用 QPACK 如在[QPACK]中描述头压缩，这是一种允许灵活避免头压缩导致的队头阻塞的HPACK 的变体。
+详见文档获取附加细节。
 
-An HTTP/3 implementation MAY impose a limit on the maximum size of the header it
-will accept on an individual HTTP message; encountering a larger message header
-SHOULD be treated as a stream error of type `HTTP_EXCESSIVE_LOAD`.  If an
-implementation wishes to advise its peer of this limit, it can be conveyed as a
-number of bytes in the `SETTINGS_MAX_HEADER_LIST_SIZE` parameter. The size of a
-header list is calculated based on the uncompressed size of header fields,
-including the length of the name and value in bytes plus an overhead of 32 bytes
-for each header field.
-
-### Request Cancellation and Rejection {#request-cancellation}
-
-Clients can cancel requests by aborting the stream (QUIC RESET_STREAM and/or
-STOP_SENDING frames, as appropriate) with an error code of
-HTTP_REQUEST_CANCELLED ({{http-error-codes}}).  When the client cancels a
-response, it indicates that this response is no longer of interest.
-Implementations SHOULD cancel requests by aborting both directions of a stream.
-
-When the server rejects a request without performing any application processing,
-it SHOULD abort its response stream with the error code HTTP_REQUEST_REJECTED.
-In this context, "processed" means that some data from the stream was passed to
-some higher layer of software that might have taken some action as a result. The
-client can treat requests rejected by the server as though they had never been
-sent at all, thereby allowing them to be retried later on a new connection.
-Servers MUST NOT use the HTTP_REQUEST_REJECTED error code for requests which
-were partially or fully processed.  When a server abandons a response after
-partial processing, it SHOULD abort its response stream with the error code
-HTTP_REQUEST_CANCELLED.
-
-When a client sends a STOP_SENDING with HTTP_REQUEST_CANCELLED, a server MAY
-send the error code HTTP_REQUEST_REJECTED in the corresponding RESET_STREAM
-if no processing was performed.  Clients MUST NOT reset streams with the
-HTTP_REQUEST_REJECTED error code except in response to a QUIC STOP_SENDING
-frame that contains the same code.
-
-If a stream is cancelled after receiving a complete response, the client MAY
-ignore the cancellation and use the response.  However, if a stream is cancelled
-after receiving a partial response, the response SHOULD NOT be used.
-Automatically retrying such requests is not possible, unless this is otherwise
-permitted (e.g., idempotent actions like GET, PUT, or DELETE).
+HTTP/3 的实现**可能**强制要求一个它在单个 HTTP 消息上会接受的头部的最大大小的限制值;
+收到一个更大的消息头部**应该**以`HTTP_EXCESSIVE_LOAD`类型流错误进行处理。
+如果实现是希望建议对端这个限制值，它可以在`SETTINGS_MAX_HEADER_LIST_SIZE`参数中以字节数的形式传递给对端。
+头部列表的大小基于未压缩的头字段的大小进行计算，包含名字和值以字节为单位的长度，再加上每个头字段 32 字节的开销。
 
 
-## The CONNECT Method
+### 请求取消与拒绝(Request Cancellation and Rejection) {#request-cancellation}
 
-The pseudo-method CONNECT ({{!RFC7231}}, Section 4.3.6) is primarily used with
-HTTP proxies to establish a TLS session with an origin server for the purposes
-of interacting with "https" resources. In HTTP/1.x, CONNECT is used to convert
-an entire HTTP connection into a tunnel to a remote host. In HTTP/2, the CONNECT
-method is used to establish a tunnel over a single HTTP/2 stream to a remote
-host for similar purposes.
+客户端可以通过以HTTP_REQUEST_CANCELLED ({{http-error-codes}})
+错误码来终止流取消请求(QUIC RESET_STREAM 以及/或者 STOP_SENDING 帧，如果合适的话)。
+当客户端取消一个回复，它表达了这个回复已经不再感兴趣。
+实现**应该**通过终止一个流的两个方向来取消请求。
 
-A CONNECT request in HTTP/3 functions in the same manner as in HTTP/2. The
-request MUST be formatted as described in {{!RFC7540}}, Section 8.3. A CONNECT
-request that does not conform to these restrictions is malformed. The request
-stream MUST NOT be closed at the end of the request.
+当服务器在没有执行任何应用程序处理的情况下拒绝请求时，它**应该**以错误码 HTTP_REQUEST_REJECTED 中止响应流。
+在这种情况下，“已处理”意味着流中的一些数据被传递到软件的更高层，这些软件可能因此采取了一些操作。
+客户端可以将被服务器拒绝的请求当作根本没有发送过的请求来处理，从而允许以后在新连接上重试这些请求。
+服务器**禁止**对已部分或完全处理的请求使用HTTP_REQUEST_REJECTED错误代码。
+当服务器在部分处理后放弃响应时，它**应该**以错误码 HTTP_REQUEST_CANCELLED 中止响应流。
 
-A proxy that supports CONNECT establishes a TCP connection ({{!RFC0793}}) to the
-server identified in the ":authority" pseudo-header field. Once this connection
-is successfully established, the proxy sends a HEADERS frame containing a 2xx
-series status code to the client, as defined in {{!RFC7231}}, Section 4.3.6.
+当客户端发送带有 HTTP_REQUEST_CANCELLED 的 STOP_SENDING 帧时，
+如果未执行任何处理，服务器**可能**会在相应的 RESET_STREAM 中发送 HTTP_REQUEST_REBJECT 错误码。
+除非响应包含相同错误码的 QUIC STOP_SENDING 帧，否则客户端**禁止**使用 HTTP_REQUEST_REJECTED 错误码来重置流。
 
-All DATA frames on the stream correspond to data sent or received on the TCP
-connection. Any DATA frame sent by the client is transmitted by the proxy to the
-TCP server; data received from the TCP server is packaged into DATA frames by
-the proxy. Note that the size and number of TCP segments is not guaranteed to
-map predictably to the size and number of HTTP DATA or QUIC STREAM frames.
+如果流在接收到完整响应后被取消，客户端**可能**忽略该取消并使用得到的响应。
+但是，如果流在接收到部分响应后被取消，则**不应该**使用所得到的响应。
+除非另有允许，否则不可能自动重试此类请求(例如，诸如 GET、PUT 或 DELETE 等幂等操作)。
 
-The TCP connection can be closed by either peer. When the client ends the
-request stream (that is, the receive stream at the proxy enters the "Data Recvd"
-state), the proxy will set the FIN bit on its connection to the TCP server. When
-the proxy receives a packet with the FIN bit set, it will terminate the send
-stream that it sends to the client. TCP connections which remain half-closed in
-a single direction are not invalid, but are often handled poorly by servers, so
-clients SHOULD NOT close a stream for sending while they still expect to receive
-data from the target of the CONNECT.
 
-A TCP connection error is signaled with QUIC RESET_STREAM frame. A proxy treats
-any error in the TCP connection, which includes receiving a TCP segment with the
-RST bit set, as a stream error of type HTTP_CONNECT_ERROR
-({{http-error-codes}}).  Correspondingly, a proxy MUST send a TCP segment with
-the RST bit set if it detects an error with the stream or the QUIC connection.
+## 连接方法(The CONNECT Method)
 
-## Prioritization {#priority}
+伪方法连接(pseudo-method CONNECT)(({{!RFC7231}}章节4.3.6)主要与 HTTP
+代理一起使用，用于与源服务器建立 TLS 会话，以便与“https”资源进行交互。
+在 HTTP/1.x 中，CONNECT 用于将整个 HTTP 连接转换为到远程主机的隧道。
+在 HTTP/2 中，CONNECT 方法用于通过单个 HTTP/2 流建立到远程主机的隧道，以实现类似的目的。
 
-HTTP/3 uses a priority scheme similar to that described in {{!RFC7540}}, Section
-5.3. In this priority scheme, a given element can be designated as dependent
-upon another element. This information is expressed in the PRIORITY frame
-{{frame-priority}} which identifies the element and the dependency. The elements
-that can be prioritized are:
+HTTP/3 中的连接(CONNECT)请求的行为与 HTTP/2 中相同。
+请求的格式**必须**如{{!RFC7540}}章节8.3所述。
+不符合这些限制的连接请求格式是不正确的。
+请求流**禁止**在请求结束时关闭。
 
-- Requests, identified by the ID of the request stream
-- Pushes, identified by the Push ID of the promised resource
-  ({{frame-push-promise}})
-- Placeholders, identified by a Placeholder ID
+支持 CONNECT 的代理与在权威伪头部字段中认证过的服务器建立 TCP 连接({{!RFC0793}})。
+成功建立此连接后，代理将包含 2xx 系列状态代码的 HEADERS 帧发送到客户端，如{{!RFC7231}}章节4.3.6定义。
 
-Taken together, the dependencies across all prioritized elements in a connection
-form a dependency tree. An element can depend on another element or on the root
-of the tree. A reference to an element which is no longer in the tree is treated
-as a reference to the root of the tree. The structure of the dependency tree
-changes as PRIORITY frames modify the dependency links between prioritized
-elements.
+流中的所有数据(DATA)帧都与 TCP 连接上发送或接收的数据相对应。
+客户端发送的任何数据(DATA)帧都由代理发送到 TCP 服务器；
+从TCP服务器接收的数据由代理打包成数据(DATA)帧。
+注意，TCP 包的大小和数量不保证可以通过可预测的方式映射到 HTTP 数据(DATA)或 QUIC STEAM 帧的大小和数量。
 
-Due to reordering between streams, an element can also be prioritized which is
-not yet in the tree. Such elements are added to the tree with the requested
-priority.
+TCP 连接可以由任一对端关闭。
+当客户端结束请求流(即代理处的接收流进入“DataRecvd”状态)时，代理将在其与TCP服务器的连接上设置 FIN 位。
+当代理收到设置了 FIN 位的数据包时，它将终止发送到客户端的发送流。
+保持单向半关闭状态的TCP连接不是不可用的，但服务器通常处理得很差，因此客户端**不应该**在仍希望从连接(CONNECT)的目标接收数据时关闭用于发送的流。
 
-When a prioritized element is first created, it has a default initial weight
-of 16 and a default dependency. Requests and placeholders are dependent on the
-root of the priority tree; pushes are dependent on the client request on which
-the PUSH_PROMISE frame was sent.
+TCP 连接错误通过 QUIC RESET_STREAM 帧发出信号。
+代理将 TCP 连接中的任何错误(包括接收设置了RST位的TCP数据段)视为类型为
+HTTP_CONNECT_ERROR({{http-error-codes}})的流错误。
+相应地，代理如果检测到流或 QUIC 连接的错误**必须**发送一个带 RST 位的 TCP 包。
 
-Requests may override the default initial values by including a PRIORTIY frame
-(see {{frame-priority}}) at the beginning of the stream. These priorities
-can be updated by sending a PRIORITY frame on the control stream.
 
-### Placeholders
+## 优先级(Prioritization) {#priority}
 
-In HTTP/2, certain implementations used closed or unused streams as placeholders
-in describing the relative priority of requests.  This created
-confusion as servers could not reliably identify which elements of the priority
-tree could be discarded safely. Clients could potentially reference closed
-streams long after the server had discarded state, leading to disparate views of
-the prioritization the client had attempted to express.
+HTTP/3 使用的优先级规则与{{!RFC7540}}章节5.3 中描述的方案类似。
+在这个优先级方案中，一个给定的元素可以被指定为依赖于另一个元素。
+此信息在标识元素和依赖项的 PRIORITY 帧{{frame-priority}}中表示。
+可以确定优先顺序的元素有：
 
-In HTTP/3, a number of placeholders are explicitly permitted by the server using
-the `SETTINGS_NUM_PLACEHOLDERS` setting. Because the server commits to
-maintaining these placeholders in the prioritization tree, clients can use them
-with confidence that the server will not have discarded the state. Clients MUST
-NOT send the `SETTINGS_NUM_PLACEHOLDERS` setting; receipt of this setting by a
-server MUST be treated as a connection error of type
-`HTTP_WRONG_SETTING_DIRECTION`.
+- 请求，通过请求流的 ID 标识
+- 推送，通过承诺的源({{frame-push-promise}})的推送 ID 标识
+- 占位符，通过占位符 ID 标识
 
-Placeholders are identified by an ID between zero and one less than the number
-of placeholders the server has permitted.
+总之，连接中所有优先级元素之间的依赖关系形成依赖关系树。
+一个元素可以依赖于另一个元素，也可以依赖于树的根。
+对不再存在于树中的元素的引用被视为对树的根的引用。
+当 PRIORITY 帧修改带优先级的元素之间的依赖关系时，依赖关系树的结构也会发生变化。
 
-Like streams, placeholders have priority information associated with them.
+由于流之间的重新排序，尚未在树中的元素也可以设置优先级。
+这些元素以请求的优先级添加到树中。
+
+首次创建优先级元素时，它的默认初始权重为16，并且具有默认依赖项。
+请求和占位符依赖于优先级树的根；推送依赖于发送 PUSH_PROMISE 帧的客户端请求。
+
+请求可以通过在流的开头包含 PRIORTIY 帧(详见{{frame-priority}})来覆盖默认初始值。
+可以通过在控制流上发送 PRIORITY 帧来更新这些优先级。
+
+
+### 占位符(Placeholders) {#placeholders}
+
+在 HTTP/2 中，某些实现在描述请求的相对优先级时使用已关闭或未使用的流作为占位符。
+这造成了混乱，因为服务器无法可靠地确定可以安全丢弃优先级树的哪些元素。
+客户端可能会在服务器丢弃状态很长时间后引用关闭的流，从而导致服务端得到了与客户端试图表示的优先级的不同的优先级树。
+
+在 HTTP/3 中，服务端使用`SETTINGS_NUM_PLACEHOLDERS`设置显式允许许多占位符。
+因为服务器承诺维护优先级树中的这些占位符，所以客户端可以放心地使用它们，因为服务器不会丢弃该状态。
+客户端**禁止**发送`SETTINGS_NUM_PLACEHOLDERS`设置；
+服务器接收到此设置**必须**被以类型为`HTTP_WRONG_SETTING_DIRECTION`的连接错误来处理。
+
+占位符由零到服务端允许的占位符数量小一的 ID 标识。
+
+和流一样，占位符也有与其关联的优先级。
+
 
 ### Priority Tree Maintenance
 
