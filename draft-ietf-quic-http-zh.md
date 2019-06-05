@@ -273,8 +273,6 @@ QUIC流可以是单向的，只携带数据从发起者到接收者，也可以�
 
 ## 双向流 (Bidirectional Streams)
 
-All client-initiated bidirectional streams are used for HTTP requests and responses. A bidirectional stream ensures that the response can be readily correlated with the request. This means that the client’s first request occurs on QUIC stream 0, with subsequent requests on stream 4, 8, and so on. In order to permit these streams to open, an HTTP/3 client SHOULD send non-zero values for the QUIC transport parameters initial_max_stream_data_bidi_local. An HTTP/3 server SHOULD send non-zero values for the QUIC transport parameters initial_max_stream_data_bidi_remote and initial_max_bidi_streams. It is recommended that initial_max_bidi_streams be no smaller than 100, so as to not unnecessarily limit parallelism. 
-719/5000  
 所有客户端发起的双向流都用于HTTP请求和响应。
 双向流确保响应可以很容易地与请求关联。
 这意味着客户机的第一个请求发生在QUIC流0上，随后的请求发生在流4、8上，依此类推。
@@ -294,7 +292,7 @@ HTTP/3不使用服务器发起的双向流;客户端**必须**省略
 
 
 ## 单向流 (Unidirectional Streams)
- 
+
 单向流，无论在哪个方向，都用于一系列的目的。
 目的由流类型表示，该类型在流开始时作为可变长度整数发送。
 遵循该整数的数据的格式和结构由流类型决定。
@@ -342,7 +340,7 @@ QUIC STOP_SENDING帧，但**不能**将此类流视为任何类型的错误。
 根据是否在连接上启用0-RTT，客户机或服务器都可以在加密握手完成后首先发送流数据。
 
 ### 推送流(Push Streams)
- 
+
 push流由`0x01`类型的流表示，后面跟着它所实现的承诺的Push ID，
 该ID被编码为一个可变长度整数。
 此流上的其余数据由HTTP/3帧组成，如{{frames}}中定义的那样，并完成一个承诺的服务器推送。
