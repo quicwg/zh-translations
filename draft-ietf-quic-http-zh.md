@@ -1385,80 +1385,80 @@ the cause of a connection or stream error.
 QUIC RESET_STREAM帧、STOP_SESSING帧和
 CONNECTION_CLOSE帧。
 
-HTTP_NO_ERROR（HTTP无误） (0x00):
+HTTP_NO_ERROR (0x00):
 : 没有错误。当需要关闭连接或者流，
  但没有错误要发送的时候使用。
 
-HTTP_WRONG_SETTING_DIRECTION（HTTP设置方错误） (0x01):
+HTTP_WRONG_SETTING_DIRECTION (0x01):
 : 一个客户端限定的设置项由服务端发送，
  或者服务端限定的设置项由客户端发送时使用。
 
-HTTP_PUSH_REFUSED（HTTP推送被拒绝） (0x02):
+HTTP_PUSH_REFUSED (0x02):
 : 服务端尝试在该连接中推送客户端不能接受的内容。
 
-HTTP_INTERNAL_ERROR（HTTP内部错误） (0x03):
+HTTP_INTERNAL_ERROR (0x03):
 : 在HTTP栈内部发生错误。
 
-HTTP_PUSH_ALREADY_IN_CACHE（HTTP推送内容已存在） (0x04):
+HTTP_PUSH_ALREADY_IN_CACHE (0x04):
 : 服务端尝试推送的内容已经在客户端缓存。
 
-HTTP_REQUEST_CANCELLED（HTTP请求取消） (0x05):
+HTTP_REQUEST_CANCELLED (0x05):
 : 请求或者请求的响应被取消
 
-HTTP_INCOMPLETE_REQUEST（HTTP请求未完成） (0x06):
+HTTP_INCOMPLETE_REQUEST (0x06):
 : 客户端流在没有完成完整格式的请求的情况下终止。
 
-HTTP_CONNECT_ERROR（HTTP连接错误） (0x07):
+HTTP_CONNECT_ERROR (0x07):
 : 响应CONNECT请求而建立的连接被重置或异常关闭。
 
-HTTP_EXCESSIVE_LOAD（HTTP过载）(0x08):
+HTTP_EXCESSIVE_LOAD (0x08):
 : 终端检测到其对等端正在表现出可能会产生
  过多负载的行为。
 
-HTTP_VERSION_FALLBACK（HTTP版本降级） (0x09):
+HTTP_VERSION_FALLBACK (0x09):
 : 请求的操作无法通过HTTP/3提供。对端应通过HTTP/1.1重试。
 
-HTTP_WRONG_STREAM（HTTP流错误） (0x0A):
+HTTP_WRONG_STREAM (0x0A):
 : 从流中接收到一个帧，而该流不允许发送这个帧。
 
-HTTP_LIMIT_EXCEEDED（HTTP超过限制） (0x0B):
+HTTP_LIMIT_EXCEEDED (0x0B):
 : 引用的流ID、推送ID或占位符ID大于该标识符的当前最大值。
 
-HTTP_DUPLICATE_PUSH（HTTP重复推送） (0x0C):
+HTTP_DUPLICATE_PUSH (0x0C):
 : 在两个不同的流头部中引用了相同的推送ID。
 
-HTTP_UNKNOWN_STREAM_TYPE（HTTP流类型未知） (0x0D):
+HTTP_UNKNOWN_STREAM_TYPE (0x0D):
 : 单向流标头包含未知的流类型。
 
-HTTP_WRONG_STREAM_COUNT（HTTP流计数错误） (0x0E):
+HTTP_WRONG_STREAM_COUNT (0x0E):
 : 单向流类型的使用次数超过了该类型所允许的次数。
 
-HTTP_CLOSED_CRITICAL_STREAM (HTTP流已关闭) (0x0F):
+HTTP_CLOSED_CRITICAL_STREAM (0x0F):
 : 连接所需的流已关闭或重置。
 
-HTTP_WRONG_STREAM_DIRECTION（HTTP流方向错误） (0x0010):
+HTTP_WRONG_STREAM_DIRECTION (0x0010):
 : A unidirectional stream type was used by a peer which is not permitted to do
   so.
-: 对端使用了单向流类型，但这是不允许的。
+: 对端使用了被禁止的单向流类型。
 
-HTTP_EARLY_RESPONSE（HTTP过早响应） (0x0011):
+HTTP_EARLY_RESPONSE (0x0011):
 : 客户端请求的其余部分不需要生成响应。仅用于STOP_SENDING。
 
-HTTP_MISSING_SETTINGS（HTTP配置缺失） (0x0012):
+HTTP_MISSING_SETTINGS (0x0012):
 : 在控制流的开始处未接收到任何设置帧。
 
-HTTP_UNEXPECTED_FRAME（HTTP帧类型超出范围）(0x0013):
+HTTP_UNEXPECTED_FRAME (0x0013):
 : 接收到当前状态下不允许接收的帧。
 
-HTTP_REQUEST_REJECTED（HTTP请求被拒绝）(0x0014):
+HTTP_REQUEST_REJECTED (0x0014):
 : 服务端在未执行任何应用程序处理的情况下拒绝了请求。
 
-HTTP_GENERAL_PROTOCOL_ERROR（HTTP一般协议错误） (0x00FF):
-: 对端违反协议要求的方式与
-不匹配更具体的错误码，或者
-终端拒绝使用更具体的错误代码。
+HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):
+: 对端违反了协议要求
+并且未明确定义错误码，
+或者终端拒绝使用更明确的错误码。
 
-HTTP_MALFORMED_FRAME（HTTP帧形态不正确）(0x01XX):
+HTTP_MALFORMED_FRAME (0x01XX):
 : 特定帧类型中的错误。如果帧类型
 为‘0xfe`或更小，则该类型
 将包含在错误代码的最后一个字节。
