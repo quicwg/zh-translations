@@ -369,7 +369,7 @@ QUIC的实现**应该**提供方法，
 选择把流ID分配给流，
 这样可以实现更好的流优先级。
 
-对等端发起的双向流的发送部分
+对端发起的双向流的发送部分
 （服务端是类型0，客户端是类型1）
 进入“Ready”状态，然后如果接收部分进入“Recv”状态
 （{{stream-recv-states}}）时立刻转换到“Send”状态。
@@ -3790,8 +3790,9 @@ failed validation as a connection error of type TRANSPORT_PARAMETER_ERROR.
 A Retry packet does not include a packet number and cannot be explicitly
 acknowledged by a client.
 
-## Short Header Packets {#short-header}
+## 短包头的包（Short Header Packets） {#short-header}
 
+此版本的QUIC协议定义了使用短数据包头的单个包类型。
 This version of QUIC defines a single packet type which uses the
 short packet header.
 
@@ -3810,76 +3811,79 @@ short packet header.
 ~~~~~
 {: #fig-short-header title="Short Header Packet Format"}
 
-The short header can be used after the version and 1-RTT keys are negotiated.
-Packets that use the short header contain the following fields:
+短包头能在版本协商和1-RTT秘钥协商包后面的
+包上使用。使用短包头的包中包含了以下的这些字段：
 
-Header Form:
+头部组成:
 
-: The most significant bit (0x80) of byte 0 is set to 0 for the short header.
+: 短包头包的第0字节中的最高有效位(0x80)设置为0
 
-Fixed Bit:
+固定位:
 
-: The next bit (0x40) of byte 0 is set to 1.  Packets containing a zero value
-  for this bit are not valid packets in this version and MUST be discarded.
+: 第0字节的下一位(0x40)设置为1。
+在当前版本的协议中规定了，该位被设置为0的
+包不是有效包**必须**丢弃。
 
-Spin Bit (S):
+自旋位 (S):
 
-: The sixth bit (0x20) of byte 0 is the Latency Spin Bit, set as described in
-  {{!SPIN=I-D.ietf-quic-spin-exp}}.
+: 第一个字节的第六位(0x20)是延迟自旋位，
+该位的取值参考{{!SPIN=I-D.ietf-quic-spin-exp}}。
 
-Reserved Bits (R):
+保留位 (R):
 
-: The next two bits (those with a mask of 0x18) of byte 0 are reserved.  These
-  bits are protected using header protection (see Section 5.4 of
-  {{QUIC-TLS}}).  The value included prior to protection MUST be set to 0.  An
-  endpoint MUST treat receipt of a packet that has a non-zero value for these
-  bits, after removing both packet and header protection, as a connection error
-  of type PROTOCOL_VIOLATION. Discarding such a packet after only removing
-  header protection can expose the endpoint to attacks (see Section 9.3 of
-  {{QUIC-TLS}}).
+: 第0个字节的后面两个位(掩码为0x18的位)将被保留。
+这些位会使用包头保护进行保护(请参阅第5.4节{{QUIC-TLS}})。
+在添加保护之前的值**必须**设置为0。终端在移除
+接收到的包的包和头部保护后，**必须**将
+保留位具有非零值的包视
+为PROTOCOL_VIOLATION类型的连接错误。
+在仅移除包头保护后就丢弃这样的包可能会使
+终端受到攻击。(参考9.3节关于{{QUIC-TLS}})。
 
-Key Phase (K):
+秘钥段 (K):
 
-: The next bit (0x04) of byte 0 indicates the key phase, which allows a
-  recipient of a packet to identify the packet protection keys that are used to
-  protect the packet.  See {{QUIC-TLS}} for details.  This bit is protected
-  using header protection (see Section 5.4 of {{QUIC-TLS}}).
-
-Packet Number Length (P):
-
-: The least significant two bits (those with a mask of 0x03) of byte 0 contain
-  the length of the packet number, encoded as an unsigned, two-bit integer that
-  is one less than the length of the packet number field in bytes.  That is, the
-  length of the packet number field is the value of this field, plus one.  These
-  bits are protected using header protection (see Section 5.4 of {{QUIC-TLS}}).
-
-Destination Connection ID:
-
-: The Destination Connection ID is a connection ID that is chosen by the
-  intended recipient of the packet.  See {{connection-id}} for more details.
-
-Packet Number:
-
-: The packet number field is 1 to 4 bytes long. The packet number has
-  confidentiality protection separate from packet protection, as described in
-  Section 5.4 of {{QUIC-TLS}}. The length of the packet number field is encoded
-  in Packet Number Length field. See {{packet-encoding}} for details.
-
-Protected Payload:
-
-: Packets with a short header always include a 1-RTT protected payload.
-
-The header form bit and the connection ID field of a short header packet are
-version-independent.  The remaining fields are specific to the selected QUIC
-version.  See {{QUIC-INVARIANTS}} for details on how packets from different
-versions of QUIC are interpreted.
+: 第0字节的下一位(0x04)用于指示秘钥段，
+这一位可以使包的接受者识别用于保护包的包保护秘钥。
+详情请阅{{QUIC-TLS}}。该位处于包头保护之下
+（参考5.4节关于{{QUIC-TLS}})。
 
 
-# Transport Parameter Encoding {#transport-parameter-encoding}
+包编号长度 (P):
 
-The format of the transport parameters is the TransportParameters struct from
-{{figure-transport-parameters}}.  This is described using the presentation
-language from Section 3 of {{!TLS13=RFC8446}}.
+: 第0字节的最低有效两位(掩码为0x03)放置了包编号的长度，
+包编号的长度被编码为两位无符号整型，该整型小于
+包编号字段的长度(以字节为单位)。
+也就是说，包编号字段的长度是该字段的值加1。
+这些位处于包头保护之下(请参阅第5.4节{{QUIC-TLS}})。
+
+目标连接ID:
+
+: 目标连接ID是包的目标接收方选择的连接ID。
+详细信息请参见{{connection-id}}。
+
+包编号:
+
+: 包编号字段的长度为1到4个字节。
+包编号具有独立于包保护的机密性保护，
+如{{QUIC-TLS}}第5.4节所述。
+包编号字段的长度编码在包编号长度字段中。
+详细信息请参见{{packet-encoding}}。
+
+被保护的负载:
+
+: 短包头的包始终包含受1-RTT保护的有效负载。
+
+短包头包的包头组成位和连接ID字段的
+取值与协议版本无关。其余字段特定于
+选定的QUIC版本。关于如何解释
+来自不同版本QUIC的包的详细信息，请参见{{QUIC-INVARIANTS}}。
+
+
+# 传输参数编码（Transport Parameter Encoding） {#transport-parameter-encoding}
+
+传输参数的格式是{{figure-transport-parameters}}中的
+TransportParameters结构。
+{{!TLS13=RFC8446}}第3节中使用演示语言对此进行了描述。
 
 ~~~
    enum {
@@ -3909,12 +3913,12 @@ language from Section 3 of {{!TLS13=RFC8446}}.
 ~~~
 {: #figure-transport-parameters title="Definition of TransportParameters"}
 
-The `extension_data` field of the quic_transport_parameters extension defined in
-{{QUIC-TLS}} contains a TransportParameters value.  TLS encoding rules are
-therefore used to describe the encoding of transport parameters.
+在{{QUIC-TLS}}中定义的quic_transport_parameters
+扩展的“EXTENSION_DATA”字段包含TransportParameters值。
+因此，TLS编码规则被用来描述传输参数的编码。
 
-QUIC encodes transport parameters into a sequence of bytes, which are then
-included in the cryptographic handshake.
+QUIC将传输参数编码为字节序列，然后
+将其放置在加密握手包中。
 
 
 ## 传输参数定义(Transport Parameter Definitions) {#transport-parameter-definitions}
@@ -4959,140 +4963,145 @@ An IANA registry is used to manage the assignment of frame types, see
 {{iana-frames}}.
 
 
-# Transport Error Codes {#error-codes}
+# 传输错误码（Transport Error Codes） {#error-codes}
 
-QUIC error codes are 16-bit unsigned integers.
+QUIC错误码都是16位的无符号整型数。
 
-This section lists the defined QUIC transport error codes that may be used in a
-CONNECTION_CLOSE frame.  These errors apply to the entire connection.
+本节列出了可能在CONNECTION_CLOSE帧中
+使用的QUIC错误码的定义。这些错误可能在
+整个连接过程中发生。
 
 NO_ERROR (0x0):
 
-: An endpoint uses this with CONNECTION_CLOSE to signal that the connection is
-  being closed abruptly in the absence of any error.
+: 终端通过使用携带这个错误码的CONNECTION_CLOSE帧
+来表明连接在没有发生任何错误的情况下突然关闭。
 
 INTERNAL_ERROR (0x1):
 
-: The endpoint encountered an internal error and cannot continue with the
-  connection.
+: 终端遇到内部错误无法继续维持连接。
 
 SERVER_BUSY (0x2):
 
-: The server is currently busy and does not accept any new connections.
+: 服务器当前繁忙且不会接受任何新的连接。
 
 FLOW_CONTROL_ERROR (0x3):
 
-: An endpoint received more data than it permitted in its advertised data limits
-  (see {{flow-control}}).
+: 终端收到的数据超过其通知的数据限制所允许的数量。
+(请参见{{flow-control}})。
 
 STREAM_LIMIT_ERROR (0x4):
 
-: An endpoint received a frame for a stream identifier that exceeded its
-  advertised stream limit for the corresponding stream type.
+: 终端接收到超出了其通知的流类型限制的帧。
 
 STREAM_STATE_ERROR (0x5):
 
-: An endpoint received a frame for a stream that was not in a state that
-  permitted that frame (see {{stream-states}}).
+: 终端在允许接收该帧的状态之外的
+状态接收到该帧(请参见{{stream-states}})。
 
 FINAL_SIZE_ERROR (0x6):
 
-: An endpoint received a STREAM frame containing data that exceeded the
-  previously established final size.  Or an endpoint received a STREAM frame or
-  a RESET_STREAM frame containing a final size that was lower than the size of
-  stream data that was already received.  Or an endpoint received a STREAM frame
-  or a RESET_STREAM frame containing a different final size to the one already
-  established.
+: 终端收到的STREAM帧包含的数据
+超过了先前确定的最终大小。
+或者，终端接收的STREAM帧或RESET_STREAM帧的
+最终大小于已接收的流数据的大小。
+或者，终端接收的STREAM帧或RESET_STREAM帧
+中包含与已建立的最终大小值不同。
 
 FRAME_ENCODING_ERROR (0x7):
 
-: An endpoint received a frame that was badly formatted.  For instance, a frame
-  of an unknown type, or an ACK frame that has more acknowledgment ranges than
-  the remainder of the packet could carry.
+: 终端收到格式错误的帧。
+例如，未知类型的帧，
+或者确认范围大于包其余部分的ACK帧。
+
 
 TRANSPORT_PARAMETER_ERROR (0x8):
 
-: An endpoint received transport parameters that were badly formatted, included
-  an invalid value, was absent even though it is mandatory, was present though
-  it is forbidden, or is otherwise in error.
+: 终端接收的传输参数格式错误、包含无效值、
+是必填的但不存在、
+出现了不允许的值，或在其他情况下出错。
 
 PROTOCOL_VIOLATION (0xA):
 
-: An endpoint detected an error with protocol compliance that was not covered by
-  more specific error codes.
+: 终端检测到的错误在协议范围内
+没有更具体的错误代码。
 
 INVALID_MIGRATION (0xC):
 
-: A peer has migrated to a different network when the endpoint had disabled
-  migration.
+: 在终端禁用了迁移的状态下，
+对端迁移到其他网络。
 
 CRYPTO_ERROR (0x1XX):
 
-: The cryptographic handshake failed.  A range of 256 values is reserved for
-  carrying error codes specific to the cryptographic handshake that is used.
-  Codes for errors occurring when TLS is used for the crypto handshake are
-  described in Section 4.8 of {{QUIC-TLS}}.
+: 加密握手失败。
+保留256个值的范围用于传送特定于
+所使用的加密握手的错误代码。
+在{{QUIC-TLS}}的第4.8节中介绍了
+将TLS用于加密握手时会出现的错误码。
 
-See {{iana-error-codes}} for details of registering new error codes.
-
-
-## Application Protocol Error Codes {#app-error-codes}
-
-Application protocol error codes are 16-bit unsigned integers, but the
-management of application error codes are left to application protocols.
-Application protocol error codes are used for the RESET_STREAM frame
-({{frame-reset-stream}}) and the CONNECTION_CLOSE frame with a type of 0x1d
-({{frame-connection-close}}).
+有关新错误码的详细信息，请参阅{{iana-error-codes}}。
 
 
-# Security Considerations
+## 应用协议错误码（Application Protocol Error Codes） {#app-error-codes}
 
-## Handshake Denial of Service
+应用协议的错误码是16位无符号整数，但应用错误码的
+管理由应用协议负责。
+应用协议错误码用于RESET_STREAM帧
+({{frame-reset-stream}})和
+类型为0x1d({{frame-connection-close}})的
+CONNECTION_CLOSE帧。
 
-As an encrypted and authenticated transport QUIC provides a range of protections
-against denial of service.  Once the cryptographic handshake is complete, QUIC
-endpoints discard most packets that are not authenticated, greatly limiting the
-ability of an attacker to interfere with existing connections.
 
-Once a connection is established QUIC endpoints might accept some
-unauthenticated ICMP packets (see {{icmp-pmtud}}), but the use of these packets
-is extremely limited.  The only other type of packet that an endpoint might
-accept is a stateless reset ({{stateless-reset}}) which relies on the token
-being kept secret until it is used.
+# 安全注意事项（Security Considerations）
 
-During the creation of a connection, QUIC only provides protection against
-attack from off the network path.  All QUIC packets contain proof that the
-recipient saw a preceding packet from its peer.
+## 握手拒绝服务（Handshake Denial of Service）
 
-The first mechanism used is the source and destination connection IDs, which are
-required to match those set by a peer.  Except for an Initial and stateless
-reset packets, an endpoint only accepts packets that include a destination
-connection that matches a connection ID the endpoint previously chose.  This is
-the only protection offered for Version Negotiation packets.
+作为一种经过加密和验证的传输，
+QUIC提供了一系列针对拒绝服务的保护。
+一旦加密握手完成后，QUIC终端将丢弃大多数
+未经身份验证的包，从而极大地限制了
+攻击者干扰现有连接的能力。
 
-The destination connection ID in an Initial packet is selected by a client to be
-unpredictable, which serves an additional purpose.  The packets that carry the
-cryptographic handshake are protected with a key that is derived from this
-connection ID and salt specific to the QUIC version.  This allows endpoints to
-use the same process for authenticating packets that they receive as they use
-after the cryptographic handshake completes.  Packets that cannot be
-authenticated are discarded.  Protecting packets in this fashion provides a
-strong assurance that the sender of the packet saw the Initial packet and
-understood it.
+一旦建立了连接，QUIC终端可能会接受一些
+未经身份验证的ICMP包(请参阅{{icmp-pmtud}})，
+但这些包的使用受到极大限制。
+终端可能接受的唯一其他类型的包是
+无状态重置({{stateless-reset}})，
+该重置依赖于在使用前一直保密的令牌。
 
-These protections are not intended to be effective against an attacker that is
-able to receive QUIC packets prior to the connection being established.  Such an
-attacker can potentially send packets that will be accepted by QUIC endpoints.
-This version of QUIC attempts to detect this sort of attack, but it expects that
-endpoints will fail to establish a connection rather than recovering.  For the
-most part, the cryptographic handshake protocol {{QUIC-TLS}} is responsible for
-detecting tampering during the handshake.
+在创建连接期间，QUIC提供的保护仅针对
+来自网络路径之外的攻击。
+所有QUIC包都包含接收方收到来自其
+对端的前面的包的证明。
 
-Endpoints are permitted to use other methods to detect and attempt to recover
-from interference with the handshake.  Invalid packets may be identified and
-discarded using other methods, but no specific method is mandated in this
-document.
+防御使用的第一种机制是源连接ID和目标连接ID，
+这是匹配对端所设置的连接ID所必需的。
+除了初始和无状态重置数据包外，
+终端仅接受包含与终端先前选择的连接ID
+所匹配的目标连接的包。
+这是为版本协商包提供的唯一保护。
 
+初始包中客户端选择的目标连接ID值
+不可预测是为另一个目的提供服务。
+携带密码握手的包受来自该连接ID和
+特定于QUIC协议版本的盐派生的密钥来保护。
+这允许终端在完成加密握手后使用和自身使用的
+相同的流程来验证它们收到的包。
+无法验证的包会被丢弃。
+以这种方式保护包提供了一个强有力的保证，
+即该包的发送方收到初始包并正确理解它。
+
+这些保护措施并不是为了有效对抗能够
+在建立连接之前接收到多个包的攻击者，。
+这样的攻击者可能会发送能被QUIC终端接受的包。
+本版本的QUIC协议试图检测这种攻击，
+但是它期望终端不会建立连接而不是恢复连接。
+大多数情况下，加密握手协议{{QUIC-TLS}}负责
+检测握手期间的篡改。
+
+终端允许使用其他方法来检测和尝试
+从握手受到的干扰中恢复。
+无效包可以使用其他方法来标识和丢弃，
+但本文档中没有指定特定方法。
 
 ## 重放攻击(Amplification Attack)
 
