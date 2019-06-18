@@ -675,11 +675,10 @@ represented as an 8-bit prefix string literal.
 {: title="Insert Header Field -- New Name"}
 
 
-### Duplicate {#duplicate}
+### 复制(Duplicate) {#duplicate}
 
-Duplication of an existing entry in the dynamic table starts with the '000'
-three-bit pattern.  The relative index of the existing entry is represented as
-an integer with a 5-bit prefix.
+动态表中现有条目的复制以'000'三位字头开始。 
+现有条目的相对索引表示为具有5位前缀的整数。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -689,18 +688,13 @@ an integer with a 5-bit prefix.
 ~~~~~~~~~~
 {:#fig-index-with-duplication title="Duplicate"}
 
-The existing entry is re-inserted into the dynamic table without resending
-either the name or the value. This is useful to mitigate the eviction of older
-entries which are frequently referenced, both to avoid the need to resend the
-header and to avoid the entry in the table blocking the ability to insert new
-headers.
+现有条目将重新插入动态表中，而不重新发送名称或值。
+这对于减少频繁引用的旧条目的驱逐非常有用，既可以避免重新发送标头，也可以避免表中的现有条目有阻止插入新标头的能力。
 
-### Set Dynamic Table Capacity {#set-dynamic-capacity}
+### 设置动态表容量(Set Dynamic Table Capacity) {#set-dynamic-capacity}
 
-An encoder informs the decoder of a change to the dynamic table capacity using
-an instruction which begins with the '001' three-bit pattern.  The new dynamic
-table capacity is represented as an integer with a 5-bit prefix (see Section 5.1
-of [RFC7541]).
+编码器使用以'001'三位字头开始的指令通知解码器动态表容量的变化。
+新的动态表容量表示为带有5位前缀的整数（参见[RFC7541]的第5.1节）。
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -710,38 +704,29 @@ of [RFC7541]).
 ~~~~~~~~~~
 {:#fig-set-capacity title="Set Dynamic Table Capacity"}
 
-The new capacity MUST be lower than or equal to the limit described in
-{{maximum-dynamic-table-capacity}}.  In HTTP/3, this limit is the value of the
-SETTINGS_QPACK_MAX_TABLE_CAPACITY parameter (see {{configuration}}) received
-from the decoder.  The decoder MUST treat a new dynamic table capacity value
-that exceeds this limit as a connection error of type
-`HTTP_QPACK_ENCODER_STREAM_ERROR`.
+新容量**必须**低于或等于{{maximum-dynamic-table-capacity}}中描述的限制。
+在HTTP / 3中，此限制是从解码器中受到的SETTINGS_QPACK_MAX_TABLE_CAPACITY参数(参考 {{configuration}})的值。
+解码器**必须**将超过此限制的新动态表容量值视为类型`HTTP_QPACK_ENCODER_STREAM_ERROR`的连接错误。
 
-Reducing the dynamic table capacity can cause entries to be evicted (see
-{{eviction}}).  This MUST NOT cause the eviction of entries with outstanding
-references (see {{reference-tracking}}).  Changing the capacity of the dynamic
-table is not acknowledged as this instruction does not insert an entry.
+减少动态表容量可能导致条目被逐出(参考{{eviction}})。
+该操作**禁止**导致具有动态表引用的条目被驱逐(参考 {{reference-tracking}})。
+由于此指令未插入条目，因此无法确认更改动态表的容量。
 
 
-## Decoder Instructions {#decoder-instructions}
+## 解码器指令(Decoder Instructions) {#decoder-instructions}
 
-Decoder instructions provide information used to ensure consistency of the
-dynamic table. They are sent from the decoder to the encoder on a decoder
-stream; that is, the server informs the client about the processing of the
-client's header blocks and table updates, and the client informs the server
-about the processing of the server's header blocks and table updates.
+解码器指令提供用于确保动态表一致性的信息。
+它们在解码流中从解码器发送到编码器;
+也就是说，服务器通知客户端有关客户端标头块和表更新的处理，客户端通知服务器有关服务器标头块和表更新的处理。
 
-This section specifies the following decoder instructions.
+本节指定以下解码器说明。
 
-### Insert Count Increment
+### 插入计数增量(Insert Count Increment)
 
-The Insert Count Increment instruction begins with the '00' two-bit pattern.
-The instruction specifies the total number of dynamic table inserts and
-duplications since the last Insert Count Increment or Header Acknowledgement
-that increased the Known Received Count for the dynamic table (see
-{{known-received-count}}).  The Increment field is encoded as a 6-bit prefix
-integer. The encoder uses this value to determine which table entries might
-cause a stream to become blocked, as described in {{state-synchronization}}.
+插入计数增量指令以'00'两位字头开始。
+该指令指定自上一次插入计数增量或标题确认以来增加动态表的已知接收计数，用以得到动态表插入和重复的总数(参考{{known-received-count}})。
+Increment字段编码为6位前缀整数。
+编码器使用此值来确定哪些表条目可能导致流被阻止，参见{{state-synchronization}}中的描述.
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -751,18 +736,13 @@ cause a stream to become blocked, as described in {{state-synchronization}}.
 ~~~~~~~~~~
 {:#fig-size-sync title="Insert Count Increment"}
 
-An encoder that receives an Increment field equal to zero or one that increases
-the Known Received Count beyond what the encoder has sent MUST treat this as a
-connection error of type `HTTP_QPACK_DECODER_STREAM_ERROR`.
+接收增量字段等于零的编码器或一个增加已知接收计数超出它发送的数量的编码器**必须**被视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
 
-### Header Acknowledgement
+### 头确认(Header Acknowledgement)
 
-After processing a header block whose declared Required Insert Count is not
-zero, the decoder emits a Header Acknowledgement instruction on the decoder
-stream.  The instruction begins with the '1' one-bit pattern and includes the
-header block's associated stream ID, encoded as a 7-bit prefix integer.  It is
-used by the peer's encoder to know when it is safe to evict an entry, and
-possibly update the Known Received Count.
+在处理完其声明的必需插入计数不为零的标题块之后，解码器在解码器流上发出标头确认指令。
+该指令以“1”一位字头开始，并包括标题块的相关流ID，编码为7位前缀整数。
+对端的编码器使用它来知道何时可以安全地逐出条目，并可能更新已知接收计数。
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -772,31 +752,19 @@ possibly update the Known Received Count.
 ~~~~~~~~~~
 {:#fig-header-ack title="Header Acknowledgement"}
 
-The same Stream ID can be identified multiple times, as multiple header blocks
-can be sent on a single stream in the case of intermediate responses, trailers,
-and pushed requests.  Since HEADERS and PUSH_PROMISE frames on each stream are
-received and processed in order, this gives the encoder precise feedback on
-which header blocks within a stream have been fully processed.
+可以多次识别相同的流ID，因为在中间响应，预告和推送请求的情况下，可以在单个流上发送多个头块。
+由于每个流上的HEADERS和PUSH_PROMISE帧会被接收并按顺序处理，因此这给编码器提供了关于流中的哪些报头块已被完全处理的精确反馈。
 
-If an encoder receives a Header Acknowledgement instruction referring to a
-stream on which every header block with a non-zero Required Insert Count has
-already been acknowledged, that MUST be treated as a connection error of type
-`HTTP_QPACK_DECODER_STREAM_ERROR`.
+如果编码器接收到一个头确认指令，该指令指的是已经确认了具有非零必需插入计数的每个头块的流，则**必须**将其视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
 
-When blocking references are permitted, the encoder uses acknowledgement of
-header blocks to update the Known Received Count.  If a header block was
-potentially blocking, the acknowledgement implies that the decoder has received
-all dynamic table state necessary to process the header block.  If the Required
-Insert Count of an acknowledged header block was greater than the encoder's
-current Known Received Count, the block's Required Insert Count becomes the new
-Known Received Count.
+当允许阻塞引用时，编码器使用标头块确认来更新已知接收计数。 
+如果标头块可能阻塞，则确认意味着解码器已经接收到处理标头块所需的所有动态表状态。
+如果确认的标头块的必需插入计数大于编码器的当前已知接收计数，则块的必需插入计数将成为新的已知接收计数。
 
+### 流取消(Stream Cancellation)
 
-### Stream Cancellation
-
-The instruction begins with the '01' two-bit pattern. The instruction includes
-the stream ID of the affected stream - a request or push stream - encoded as a
-6-bit prefix integer.
+指令以'01'两位字头开始。
+该指令包括受影响流的流ID(请求或推送流)编码为6位前缀整数。
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -806,18 +774,12 @@ the stream ID of the affected stream - a request or push stream - encoded as a
 ~~~~~~~~~~
 {:#fig-stream-cancel title="Stream Cancellation"}
 
-A stream that is reset might have multiple outstanding header blocks with
-dynamic table references.  When an endpoint receives a stream reset before the
-end of a stream, it generates a Stream Cancellation instruction on the decoder
-stream.  Similarly, when an endpoint abandons reading of a stream it needs to
-signal this using the Stream Cancellation instruction.  This signals to the
-encoder that all references to the dynamic table on that stream are no longer
-outstanding.  A decoder with a maximum dynamic table capacity equal to zero (see
-{{maximum-dynamic-table-capacity}}) MAY omit sending Stream Cancellations,
-because the encoder cannot have any dynamic table references.
-
-An encoder cannot infer from this instruction that any updates to the dynamic
-table have been received.
+重置的流可能具有多个具有动态表引用的未完成标头块。
+当端点在流结束之前接收到流重置时，它在解码器流上生成流取消指令。 
+类似地，当端点放弃读取流时，它需要使用流取消指令来发信号通知。
+这向编码器发出信号，表明对该流上的动态表的所有引用都不再是未完成的。
+最大动态表容量等于零的解码器（参见{{maximum-dynamic-table-capacity}}）可以省略发送流取消，因为编码器不能有任何动态表引用。
+编码器无法从该指令推断出已接收到对动态表的任何更新。
 
 
 ## Header Block Instructions
