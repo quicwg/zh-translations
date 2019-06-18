@@ -5,7 +5,11 @@
 翻译将会基于 IETF-QUIC-draft version 18 的文档并在翻译完成后尽可能的跟进新的版本。
 
 ## 在线预览
-点击[draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)在线预览。
+点击以下链接在线预览。
+
+[QUIC传输协议 draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)
+
+[QUIC-HTTP语义映射 draft-ietf-quic-http-zh](http://docs.wxclimb.top/draft-ietf-quic-http-zh.html)
 
 ## 翻译格式与翻译相关
 
@@ -63,6 +67,7 @@ make
 * kyjo2014 ([bestkyjo@gmail.com][kyjo2014])
 * UNSaWEN([abc7535@vip.qq.com][UNSaWEN])
 * zyad86([243019700@qq.com][zyad86])
+* lanpishu6300([lanpishu6300@gmail.com][lanpishu6300])
 
 [ietf-quic]: quic@ietf.org
 [atticuswu]: wuxiao0129@gmail.com
@@ -72,4 +77,4 @@ make
 [kyjo2014]: mailto:bestkyjo@gmail.com
 [UNSaWEN]: mailto:abc7535@vip.qq.com
 [zyad86]: mailto:243019700@qq.com
-
+[lanpishu6300]: mailto:lanpishu6300@gmail.com
