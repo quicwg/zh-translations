@@ -1601,33 +1601,30 @@ The entries in the following table are registered by this document.
 | HTTP_MALFORMED_FRAME                | 0x01XX     | Error in frame formatting                | {{http-error-codes}}   |
 | ----------------------------------- | ---------- | ---------------------------------------- | ---------------------- |
 
-## Stream Types {#iana-stream-types}
+## 流类型(Stream Types) {#iana-stream-types}
 
-This document establishes a registry for HTTP/3 unidirectional stream types. The
-"HTTP/3 Stream Type" registry governs a 62-bit space. This space is split into
-three spaces that are governed by different policies. Values between `0x00` and
-0x3f (in hexadecimal) are assigned via the Standards Action or IESG Review
-policies {{!RFC8126}}. Values from `0x40` to `0x3fff` operate on the
-Specification Required policy {{!RFC8126}}. All other values are assigned to
-Private Use {{!RFC8126}}.
+本文档为 HTTP/3 单向流类型建立了注册表。
+"HTTP/3 Stream Type"注册表掌握了62位空间。
+此空间可分为三个由不同策略管理的空间。
+`0x00`和`0x3f`(十六进制)之间的值是通过标准操作或IESG审核策略{{!RFC8126}}分配的。
+从`0x40`到`0x3fff`的值对按照规范要求策略{{!RFC8126}}分配。
+所有其他值都分配给私有使用{{!RFC8126}}。
 
-New entries in this registry require the following information:
+此注册表中的新条目需要以下信息:
 
-Stream Type:
-: A name or label for the stream type.
+流类型(Stream Type):
+: 一个流类型的名字或者标签。
 
-Code:
-: The 62-bit code assigned to the stream type.
+编码号(Code):
+: 赋予给此类型的62位编码值。
 
-Specification:
-: A reference to a specification that includes a description of the stream type,
-  including the layout semantics of its payload.
+规范(Specification):
+: 对规范的引用，该规范包括流类型的描述，以及其载荷的布局语义。
 
-Sender:
-: Which endpoint on a connection may initiate a stream of this type. Values are
-  "Client", "Server", or "Both".
+发送者(Sender):
+: 可能会建立此种类流的连接的端。值可以是"客户端(Client)", "服务端(Server)", "均可(Both)"。
 
-The entries in the following table are registered by this document.
+下表中的条目已注册在这篇文当中。
 
 | ---------------- | ------ | -------------------------- | ------ |
 | Stream Type      |  Code  | Specification              | Sender |
@@ -1636,245 +1633,188 @@ The entries in the following table are registered by this document.
 | Push Stream      |  0x01  | {{server-push}}            | Server |
 | ---------------- | ------ | -------------------------- | ------ |
 
-Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
-(that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
-assigned by IANA.
+额外的，每一个形如 `0x1f * N + 0x21` 的整数值N(意思是`0x21`, `0x40`, ..., 直到 `0x3FFFFFFFFFFFFFFE`)**禁止**被 IANA 赋值。
 
 --- back
 
-# Considerations for Transitioning from HTTP/2
+# 对于HTTP/2中事务的思考(Considerations for Transitioning from HTTP/2)
 
-HTTP/3 is strongly informed by HTTP/2, and bears many similarities.  This
-section describes the approach taken to design HTTP/3, points out important
-differences from HTTP/2, and describes how to map HTTP/2 extensions into HTTP/3.
+HTTP/3 承袭于 HTTP/2，并且有许多相似之处。
+本节描述了设计 HTTP/3 所采用的方法，指出了与 HTTP/2 的重要区别，并描述了如何将 HTTP/2 扩展映射到 HTTP/3。
 
-HTTP/3 begins from the premise that similarity to HTTP/2 is preferable, but not
-a hard requirement.  HTTP/3 departs from HTTP/2 primarily where necessary to
-accommodate the differences in behavior between QUIC and TCP (lack of ordering,
-support for streams).  We intend to avoid gratuitous changes which make it
-difficult or impossible to build extensions with the same semantics applicable
-to both protocols at once.
+HTTP/3 始于这样一个前提，即与 HTTP/2 的相似的设计更可取，但并不是一个困难的要求。
+HTTP/3 主要在必要时脱离HTTP/2，以适应 QUIC 和 TCP 之间的行为差异(缺乏排序，对流的支持)。
+我们打算避免无端的更改，因为它会使得构建同时适用于两种协议具有相同语义的扩展变得困难或不可能。
 
-These departures are noted in this section.
+本节中指出了这些差异。
 
-## Streams {#h2-streams}
+## 流(Streams) {#h2-streams}
 
-HTTP/3 permits use of a larger number of streams (2^62-1) than HTTP/2.  The
-considerations about exhaustion of stream identifier space apply, though the
-space is significantly larger such that it is likely that other limits in QUIC
-are reached first, such as the limit on the connection flow control window.
+HTTP/3 允许使用比 HTTP/2 更多的流(2^62-1)。
+有关流标识符空间耗尽的注意事项仍适用，尽管空间要大得多，防止可能首先达到 QUIC 中的其他限制，例如连接流控制窗口的限制。
 
-## HTTP Frame Types {#h2-frames}
+## HTTP帧类型(HTTP Frame Types) {#h2-frames}
 
-Many framing concepts from HTTP/2 can be elided on QUIC, because the transport
-deals with them. Because frames are already on a stream, they can omit the
-stream number. Because frames do not block multiplexing (QUIC's multiplexing
-occurs below this layer), the support for variable-maximum-length packets can be
-removed. Because stream termination is handled by QUIC, an END_STREAM flag is
-not required.  This permits the removal of the Flags field from the generic
-frame layout.
+在 QUIC 上可以省略 HTTP/2 中的许多帧概念，因为传输已经处理了这些概念。
+因为帧已经在流上，所以它们可以省略流编号。
+由于帧不会阻塞多路复用(QUIC的多载荷路复用发生在此层以下)，因此可以删除对可变最大长度数据包的支持。
+由于流终止由 QUIC 处理，因此不需要 END_STREAM 标志。
+这允许了我们从通用框架布局中删除“标志”字段。
 
-Frame payloads are largely drawn from {{!RFC7540}}. However, QUIC includes many
-features (e.g., flow control) which are also present in HTTP/2. In these cases,
-the HTTP mapping does not re-implement them. As a result, several HTTP/2 frame
-types are not required in HTTP/3. Where an HTTP/2-defined frame is no longer
-used, the frame ID has been reserved in order to maximize portability between
-HTTP/2 and HTTP/3 implementations. However, even equivalent frames between the
-two mappings are not identical.
+帧载荷主要来自{{!RFC7540}}。然而，QUIC 包含了 HTTP/2 中也存在的许多特性(例如，流控制)。
+在这些情况下，HTTP 映射不会重新实现它们。
+因此，HTTP/3 中不需要几种 HTTP/2 帧类型。
+如果不再使用 HTTP/2 定义的帧，则会保留帧ID，以便最大限度地提高 HTTP/2 和 HTTP/3 实现之间的可移植性。
+然而，即使两个映射之间的等效帧也不完全相同。
 
-Many of the differences arise from the fact that HTTP/2 provides an absolute
-ordering between frames across all streams, while QUIC provides this guarantee
-on each stream only.  As a result, if a frame type makes assumptions that frames
-from different streams will still be received in the order sent, HTTP/3 will
-break them.
+许多差异源于 HTTP/2 跨所有流提供帧之间的绝对排序，而 QUIC 仅在每个流上提供这种保证。
+因此，如果帧类型假设仍将按发送顺序接收来自不同流的帧，HTTP/3 将破坏这些假设。
 
-For example, implicit in the HTTP/2 prioritization scheme is the notion of
-in-order delivery of priority changes (i.e., dependency tree mutations): since
-operations on the dependency tree such as reparenting a subtree are not
-commutative, both sender and receiver must apply them in the same order to
-ensure that both sides have a consistent view of the stream dependency tree.
-HTTP/2 specifies priority assignments in PRIORITY frames and (optionally) in
-HEADERS frames. To achieve in-order delivery of priority changes in HTTP/3,
-PRIORITY frames are sent on the control stream and exclusive prioritization
-has been removed.
+例如，HTTP/2 优先级方案中隐含的是按顺序递送优先级改变(即，依赖关系树突变)的概念：
+由于对依赖关系树的操作(例如，重生子树)不是可交换的，
+因此发送方和接收方必须以相同的顺序应用它们，以确保双方都具有流依赖关系树的一致视图。
+HTTP/2 在优先级帧(PRIORITY)和(可选)报头帧(HEADERS)中指定优先级分配。
+为了在 HTTP/3 中按顺序传递优先级更改，在控制流上发送优先级帧(PRIORITY)，并删除独占优先级排序。
 
-Likewise, HPACK was designed with the assumption of in-order delivery. A
-sequence of encoded header blocks must arrive (and be decoded) at an endpoint in
-the same order in which they were encoded. This ensures that the dynamic state
-at the two endpoints remains in sync.  As a result, HTTP/3 uses a modified
-version of HPACK, described in [QPACK].
+同样，HPACK 的设计假设是按顺序交付。
+编码的报头块序列必须以与它们被编码的顺序相同的顺序到达(并被解码)到对端。
+这可确保两个对端的动态状态保持同步。
+因此，HTTP/3 使用 HPACK 的修改版本，如[QPACK]中所述。
 
-Frame type definitions in HTTP/3 often use the QUIC variable-length integer
-encoding.  In particular, Stream IDs use this encoding, which allow for a larger
-range of possible values than the encoding used in HTTP/2.  Some frames in
-HTTP/3 use an identifier rather than a Stream ID (e.g. Push IDs in PRIORITY
-frames). Redefinition of the encoding of extension frame types might be
-necessary if the encoding includes a Stream ID.
+HTTP/3 中的帧类型定义通常使用 QUIC 可变长度整数编码。
+特别地，流ID使用这种编码，这允许比 HTTP/2 中使用的编码有更大的可能值范围。
+HTTP/3 中的一些帧使用标识符而不是流ID(例如，优先级帧中的推送ID)。
+如果编码包括流ID，则可能需要重新定义扩展帧类型的编码。
 
-Because the Flags field is not present in generic HTTP/3 frames, those frames
-which depend on the presence of flags need to allocate space for flags as part
-of their frame payload.
+由于“标志”字段不存在于通用 HTTP/3 帧中，因此依赖于标志存在的那些帧需要为标志分配空间作为其帧载荷的一部分。
 
-Other than this issue, frame type HTTP/2 extensions are typically portable to
-QUIC simply by replacing Stream 0 in HTTP/2 with a control stream in HTTP/3.
-HTTP/3 extensions will not assume ordering, but would not be harmed by ordering,
-and would be portable to HTTP/2 in the same manner.
+除了此问题之外，帧类型 HTTP/2 扩展通常只需将 HTTP/2 中的流0替换为 HTTP/3 中的控制流即可移植到 QUIC。HTTP/3 扩展不会承诺有序，但不会因有序受损，并且将以相同的方式可移植到 HTTP/2。
 
-Below is a listing of how each HTTP/2 frame type is mapped:
+下面列出了每种HTTP/2帧类型的映射方式:
 
 DATA (0x0):
-: Padding is not defined in HTTP/3 frames.  See {{frame-data}}.
+: 占位符在 HTTP/3 帧中未定义。详见{{frame-data}}.
 
 HEADERS (0x1):
-: As described above, the PRIORITY region of HEADERS is not supported. A
-  separate PRIORITY frame MUST be used. Padding is not defined in HTTP/3 frames.
-  See {{frame-headers}}.
+: 如上描述，优先级种类的报头不支持。**必须**使用单独的 PRIORITY 帧。占位符在 HTTP/3 帧中未定义。详见{{frame-headers}}.
 
 PRIORITY (0x2):
-: As described above, the PRIORITY frame is sent on the control stream and can
-  reference a variety of identifiers.  See {{frame-priority}}.
+: 如上描述，PRIORITY 帧在控制流上发送，并且可以引用各种标识。详见{{frame-priority}}.
 
 RST_STREAM (0x3):
-: RST_STREAM frames do not exist, since QUIC provides stream lifecycle
-  management.  The same code point is used for the CANCEL_PUSH frame
-  ({{frame-cancel-push}}).
+: RST_STREAM 帧不再存在，因为 QUIC 提供了流生命周期管理。相同码点用于CANCEL_PUSH 帧({{frame-cancel-push}})。
 
 SETTINGS (0x4):
-: SETTINGS frames are sent only at the beginning of the connection.  See
-  {{frame-settings}} and {{h2-settings}}.
+: SETTINGS 帧仅当连接开始的时候发送，详见{{frame-settings}} 和 {{h2-settings}}.
 
 PUSH_PROMISE (0x5):
-: The PUSH_PROMISE does not reference a stream; instead the push stream
-  references the PUSH_PROMISE frame using a Push ID.  See
-  {{frame-push-promise}}.
+: PUSH_PROMISE 不再引用一个流，相反，推送流通过 Push ID 来引用 PUSH_PROMISE 帧。详见{{frame-push-promise}}.
 
 PING (0x6):
-: PING frames do not exist, since QUIC provides equivalent functionality.
+: PING 帧不再存在, 因为 QUIC 提供了等同的功能。
 
 GOAWAY (0x7):
-: GOAWAY is sent only from server to client and does not contain an error code.
-  See {{frame-goaway}}.
+: GOAWAY 仅从服务端到客户端发送并且不包含错误码。详见{{frame-goaway}}.
 
 WINDOW_UPDATE (0x8):
-: WINDOW_UPDATE frames do not exist, since QUIC provides flow control.
+: WINDOW_UPDATE 帧不再存在，因为QUIC 提供了流量控制。
 
 CONTINUATION (0x9):
-: CONTINUATION frames do not exist; instead, larger HEADERS/PUSH_PROMISE
-  frames than HTTP/2 are permitted.
+: CONTINUATION 帧不再存在; 相反, 可以拥有相较 HTTP/2 更大的 HEADERS/PUSH_PROMISE 帧.
 
-Frame types defined by extensions to HTTP/2 need to be separately registered for
-HTTP/3 if still applicable.  The IDs of frames defined in {{!RFC7540}} have been
-reserved for simplicity.  Note that the frame type space in HTTP/3 is
-substantially larger (62 bits versus 8 bits), so many HTTP/3 frame types have no
-equivalent HTTP/2 code points.   See {{iana-frames}}.
+HTTP/2 扩展定义的帧类型需要单独注册 HTTP/3(如果仍然适用)。
+为简单起见，已保留在 {{!RFC7540}}中定义的帧的ID。
+请注意，HTTP/3 中的帧类型空间实质上更大(62位对8位)，因此许多 HTTP/3 帧类型没有等效的 HTTP/2 代码点。详见 {{iana-frames}}。
 
-## HTTP/2 SETTINGS Parameters {#h2-settings}
+## HTTP/2设置参数(HTTP/2 SETTINGS Parameters) {#h2-settings}
 
-An important difference from HTTP/2 is that settings are sent once, at the
-beginning of the connection, and thereafter cannot change.  This eliminates
-many corner cases around synchronization of changes.
+与 HTTP/2 的一个重要区别是，设置在连接开始时只发送一次，此后不能更改。
+这消除了许多围绕更改同步的边界情况。
 
-Some transport-level options that HTTP/2 specifies via the SETTINGS frame are
-superseded by QUIC transport parameters in HTTP/3. The HTTP-level options that
-are retained in HTTP/3 have the same value as in HTTP/2.
+HTTP/2 通过设置帧指定的某些传输级别选项将被 HTTP/3 中的 QUIC 传输参数取代。
+HTTP/3 中保留的 HTTP 级别选项的值与 HTTP/2 中的相同。
 
-Below is a listing of how each HTTP/2 SETTINGS parameter is mapped:
+下面列出了每个 HTTP/2 设置参数的映射方式:
 
 SETTINGS_HEADER_TABLE_SIZE:
-: See [QPACK].
+: 详见 [QPACK].
 
 SETTINGS_ENABLE_PUSH:
-: This is removed in favor of the MAX_PUSH_ID which provides a more granular
-  control over server push.
+: 已移除，MAX_PUSH_ID 提供了对服务器推送的更细粒度的控制。
 
 SETTINGS_MAX_CONCURRENT_STREAMS:
-: QUIC controls the largest open Stream ID as part of its flow control logic.
-  Specifying SETTINGS_MAX_CONCURRENT_STREAMS in the SETTINGS frame is an error.
+: 作为其流控制逻辑的一部分，QUIC 控制最大的开放流ID。
+在 SETTINGS 帧中指定SETTINGS_MAX_CONCURRENT_STREAMS是错误的。
 
 SETTINGS_INITIAL_WINDOW_SIZE:
-: QUIC requires both stream and connection flow control window sizes to be
-  specified in the initial transport handshake.  Specifying
-  SETTINGS_INITIAL_WINDOW_SIZE in the SETTINGS frame is an error.
+: QUIC要求在初始传输握手中指定流和连接流控制窗口大小。
+在 SETTINGS 帧中指定SETTINGS_INITIAL_WINDOW_SIZE是错误的。
 
 SETTINGS_MAX_FRAME_SIZE:
-: This setting has no equivalent in HTTP/3.  Specifying it in the SETTINGS frame
-  is an error.
+: 此设置在 HTTP/3 中没有等价物。在 SETTINGS 帧中指定它是错误的。
 
 SETTINGS_MAX_HEADER_LIST_SIZE:
-: See {{settings-parameters}}.
+: 详见 {{settings-parameters}}.
 
-In HTTP/3, setting values are variable-length integers (6, 14, 30, or 62 bits
-long) rather than fixed-length 32-bit fields as in HTTP/2.  This will often
-produce a shorter encoding, but can produce a longer encoding for settings which
-use the full 32-bit space.  Settings ported from HTTP/2 might choose to redefine
-the format of their settings to avoid using the 62-bit encoding.
+在 HTTP/3 中，设置值是可变长度整数(6、14、30或62位长)，而不是 HTTP/2 中的固定长度32位字段。
+这通常会产生较短的编码，但可以为使用完整32位空间的设置生成较长的编码。
+从 HTTP/2 移植的设置可能会选择重新定义其设置的格式，以避免使用62位编码。
 
-Settings need to be defined separately for HTTP/2 and HTTP/3. The IDs of
-settings defined in {{!RFC7540}} have been reserved for simplicity.  Note that
-the settings identifier space in HTTP/3 is substantially larger (62 bits versus
-16 bits), so many HTTP/3 settings have no equivalent HTTP/2 code point. See
-{{iana-settings}}.
+需要分别为 HTTP/2 和 HTTP/3 定义设置。
+为简单起见，已保留在{{!RFC7540}}中定义的设置ID。
+请注意，HTTP/3 中的设置标识符空间非常大(62位对16位)，因此许多 HTTP/3 设置没有等效的 HTTP/2 代码点。详见{{iana-settings}}。
 
 
-## HTTP/2 Error Codes
+## HTTP/2错误码(HTTP/2 Error Codes)
 
-QUIC has the same concepts of "stream" and "connection" errors that HTTP/2
-provides. However, there is no direct portability of HTTP/2 error codes.
+QUIC 具有 HTTP/2 提供的“流”和“连接”错误的相同概念。
+但是，HTTP/2 错误代码没有直接可移植性。
 
-The HTTP/2 error codes defined in Section 7 of {{!RFC7540}} map to the HTTP/3
-error codes as follows:
+{{!RFC7540}}第7节中定义的 HTTP/2 错误代码映射到 HTTP/3 错误代码，如下所示：
 
 NO_ERROR (0x0):
-: HTTP_NO_ERROR in {{http-error-codes}}.
+: {{http-error-codes}}中的 HTTP_NO_ERROR.
 
 PROTOCOL_ERROR (0x1):
-: No single mapping.  See new HTTP_MALFORMED_FRAME error codes defined in
-  {{http-error-codes}}.
+: 没有单独映射。详见定义在 {{http-error-codes}}中新的 HTTP_MALFORMED_FRAME 错误码。
 
 INTERNAL_ERROR (0x2):
-: HTTP_INTERNAL_ERROR in {{http-error-codes}}.
+: {{http-error-codes}}中的HTTP_INTERNAL_ERROR。
 
 FLOW_CONTROL_ERROR (0x3):
-: Not applicable, since QUIC handles flow control.  Would provoke a
-  QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA from the QUIC layer.
+: 不适用，因为 QUIC 处理了流量控制。会从 QUIC 层触发QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA。
 
 SETTINGS_TIMEOUT (0x4):
-: Not applicable, since no acknowledgement of SETTINGS is defined.
+: 不适用，因为对SETTINGS 的确认未定义。
 
 STREAM_CLOSED (0x5):
-: Not applicable, since QUIC handles stream management.  Would provoke a
-  QUIC_STREAM_DATA_AFTER_TERMINATION from the QUIC layer.
+: 不适用，因为 QUIC 处理了流管理。会从 QUIC 层触发 QUIC_STREAM_DATA_AFTER_TERMINATION。
 
 FRAME_SIZE_ERROR (0x6):
-: HTTP_MALFORMED_FRAME error codes defined in {{http-error-codes}}.
+: HTTP_MALFORMED_FRAME 错误码定义于{{http-error-codes}}.
 
 REFUSED_STREAM (0x7):
-: HTTP_REQUEST_REJECTED (in {{http-error-codes}}) is used to indicate that a
-  request was not processed. Otherwise, not applicable because QUIC handles
-  stream management.  A STREAM_ID_ERROR at the QUIC layer is used for streams
-  that are improperly opened.
+: HTTP_REQUEST_REJECTED (在{{http-error-codes}}中)用于指示未处理请求。否则不适用，因为 QUIC 处理了流管理。QUIC 层的 STREAM_ID_ERROR用于不正确打开的流。
 
 CANCEL (0x8):
-: HTTP_REQUEST_CANCELLED in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_REQUEST_CANCELLED。
 
 COMPRESSION_ERROR (0x9):
-: Multiple error codes are defined in [QPACK].
+: 多个错误码定义于[QPACK].
 
 CONNECT_ERROR (0xa):
-: HTTP_CONNECT_ERROR in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_CONNECT_ERROR。
 
 ENHANCE_YOUR_CALM (0xb):
-: HTTP_EXCESSIVE_LOAD in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_EXCESSIVE_LOAD。
 
 INADEQUATE_SECURITY (0xc):
-: Not applicable, since QUIC is assumed to provide sufficient security on all
-  connections.
+: 不适用，因为 QUIC 假设已经为所有连接提供了足够的安全保证。
 
 HTTP_1_1_REQUIRED (0xd):
-: HTTP_VERSION_FALLBACK in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_VERSION_FALLBACK。
 
-Error codes need to be defined for HTTP/2 and HTTP/3 separately.  See
-{{iana-error-codes}}.
+需要分别为HTTP/2和HTTP/3定义错误代码。详见{{iana-error-codes}}.
 
 # Change Log
 
