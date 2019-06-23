@@ -2508,6 +2508,7 @@ Packet Number字段包含一个Packet Number，它用来在应用数据包保护
 ## 合并包（Coalescing Packets） {#packet-coalesce}
 
 初始 ({{packet-initial}})、0-RTT ({{packet-0rtt}})
+
 和握手({数据包-握手})包包含一个长度字段，
 用于确定包的结尾。包的长度包括包编号和
 有效负载字段，这两个字段都经过加密保护
@@ -2565,6 +2566,7 @@ Packet Number字段包含一个Packet Number，它用来在应用数据包保护
 
 在QUIC协议中包编号被分割为三个空间:
 
+
 - 初始空间：所有初始包 ({{packet-initial}}) 的
 包编号都在这个空间。
 - 握手空间：所有握手包 ({{packet-handshake}})的
@@ -2617,6 +2619,7 @@ Packet Number字段包含一个Packet Number，它用来在应用数据包保护
 
 如{{packet-frames}}中所示,
 移除包保护后QUIC包的负载通常由帧序列组成。
+
 版本协商、无状态重置和重试包不包含帧。
 
 
@@ -2644,6 +2647,7 @@ QUIC负载**必须**包含至少一个帧，
 并且**禁止**跨越QUIC包的边界。
 每个帧都以“帧类型”开头，表示其类型，
 后跟其他依赖于类型的字段:
+
 
 ~~~
  0                   1                   2                   3
@@ -3678,11 +3682,11 @@ CONNECTION_CLOSE帧。 对端**必须**将包含其他帧的握手数据包视�
 与初始数据包(参见{{discard-initial}})一样，握手加密级别的CRYPTO帧中的数据在丢弃握
 手保护密钥时将被丢弃，且不再重新传输。
 
-### Retry Packet {#packet-retry}
+### 重试包(Retry Packet) {#packet-retry}
 
-A Retry packet uses a long packet header with a type value of 0x3. It carries
-an address validation token created by the server. It is used by a server that
-wishes to perform a stateless retry (see {{validate-handshake}}).
+重试数据包使用类型值为0x3的长数据包报头。它携带由服务器创建的地址验证令牌。它由希望
+执行无状态重试的服务器使用(请参见{{validate-handshake}})。
+
 
 ~~~
  0                   1                   2                   3
@@ -3690,105 +3694,80 @@ wishes to perform a stateless retry (see {{validate-handshake}}).
 +-+-+-+-+-+-+-+-+
 |1|1| 3 | ODCIL |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                         版本(32)                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|                      目标连接ID (0/32..144)                  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|                      源连接ID (0/32..144)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|          Original Destination Connection ID (0/32..144)     ...
+|                   原始目标连接ID(0/32..144)                  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Retry Token (*)                      ...
+|                          重试令牌(*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 {: #retry-format title="Retry Packet"}
 
-A Retry packet (shown in {{retry-format}}) does not contain any protected
-fields.  In addition to the long header, it contains these additional fields:
+重试数据包(如{{retry-format}}所示)不包含任何受保护的字段。除了长标头之外，它还包
+含以下附加字段：
 
 ODCIL:
 
-: The four least-significant bits of the first byte of a Retry packet are not
-  protected as they are for other packets with the long header, because Retry
-  packets don't contain a protected payload.  These bits instead encode the
-  length of the Original Destination Connection ID field.  The length uses the
-  same encoding as the DCIL and SCIL fields.
+: 由于重试数据包不包含受保护的有效负载，因此与其他具有长头的数据包一样，重试数据包第
+  一个字节的四个最低有效位不受保护。这些位改为对原始目标连接ID字段的长度进行编码。长
+  度使用与DCIL和SCIL字段相同的编码。
 
-Original Destination Connection ID:
+原始目标连接ID:
 
-: The Original Destination Connection ID contains the value of the Destination
-  Connection ID from the Initial packet that this Retry is in response to. The
-  length of this field is given in ODCIL.
+: 原始目标连接ID包含此重试响应的初始数据包中的目标连接ID的值。此字段的长度在ODCIL中
+  给出。
 
-Retry Token:
+重试令牌:
 
-: An opaque token that the server can use to validate the client's address.
+: 服务器可用于验证客户端地址的不透明令牌。
 
 <!-- Break this stuff up a little, maybe into "Sending Retry" and "Processing
 Retry" sections. -->
 
-The server populates the Destination Connection ID with the connection ID that
-the client included in the Source Connection ID of the Initial packet.
+服务器用客户端在初始数据包的源连接ID中包含的连接ID填充目标连接ID。
 
-The server includes a connection ID of its choice in the Source Connection ID
-field.  This value MUST not be equal to the Destination Connection ID field of
-the packet sent by the client.  The client MUST use this connection ID in the
-Destination Connection ID of subsequent packets that it sends.
+服务器在源连接ID字段中包含其选择的连接ID。此值**不能**等于客户端发送的数据包的目标连接ID
+字段。客户端**必须**在其发送的后续数据包的目标连接ID中使用此连接ID。
 
-A server MAY send Retry packets in response to Initial and 0-RTT packets.  A
-server can either discard or buffer 0-RTT packets that it receives.  A server
-can send multiple Retry packets as it receives Initial or 0-RTT packets.  A
-server MUST NOT send more than one Retry packet in response to a single UDP
-datagram.
+服务器**可以**发送重试数据包以响应初始数据包和0-RTT数据包。服务器可以丢弃或缓冲它接收的
+0-RTT数据包。当服务器接收到初始或0-RTT数据包时，可以发送多个重试数据包。服务器**不能**
+发送多个重试数据包以响应单个UDP数据报。
 
-A client MUST accept and process at most one Retry packet for each connection
-attempt.  After the client has received and processed an Initial or Retry packet
-from the server, it MUST discard any subsequent Retry packets that it receives.
+对于每次连接尝试，客户端**必须**最多只能接受并处理一个重试数据包。客户端接收并处理来自服
+务器的初始或重试数据包后，**必须**丢弃其接收的任何后续重试数据包。
 
-Clients MUST discard Retry packets that contain an Original Destination
-Connection ID field that does not match the Destination Connection ID from its
-Initial packet.  This prevents an off-path attacker from injecting a Retry
-packet.
+客户端**必须**丢弃包含原始目标连接ID字段与初始数据包的目标连接ID不匹配的重试数据包。这可
+防止非路径攻击者注入重试数据包。
 
-The client responds to a Retry packet with an Initial packet that includes the
-provided Retry Token to continue connection establishment.
+客户端用包含提供的重试令牌的初始数据包响应重试数据包，以继续建立连接。
 
-A client sets the Destination Connection ID field of this Initial packet to the
-value from the Source Connection ID in the Retry packet. Changing Destination
-Connection ID also results in a change to the keys used to protect the Initial
-packet. It also sets the Token field to the token provided in the Retry. The
-client MUST NOT change the Source Connection ID because the server could include
-the connection ID as part of its token validation logic (see
-{{token-integrity}}).
+客户端将此初始数据包的目标连接ID字段设置为重试数据包中源连接ID的值。更改目标连接ID也会导
+致用于保护初始数据包的密钥发生更改。它还将令牌字段设置为重试中提供的令牌。客户端**禁止**
+更改源连接ID，因为服务器可以将连接ID作为其令牌验证逻辑的一部分(请参见{{token-integrity}})。
 
-The next Initial packet from the client uses the connection ID and token values
-from the Retry packet (see {{negotiating-connection-ids}}).  Aside from this,
-the Initial packet sent by the client is subject to the same restrictions as the
-first Initial packet.  A client can either reuse the cryptographic handshake
-message or construct a new one at its discretion.
+来自客户端的下一个初始数据包使用来自重试数据包的连接ID和令牌值
+（请参见{{negotiating-connection-ids}}）。除此之外，客户端发送的初始数据包受与第一个初
+始数据包相同的限制。客户机既可以重用加密握手消息，也可以自行构建新的握手消息。
 
-A client MAY attempt 0-RTT after receiving a Retry packet by sending 0-RTT
-packets to the connection ID provided by the server.  A client that sends
-additional 0-RTT packets without constructing a new cryptographic handshake
-message MUST NOT reset the packet number to 0 after a Retry packet, see
-{{packet-0rtt}}.
+客户端在收到重试数据包后，**可以**通过向服务器提供的连接ID发送0-RTT数据包来尝试0-RTT。
+如果客户端发送额外的0-RTT数据包而不构造新的加密握手消息，则在重试数据包后，**禁止**将
+数据包编号重置为0，请参见{{packet-0rtt}}。
 
-A server acknowledges the use of a Retry packet for a connection using the
-original_connection_id transport parameter (see
-{{transport-parameter-definitions}}).  If the server sends a Retry packet, it
-MUST include the value of the Original Destination Connection ID field of the
-Retry packet (that is, the Destination Connection ID field from the client's
-first Initial packet) in the transport parameter.
+服务器确认使用original_connection_id传输参数对连接使用重试数据包(请参见
+{{transport-parameter-definitions}})。如果服务器发送重试数据包，则**必须**在传输参
+数中包含重试数据包的原始目标连接ID字段的值(即客户端第一个初始数据包中的目标连接ID字段)。
 
-If the client received and processed a Retry packet, it MUST validate that the
-original_connection_id transport parameter is present and correct; otherwise, it
-MUST validate that the transport parameter is absent.  A client MUST treat a
-failed validation as a connection error of type TRANSPORT_PARAMETER_ERROR.
+如果客户端接收并处理了一个重试包，它**必须**验证原original_connection_id传输参数是否存在且
+正确；否则，它**必须**验证传输参数是否缺失。客户端**必须**将失败的验证视为
+TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
-A Retry packet does not include a packet number and cannot be explicitly
-acknowledged by a client.
+重试数据包不包含数据包编号，并且无法由客户端明确确认。
 
 ## 短包头的包（Short Header Packets） {#short-header}
 
@@ -4846,122 +4825,113 @@ RETIRE_CONNECTION_ID 帧包含以下字段:
 提供0长度的连接ID的终端若收到RETIRE_CONNECTION_ID帧，**必须**以PROTOCOL_VIOLATION类型的连接异常来处理。
 
 
-## PATH_CHALLENGE Frame {#frame-path-challenge}
+## PATH_CHALLENGE帧(PATH_CHALLENGE Frame) {#frame-path-challenge}
 
-Endpoints can use PATH_CHALLENGE frames (type=0x1a) to check reachability to the
-peer and for path validation during connection migration.
+端点可以使用PATH_CHALLENGE帧(类型=0x1a)来检查
+到对端的可达性以及连接迁移期间的路径验证。
 
-The PATH_CHALLENGE frames are as follows:
+PATH_CHALLENGE帧如下所示:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
-+                           Data (64)                           +
++                           数据 (64)                           +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-PATH_CHALLENGE frames contain the following fields:
+PATH_CHALLENGE帧包含如下字段:
 
-Data:
+数字:
 
-: This 8-byte field contains arbitrary data.
+: 这个8字节的字段包含任意数据。
 
-A PATH_CHALLENGE frame containing 8 bytes that are hard to guess is sufficient
-to ensure that it is easier to receive the packet than it is to guess the value
-correctly.
+包含难以猜测的8个字节的PATH_CHALLENGE帧足以
+确保接收数据包比正确猜测该值更容易。
 
-The recipient of this frame MUST generate a PATH_RESPONSE frame
-({{frame-path-response}}) containing the same Data.
-
-
-## PATH_RESPONSE Frame {#frame-path-response}
-
-The PATH_RESPONSE frame (type=0x1b) is sent in response to a PATH_CHALLENGE
-frame.  Its format is identical to the PATH_CHALLENGE frame
-({{frame-path-challenge}}).
-
-If the content of a PATH_RESPONSE frame does not match the content of a
-PATH_CHALLENGE frame previously sent by the endpoint, the endpoint MAY generate
-a connection error of type PROTOCOL_VIOLATION.
+此帧的收件人**必须**生成包含相同数据的PATH_RESSION帧
+({{frame-path-response}})。
 
 
-## CONNECTION_CLOSE Frames {#frame-connection-close}
+## PATH_RESPONSE帧 (PATH_RESPONSE Frame) {#frame-path-response}
 
-An endpoint sends a CONNECTION_CLOSE frame (type=0x1c or 0x1d) to notify its
-peer that the connection is being closed.  The CONNECTION_CLOSE with a frame
-type of 0x1c is used to signal errors at only the QUIC layer, or the absence of
-errors (with the NO_ERROR code).  The CONNECTION_CLOSE frame with a type of 0x1d
-is used to signal an error with the application that uses QUIC.
+PATH_RESPONSE帧（type=0x1B）作为PATH_CHALLENGE帧
+的响应发送。其格式与PATH_CHALLENGE帧({{frame-path-challenge}})
+相同。
 
-If there are open streams that haven't been explicitly closed, they are
-implicitly closed when the connection is closed.
+如果PATH_RESPONSE帧的内容与先前由端点发送的PATH_CHALLENGE帧
+的内容不匹配，则端点**可能**会生成PROTOCOL_VIOLATION类型
+的连接错误。
 
-The CONNECTION_CLOSE frames are as follows:
+## CONNECTION_CLOSE 帧 (CONNECTION_CLOSE Frames) {#frame-connection-close}
+
+端点发送CONNECTION_CLOSE帧(type=0x1c或0x1d)通知其对端
+连接正在关闭。帧类型为0x1c的CONNECTION_CLOSE帧仅用于在
+QUIC层发出错误信号，或表示没有错误(带有NO_ERROR码)。
+类型为0x1d的CONNECTION_CLOSE帧用于向使用QUIC的应用
+发出错误信号。
+
+如果有未显式关闭的开放流，则当连接关闭时，它们将隐式关闭。
+
+CONNECTION_CLOSE帧如下所示:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|           Error Code (16)     |      [ Frame Type (i) ]     ...
+|           错误码 (16)     |          [ 帧类型 (i) ]     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Reason Phrase Length (i)                 ...
+|                    原因短语长度 (i)                 ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Reason Phrase (*)                    ...
+|                        原因短语 (*)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-CONNECTION_CLOSE frames contain the following fields:
+CONNECTION_CLOSE帧包含以下字段:
 
-Error Code:
+错误码:
 
-: A 16-bit error code which indicates the reason for closing this connection.  A
-  CONNECTION_CLOSE frame of type 0x1c uses codes from the space defined in
-  {{error-codes}}.  A CONNECTION_CLOSE frame of type 0x1d uses codes from the
-  application protocol error code space, see {{app-error-codes}}
+: 指示关闭此连接的原因的16位错误代码。类型为0x1c的
+  CONNECTION_CLOSE帧使用{{error-codes}}中定义的
+  空间中的代码。类型为0x1d的CONNECTION_CLOSE帧使
+  用来自应用协议错误码空间的代码，请参见{{app-error-codes}}
 
-Frame Type:
+帧类型:
 
-: A variable-length integer encoding the type of frame that triggered the error.
-  A value of 0 (equivalent to the mention of the PADDING frame) is used when the
-  frame type is unknown.  The application-specific variant of CONNECTION_CLOSE
-  (type 0x1d) does not include this field.
+: 一个可变长度整数，用于编码触发错误的帧的类型。
+  当帧类型未知时，使用值0（相当于提到PADDING帧）。
+  CONNECTION_CLOSE的应用特定变体(类型0x1d)不
+  包括此字段。
 
-Reason Phrase Length:
+原因短语长度:
 
-: A variable-length integer specifying the length of the reason phrase in bytes.
-  Because a CONNECTION_CLOSE frame cannot be split between packets, any limits
-  on packet size will also limit the space available for a reason phrase.
+: 以字节为单位指定原因短语的长度的可变长度整数。
+  由于连接关闭帧不能在数据包之间拆分，因此对数据
+  包大小的任何限制也会限制原因短语的可用空间。
 
-Reason Phrase:
+原因短语:
 
-: A human-readable explanation for why the connection was closed.  This can be
-  zero length if the sender chooses to not give details beyond the Error Code.
-  This SHOULD be a UTF-8 encoded string {{!RFC3629}}.
+: 对连接关闭原因的人类可读的解释。
+  如果发送方选择不提供错误代码以外的详细信息，
+  则长度可以为零。这应该是UTF-8编码的字符串 {{!RFC3629}}。
 
 
-## Extension Frames
+## 扩展帧(Extension Frames)
 
-QUIC frames do not use a self-describing encoding.  An endpoint therefore needs
-to understand the syntax of all frames before it can successfully process a
-packet.  This allows for efficient encoding of frames, but it means that an
-endpoint cannot send a frame of a type that is unknown to its peer.
+QUIC帧不使用自描述编码。因此，端点需要了解所有帧的语法，
+才能成功处理数据包。这允许对帧进行有效的编码，但这意味着
+端点不能发送对端未知类型的帧。
 
-An extension to QUIC that wishes to use a new type of frame MUST first ensure
-that a peer is able to understand the frame.  An endpoint can use a transport
-parameter to signal its willingness to receive one or more extension frame types
-with the one transport parameter.
+如果QUIC的扩展希望使用新类型的帧，则**必须**首先确保对端能够
+理解该帧。端点可以使用传输参数来表示它愿意接收带有一个传输
+参数的一个或多个扩展帧类型。
 
-Extension frames MUST be congestion controlled and MUST cause an ACK frame to
-be sent.  The exception is extension frames that replace or supplement the ACK
-frame.  Extension frames are not included in flow control unless specified
-in the extension.
+扩展帧必须是拥塞控制的，并且必须发送ACK帧。替换或补充ACK帧的
+扩展帧除外。除非在扩展中指定，否则扩展帧不包括在流量控制中。
 
-An IANA registry is used to manage the assignment of frame types, see
-{{iana-frames}}.
-
+IANA注册表用于管理帧类型的分配，请参见{{iana-frames}}。
 
 # 传输错误码（Transport Error Codes） {#error-codes}
 

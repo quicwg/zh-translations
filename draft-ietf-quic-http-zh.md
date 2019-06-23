@@ -485,118 +485,102 @@ QPACK. See [QPACK] for more details.
 
 HEADERS frames can only be sent on request / push streams.
 
-### PRIORITY {#frame-priority}
+### 优先级帧(PRIORITY) {#frame-priority}
 
-The PRIORITY (type=0x02) frame specifies the client-advised priority of a
-request, server push or placeholder.
 
-A PRIORITY frame identifies an element to prioritize, and an element upon which
-it depends.  A Prioritized ID or Dependency ID identifies a client-initiated
-request using the corresponding stream ID, a server push using a Push ID (see
-{{frame-push-promise}}), or a placeholder using a Placeholder ID (see
-{{placeholders}}).
+PRIORITY帧(类型=0x02)指定请求、服务器推送或占位符的客户端建议的优先级。
 
-When a client initiates a request, a PRIORITY frame MAY be sent as the first
-frame of the stream, creating a dependency on an existing element.  In order to
-ensure that prioritization is processed in a consistent order, any subsequent
-PRIORITY frames for that request MUST be sent on the control stream.  A
-PRIORITY frame received after other frames on a request stream MUST be treated
-as a stream error of type HTTP_UNEXPECTED_FRAME.
+PRIORITY帧标识要优先排序的元素以及它所依赖的元素。优先级ID或依赖ID使用
+相应的流ID标识客户端发起的请求，使用推送ID标识服务器推送(请参见
+{{frame-push-promise}})，或使用占位符ID标识占位符(请参见{{placeholders}})。
 
-If, by the time a new request stream is opened, its priority information
-has already been received via the control stream, the PRIORITY frame
-sent on the request stream MUST be ignored.
+当客户端发起请求时，**可以**将PRIORITY帧作为流的第一帧发送，从而创建对现有
+元素的依赖。为了确保以一致的顺序处理优先级，该请求的任何后续PRIORITY帧都
+**必须**在控制流上发送。在请求流上的其他帧之后接收到的PRIORITY帧**必须**被视为
+HTTP_UNEXPECTED_FRAME类型的流错误。
+
+如果在打开新的请求流时，已通过控制流接收到其优先级信息，则必须忽略在请求
+流上发送的PRIORITY帧。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|PT |DT | Empty |         [Prioritized Element ID (i)]        ...
+|PT |DT | 空 |               [优先级元素ID(i)]             ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                [Element Dependency ID (i)]                  ...
+|                         [元素依赖ID(i)]                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Weight (8)  |
+|  权重 (8)  |
 +-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
 {: #fig-priority title="PRIORITY frame payload"}
 
-The PRIORITY frame payload has the following fields:
+PRIORITY帧有效负载具有以下字段：
 
-  PT (Prioritized Element Type):
-  : A two-bit field indicating the type of element being prioritized (see
-    {{prioritized-element-types}}). When sent on a request stream, this MUST be
-    set to `11`.  When sent on the control stream, this MUST NOT be set to `11`.
+  PT (优先元素类型):
+  : 一个两位字段，指示被优先处理的元素的类型(参见
+    {{prioritized-element-types}}). 在请求流中发送时，
+    **必须**将其设置为`11`。在控制流上发送时，**禁止**将其设置为`11`。
 
-  DT (Element Dependency Type):
-  : A two-bit field indicating the type of element being depended on (see
-    {{element-dependency-types}}).
+  DT (元素依赖类型):
+  : 指示所依赖的元素类型的两位字段(参见
+    {{element-dependency-types}})。
 
-  Empty:
-  : A four-bit field which MUST be zero when sent and MUST be ignored
-    on receipt.
+  空:
+  : 发送时**必须**为零且在收到时**必须**忽略的四位字段。
 
-  Prioritized Element ID:
-  : A variable-length integer that identifies the element being prioritized.
-    Depending on the value of Prioritized Type, this contains the Stream ID of a
-    request stream, the Push ID of a promised resource, a Placeholder ID of a
-    placeholder, or is absent.
+  优先元素ID:
+  : 标识要优先处理的元素的可变长度整数。根据优先类型的值，它包含请求流的流ID、
+  承诺资源的推送ID、占位符的占位符ID或缺失。
 
-  Element Dependency ID:
-  : A variable-length integer that identifies the element on which a dependency
-    is being expressed. Depending on the value of Dependency Type, this contains
-    the Stream ID of a request stream, the Push ID of a promised resource, the
-    Placeholder ID of a placeholder, or is absent.  For details of
-    dependencies, see {{priority}} and {{!RFC7540}}, Section 5.3.
+  元素依赖ID:
+  : 一个可变长度整数，用于标识表示依赖项的元素。根据依赖类型的值，它包含请求流的
+  流ID、承诺资源的推送ID、占位符的占位符ID或缺失。有关依赖项的详细信息，请参见
+  {{priority}}和{{!RFC7540}}, 第5.3节.
 
-  Weight:
-  : An unsigned 8-bit integer representing a priority weight for the prioritized
-    element (see {{!RFC7540}}, Section 5.3). Add one to the value to obtain a
-    weight between 1 and 256.
+  权重:
+  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。
+  向值中添加一个以获得介于1和256之间的权重。
 
-The values for the Prioritized Element Type ({{prioritized-element-types}}) and
-Element Dependency Type ({{element-dependency-types}}) imply the interpretation
-of the associated Element ID fields.
+优先元素类型({{prioritized-element-types}})和元素依赖类型({{element-dependency-types}})
+的值隐含着关联元素ID字段的解释。
 
-| PT Bits | Type Description | Prioritized Element ID Contents |
+| PT 位 | 类型描述 | 优先元素ID内容 |
 | ------- | ---------------- | ------------------------------- |
-| 00      | Request stream   | Stream ID                       |
-| 01      | Push stream      | Push ID                         |
-| 10      | Placeholder      | Placeholder ID                  |
-| 11      | Current stream   | Absent                          |
+| 00      | 请求流  | 流ID                      |
+| 01      | 推送流      | 推送ID                       |
+| 10      | 占位符      | 占位符ID                 |
+| 11      | 当前流   | 缺失                         |
 {: #prioritized-element-types title="Prioritized Element Types"}
 
-| DT Bits | Type Description | Element Dependency ID Contents |
+| DT 位   | 类型描述 | 元素依赖ID内容 |
 | ------- | ---------------- | ------------------------------ |
-| 00      | Request stream   | Stream ID                      |
-| 01      | Push stream      | Push ID                        |
-| 10      | Placeholder      | Placeholder ID                 |
-| 11      | Root of the tree | Absent                         |
+| 00      | 请求流   | 流ID                    |
+| 01      | 推送流     | 推送ID                   |
+| 10      | 占位符      | 占位符ID                |
+| 11      | 树的根节点 | 缺失                         |
 {: #element-dependency-types title="Element Dependency Types"}
 
-Note that unlike in {{!RFC7540}}, the root of the tree cannot be referenced
-using a Stream ID of 0, as in QUIC stream 0 carries a valid HTTP request.  The
-root of the tree cannot be reprioritized.  A PRIORITY frame sent on a request
-stream with the Prioritized Element Type set to any value other than `11` or
-which expresses a dependency on a request with a greater Stream ID than the
-current stream MUST be treated as a stream error of type HTTP_MALFORMED_FRAME.
-Likewise, a PRIORITY frame sent on a control stream with the Prioritized Element
-Type set to `11` MUST be treated as a connection error of type
-HTTP_MALFORMED_FRAME.
+请注意，与{{!RFC7540}}不同，不能使用为0的流ID引用树的根节点，因为
+QUIC流0包含有效的HTTP请求。树的根节点不能被重新排序。在优先级元素类型
+设置为“11”以外的任何值的请求流上发送的PRIORITY帧，或者在具有大于当前流的
+流ID的请求流上表达依赖关系的PRIORITY帧**必须**被视为HTTP_MALFORMED_FRAME
+类型的流错误。必须将当前流视为类型为HTTP_MERFORM_FRAME的流错误。
+同样，在优先级元素类型设置为`11`的控制流上发送的优先级帧**必须**被视
+为HTTP_MALFORMED_FRAME类型的连接错误。
 
-When a PRIORITY frame claims to reference a request, the associated ID MUST
-identify a client-initiated bidirectional stream.  A server MUST treat receipt
-of a PRIORITY frame identifying a stream of any other type as a connection error
-of type HTTP_MALFORMED_FRAME.
+当PRIORITY帧声称引用请求时，关联的ID**必须**标识客户端启动的双向流。
+服务器**必须**将接收到标识任何其他类型的流的PRIORITY帧视为类型为
+HTTP_MALFORMED_FRAME的连接错误。
 
-A PRIORITY frame that references a non-existent Push ID, a Placeholder ID
-greater than the server's limit, or a Stream ID the client is not yet permitted
-to open MUST be treated as an HTTP_LIMIT_EXCEEDED error.
+引用不存在的推送ID、超过服务器限制的占位符ID或客户端尚不允许打开
+的流ID的PRIORITY帧**必须**视为HTTP_LIMIT_EXCEEDED错误。
 
-A PRIORITY frame received on any stream other than a request or control stream
-MUST be treated as a connection error of type HTTP_WRONG_STREAM.
+在请求或控制流以外的任何流上接收到的PRIORITY帧**必须**被视为类型为
+HTTP_WRONG_STREAM的连接错误。
 
-PRIORITY frames received by a client MUST be treated as a stream error of type
-HTTP_UNEXPECTED_FRAME.
+客户端接收到的PRIORITY帧**必须**被视为HTTP_UNEXPECTED_FRAME类型
+的流错误。
 
 ### CANCEL_PUSH帧 {#frame-cancel-push}
 
@@ -1239,137 +1223,94 @@ gateway MAY maintain connections in anticipation of need rather than incur the
 latency cost of connection establishment to servers. Servers SHOULD NOT actively
 keep connections open.
 
-## Connection Shutdown
+## 连接关闭（Connection Shutdown）
 
-Even when a connection is not idle, either endpoint can decide to stop using the
-connection and let the connection close gracefully.  Since clients drive request
-generation, clients perform a connection shutdown by not sending additional
-requests on the connection; responses and pushed responses associated to
-previous requests will continue to completion.  Servers perform the same
-function by communicating with clients.
+即使连接不是空闲的，任何一个终端都可以决定停止使用连接，并让连接正常关闭。由于客户端
+主导请求生成，因此客户端通过不在连接上发送其他请求来执行连接关闭；与先前请求相关联的
+响应和推送响应将继续完成。服务器通过与客户端通信来执行相同的功能。
 
-Servers initiate the shutdown of a connection by sending a GOAWAY frame
-({{frame-goaway}}).  The GOAWAY frame indicates that client-initiated requests
-on lower stream IDs were or might be processed in this connection, while
-requests on the indicated stream ID and greater were rejected. This enables
-client and server to agree on which requests were accepted prior to the
-connection shutdown.  This identifier MAY be lower than the stream limit
-identified by a QUIC MAX_STREAM_ID frame, and MAY be zero if no requests were
-processed.  Servers SHOULD NOT increase the QUIC MAX_STREAM_ID limit after
-sending a GOAWAY frame.
+服务器通过发送GOAWAY帧({{frame-goaway}})启动连接关闭。GOAWAY帧指示在较低流ID上的
+客户端发起的请求在此连接中被处理或可能被处理，而在指示的流ID和更大流ID上的请求被拒绝。
+这使客户端和服务器能够在连接关闭之前就哪些请求被接受达成一致。此标识符**可能**低于
+QUIC MAX_STREAM_ID 帧标识的流限制，如果没有请求已被处理，则该标识符**可能**为零。
+发送GOAWAY帧后，服务器**不应**增加QUIC MAX_STREAM_ID限制。
 
-Once GOAWAY is sent, the server MUST reject requests sent on streams with an
-identifier greater than or equal to the indicated last Stream ID.  Clients MUST
-NOT send new requests on the connection after receiving GOAWAY, although
-requests might already be in transit. A new connection can be established for
-new requests.
+GOAWAY发送后，服务器**必须**拒绝使用标识符大于或等于最后一个流ID的流发送的请求。
+客户端在收到GOAWAY后**禁止**在连接上发送新的请求，尽管请求可能已经在传输中。可以
+为新请求建立新连接。
 
-If the client has sent requests on streams with a Stream ID greater than or
-equal to that indicated in the GOAWAY frame, those requests are considered
-rejected ({{request-cancellation}}).  Clients SHOULD cancel any requests on
-streams above this ID.  Servers MAY also reject requests on streams below the
-indicated ID if these requests were not processed.
+如果客户端在流ID大于或等于GOAWAY帧中指示的流ID的流上发送请求，则这些请求被视为
+被拒绝({{request-cancellation}})。客户端**应该**取消对此ID以上的流的任何请求。
+如果未处理这些请求，服务器还**可能**拒绝ID低于指示ID的流上的请求。
 
-Requests on Stream IDs less than the Stream ID in the GOAWAY frame might have
-been processed; their status cannot be known until they are completed
-successfully, reset individually, or the connection terminates.
+流ID小于GOAWAY帧中流ID的请求可能已被处理；只有在成功完成、单独重置或连接终止之前，
+才能知道它们的状态。
 
-Servers SHOULD send a GOAWAY frame when the closing of a connection is known
-in advance, even if the advance notice is small, so that the remote peer can
-know whether a request has been partially processed or not.  For example, if an
-HTTP client sends a POST at the same time that a server closes a QUIC
-connection, the client cannot know if the server started to process that POST
-request if the server does not send a GOAWAY frame to indicate what streams it
-might have acted on.
+当预先知道连接关闭时，服务器应该发送GOAWAY帧，即使提前通知很小，这样远程对端
+就可以知道请求是否已被部分处理。例如，如果HTTP客户端在服务器关闭QUIC连接的同时
+发送POST请求，则如果服务器未发送GOAWAY帧以指示它可能对哪些流执行了操作，那么
+客户端无法知道服务器是否开始处理该POST请求。
 
-A client that is unable to retry requests loses all requests that are in flight
-when the server closes the connection.  A server MAY send multiple GOAWAY frames
-indicating different stream IDs, but MUST NOT increase the value they send in
-the last Stream ID, since clients might already have retried unprocessed
-requests on another connection.  A server that is attempting to gracefully shut
-down a connection SHOULD send an initial GOAWAY frame with the last Stream ID
-set to the current value of QUIC's MAX_STREAM_ID and SHOULD NOT increase the
-MAX_STREAM_ID thereafter.  This signals to the client that a shutdown is
-imminent and that initiating further requests is prohibited.  After allowing
-time for any in-flight requests (at least one round-trip time), the server MAY
-send another GOAWAY frame with an updated last Stream ID.  This ensures that a
-connection can be cleanly shut down without losing requests.
+当服务器关闭连接时，无法重试请求的客户端将丢失正在运行的所有请求。服务器**可能**会
+发送多个GOAWAY帧，表示不同的流ID，但**禁止**增加它们在最后一个流ID中发送的值，
+因为客户端可能已经在另一个连接上重试了未处理的请求。尝试正常关闭连接的服务器**应该**
+发送初始GOAWAY帧，且最后一个流ID设置为QUIC的MAX_STREAM_ID的当前值，此后**不应**
+增加MAX_STREAM_ID。这向客户端发出信号，表明即将关闭，并且禁止进一步的请求。
+在为任何传输中请求留出时间(至少一个往返时间)后，服务器**可能**会发送另一个更新后
+且是最后的流ID的GOAWAY帧。这可以确保连接可以在不丢失请求的情况下干净地关闭。
 
-Once all accepted requests have been processed, the server can permit the
-connection to become idle, or MAY initiate an immediate closure of the
-connection.  An endpoint that completes a graceful shutdown SHOULD use the
-HTTP_NO_ERROR code when closing the connection.
+一旦所有已接受的请求都得到处理，服务器就可以允许连接变得空闲，或者**可以**启动连接
+的立即关闭。完成正常关闭的端点**应该**在关闭连接时使用HTTP_NO_ERROR代码。
 
-## Immediate Application Closure
+## 立即关闭应用程序
 
-An HTTP/3 implementation can immediately close the QUIC connection at any time.
-This results in sending a QUIC CONNECTION_CLOSE frame to the peer; the error
-code in this frame indicates to the peer why the connection is being closed.
-See {{errors}} for error codes which can be used when closing a connection.
+一个HTTP/3的实现可以随时立即关闭QUIC连接，这会发送QUIC CONNECTION_CLOSE帧到对端；
+此帧中的错误代码告诉对端为什么要关闭连接。有关关闭连接时可以使用的错误代码，
+请参见{{errors}}。
 
-Before closing the connection, a GOAWAY MAY be sent to allow the client to retry
-some requests.  Including the GOAWAY frame in the same packet as the QUIC
-CONNECTION_CLOSE frame improves the chances of the frame being received by
-clients.
+在关闭连接之前，可能会发送GOAWAY帧以允许客户端重试某些请求。将GOAWAY帧包含在QUIC
+CONNECTION_CLOSE帧所在的数据包中可以提高客户端接收该帧的机会。
 
-## Transport Closure
+## 传输关闭
 
-For various reasons, the QUIC transport could indicate to the application layer
-that the connection has terminated.  This might be due to an explicit closure
-by the peer, a transport-level error, or a change in network topology which
-interrupts connectivity.
+由于各种原因，QUIC传输可能会向应用层表明连接已终止。这可能是由于对端显式关闭、传输层
+错误或网络拓扑更改中断连接所致。
 
-If a connection terminates without a GOAWAY frame, clients MUST assume that any
-request which was sent, whether in whole or in part, might have been processed.
+如果连接在没有GOAWAY帧的情况下终止，客户端**必须**假设发送的任何请求(无论是全部还是部分)
+都可能已被处理。
 
-# Extensions to HTTP/3 {#extensions}
+# HTTP/3的扩展(Extensions to HTTP/3) {#extensions}
 
-HTTP/3 permits extension of the protocol.  Within the limitations described in
-this section, protocol extensions can be used to provide additional services or
-alter any aspect of the protocol.  Extensions are effective only within the
-scope of a single HTTP/3 connection.
+HTTP/3允许对协议进行扩展。在本节描述的限制范围内，协议扩展可用于提供附加服务或更改
+协议的任何方面。扩展仅在单个HTTP/3连接的范围内有效。
 
-This applies to the protocol elements defined in this document.  This does not
-affect the existing options for extending HTTP, such as defining new methods,
-status codes, or header fields.
+这适用于本文档中定义的协议元素。这不影响现有的HTTP扩展选项，例如定义新方法、状态码
+或标头字段。
 
-Extensions are permitted to use new frame types ({{frames}}), new settings
-({{settings-parameters}}), new error codes ({{errors}}), or new unidirectional
-stream types ({{unidirectional-streams}}).  Registries are established for
-managing these extension points: frame types ({{iana-frames}}), settings
-({{iana-settings}}), error codes ({{iana-error-codes}}), and stream types
-({{iana-stream-types}}).
+扩展允许使用新的帧类型({{frames}})、新的设置({{settings-parameters}})、新的
+错误码({{errors}})或新的单向流类型({{unidirectional-streams}})。建立了用于
+管理这些扩展点的注册表：帧类型({{iana-frames}})、设置({{iana-settings}})、
+错误码({{iana-error-codes}})和流类型({{iana-stream-types}})。
 
-Implementations MUST ignore unknown or unsupported values in all extensible
-protocol elements.  Implementations MUST discard frames and unidirectional
-streams that have unknown or unsupported types.  This means that any of these
-extension points can be safely used by extensions without prior arrangement or
-negotiation.
+实现**必须**忽略所有可扩展协议元素中的未知或不受支持的值。实现**必须**丢弃具有
+未知或不支持类型的帧和单向流。这意味着在没有事先安排或协商的情况下，扩展可以安全
+地使用这些扩展点中的任何一个。
 
-Extensions that could change the semantics of existing protocol components MUST
-be negotiated before being used.  For example, an extension that changes the
-layout of the HEADERS frame cannot be used until the peer has given a positive
-signal that this is acceptable. In this case, it could also be necessary to
-coordinate when the revised layout comes into effect.
+在使用之前，必须协商可以更改现有协议组件语义的扩展。例如，在对端发出可接受的正面
+信号之前，不能使用更改HEADERS帧布局的扩展。在这种情况下，也可能有必要在修改后的布局
+生效时进行协调。
 
-This document doesn't mandate a specific method for negotiating the use of an
-extension but notes that a setting ({{settings-parameters}}) could be used for
-that purpose.  If both peers set a value that indicates willingness to use the
-extension, then the extension can be used.  If a setting is used for extension
-negotiation, the default value MUST be defined in such a fashion that the
-extension is disabled if the setting is omitted.
+本文档并不要求使用特定的方法来协商扩展的使用，但提到可以使用设置({{settings-parameters}})
+来实现此目的。如果两个对端都设置了表示愿意使用扩展的值，则可以使用扩展。如果将设置用于扩展协商
+则**必须**以这样的方式定义默认值：如果省略该设置，则禁用扩展。
 
 
-# Error Handling {#errors}
+# 错误处理（Error Handling） {#errors}
 
-QUIC allows the application to abruptly terminate (reset) individual streams or
-the entire connection when an error is encountered.  These are referred to as
-"stream errors" or "connection errors" and are described in more detail in
-{{QUIC-TRANSPORT}}.  An endpoint MAY choose to treat a stream error as a
-connection error.
+QUIC允许应用程序在遇到错误时突然终止(重置)单个流或整个连接。这些错误称为“流错误”或
+“连接错误”，在{{QUIC-TRANSPORT}}中有详细说明。端点**可以**选择将流错误视为连接错误。
 
-This section describes HTTP/3-specific error codes which can be used to express
-the cause of a connection or stream error.
+本节介绍特定于HTTP/3的错误代码，这些代码可用于表示连接或流错误的原因。
 
 ## HTTP/3 错误码 {#http-error-codes}
 
