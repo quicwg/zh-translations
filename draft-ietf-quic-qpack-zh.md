@@ -344,175 +344,141 @@ Acknowledgements (see {{header-acknowledgement}}). However, delaying too long
 may lead to compression inefficiencies if the encoder waits for an entry to be
 acknowledged before using it.
 
-### Blocked Decoding
+### 阻塞解码(Blocked Decoding)
 
-To track blocked streams, the Required Insert Count value for each stream can be
-used.  Whenever the decoder processes a table update, it can begin decoding any
-blocked streams that now have their dependencies satisfied.
-
-
-# Header Tables
-
-Unlike in HPACK, entries in the QPACK static and dynamic tables are addressed
-separately.  The following sections describe how entries in each table are
-addressed.
-
-## Static Table {#table-static}
-
-The static table consists of a predefined static list of header fields, each of
-which has a fixed index over time.  Its entries are defined in {{static-table}}.
-
-Note the QPACK static table is indexed from 0, whereas the HPACK static table
-is indexed from 1.
-
-When the decoder encounters an invalid static table index in a header block
-instruction it MUST treat this as a stream error of type
-`HTTP_QPACK_DECOMPRESSION_FAILED`.  If this index is received on the encoder
-stream, this MUST be treated as a connection error of type
-`HTTP_QPACK_ENCODER_STREAM_ERROR`.
-
-## Dynamic Table {#table-dynamic}
-
-The dynamic table consists of a list of header fields maintained in first-in,
-first-out order. Each HTTP/3 endpoint holds a dynamic table that is initially
-empty.  Entries are added by encoder instructions received on the encoder stream
-(see {{encoder-instructions}}).
-
-The dynamic table can contain duplicate entries (i.e., entries with the same
-name and same value).  Therefore, duplicate entries MUST NOT be treated as an
-error by the decoder.
+要跟踪阻塞的流，可以使用每个流所需的插入计数值。每当解码器处理表更新时，它就
+可以开始解码任何现在满足其相关性的阻塞流。
 
 
-### Dynamic Table Size
+# 头部表(Header Tables)
 
-The size of the dynamic table is the sum of the size of its entries.
+与HPACK不同，QPACK静态表和动态表中的条目分别寻址。以下各节介绍如何对每个表中
+的条目进行寻址。
 
-The size of an entry is the sum of its name's length in bytes (as defined in
-{{string-literals}}), its value's length in bytes, and 32.
+## 静态表（Static Table） {#table-static}
 
-The size of an entry is calculated using the length of its name and value
-without Huffman encoding applied.
+静态表由预定义的报头字段的静态列表组成，每个字段随时间的推移都具有固定的索引。
+其条目在{{static-table}}中定义。
 
+注意，QPACK静态表是从0索引的，而HPACK静态表是从1索引的。
 
-### Dynamic Table Capacity and Eviction {#eviction}
+当解码器在报头块指令中遇到无效的静态表索引时，它**必须**将其视为类型为
+`HTTP_QPACK_DECOMPRESSION_FAILED`的流错误。如果在编码器流上收到此索引，
+则必须将其视为`HTTP_QPACK_ENCODER_STREAM_ERROR`类型的连接错误。
 
-The encoder sets the capacity of the dynamic table, which serves as the upper
-limit on its size.  The initial capcity of the dynamic table is zero.
+## 动态表（Dynamic Table） {#table-dynamic}
 
-Before a new entry is added to the dynamic table, entries are evicted from the
-end of the dynamic table until the size of the dynamic table is less than or
-equal to (table capacity - size of new entry) or until the table is empty. The
-encoder MUST NOT evict a dynamic table entry unless it has first been
-acknowledged by the decoder.
+动态表由按先进先出顺序维护的标题字段列表组成。每个HTTP/3端点都保存一个最初
+为空的动态表。条目是由在编码器流上接收的编码器指令添加的
+(请参阅{{encoder-instructions}})。
 
-If the size of the new entry is less than or equal to the dynamic table
-capacity, then that entry is added to the table.  It is an error if the encoder
-attempts to add an entry that is larger than the dynamic table capacity; the
-decoder MUST treat this as a connection error of type
-`HTTP_QPACK_ENCODER_STREAM_ERROR`.
-
-A new entry can reference an entry in the dynamic table that will be evicted
-when adding this new entry into the dynamic table.  Implementations are
-cautioned to avoid deleting the referenced name or value if the referenced entry
-is evicted from the dynamic table prior to inserting the new entry.
-
-Whenever the dynamic table capacity is reduced by the encoder, entries are
-evicted from the end of the dynamic table until the size of the dynamic table is
-less than or equal to the new table capacity.  This mechanism can be used to
-completely clear entries from the dynamic table by setting a capacity of 0,
-which can subsequently be restored.
+动态表可以包含重复的条目(即具有相同名称和相同值的条目)。因此，解码器
+**禁止**将重复条目视为错误。
 
 
-### Maximum Dynamic Table Capacity
+### 动态表大小（Dynamic Table Size）
 
-To bound the memory requirements of the decoder, the decoder limits the maximum
-value the encoder is permitted to set for the dynamic table capacity.  In
-HTTP/3, this limit is determined by the value of
-SETTINGS_QPACK_MAX_TABLE_CAPACITY sent by the decoder (see {{configuration}}).
-The encoder MUST not set a dynamic table capacity that exceeds this maximum, but
-it can choose to use a lower dynamic table capacity (see
-{{set-dynamic-capacity}}).
+动态表的大小是其条目大小的总和。
 
-For clients using 0-RTT data in HTTP/3, the server's maximum table capacity is
-the remembered value of the setting, or zero if the value was not previously
-sent.  When the client's 0-RTT value of the SETTING is 0, the server MAY set it
-to a non-zero value in its SETTINGS frame. If the remembered value is non-zero,
-the server MUST send the same non-zero value in its SETTINGS frame.  If it
-specifies any other value, or omits SETTINGS_QPACK_MAX_TABLE_CAPACITY from
-SETTINGS, the encoder must treat this as a connection error of type
-`HTTP_QPACK_DECODER_STREAM_ERROR`.
+条目的大小是其名称的长度(以字节为单位)(在{{string-literals}}中定义)、
+其值的长度(以字节为单位)和32的总和。
 
-For HTTP/3 servers and HTTP/3 clients when 0-RTT is not attempted or is
-rejected, the maximum table capacity is 0 until the encoder processes a SETTINGS
-frame with a non-zero value of SETTINGS_QPACK_MAX_TABLE_CAPACITY.
-
-When the maximum table capacity is 0, the encoder MUST NOT insert entries into
-the dynamic table, and MUST NOT send any encoder instructions on the encoder
-stream.
+条目的大小由不经Huffman编码的条目名称和值的长度算出。
 
 
-### Absolute Indexing {#indexing}
+### 动态表容量和驱逐（Dynamic Table Capacity and Eviction） {#eviction}
 
-Each entry possesses both an absolute index which is fixed for the lifetime of
-that entry and a relative index which changes based on the context of the
-reference. The first entry inserted has an absolute index of "0"; indices
-increase by one with each insertion.
+编码器设置动态表的容量，作为其大小的上限。动态表的初始容量为零。
 
+在将新条目添加到动态表之前，将从动态表的末尾逐出条目，直到动态表的大小于
+或等于(表容量-新条目的大小)或直到表为空。除非解码器首先确认了动态表条目，
+否则编码器**禁止**将其逐出。
 
-### Relative Indexing
+如果新条目的大小小于或等于动态表容量，则该条目将添加到表中。如果编码器
+试图添加大于动态表容量的条目，则视为错误；解码器必须将此视为
+`HTTP_QPACK_ENCODER_STREAM_ERROR`类型的连接错误。
 
-The relative index begins at zero and increases in the opposite direction from
-the absolute index.  Determining which entry has a relative index of "0" depends
-on the context of the reference.
+新条目可以引用动态表中的条目，在将此新条目添加到动态表中时，该条目将被逐出。
+如果在插入新条目之前将引用的条目从动态表中逐出，则应注意实现以避免删除引用
+的名称或值。
 
-In encoder instructions, a relative index of "0" always refers to the most
-recently inserted value in the dynamic table.  Note that this means the entry
-referenced by a given relative index will change while interpreting instructions
-on the encoder stream.
+每当动态表容量被编码器减小时，条目从动态表的末尾被逐出，直到动态表的大小于
+或等于新的表容量。通过将容量设置为0，可以使用此机制完全清除动态表中的条目，
+随后可以恢复该容量。
+
+### 最大动态表容量（Maximum Dynamic Table Capacity）
+
+为了限制解码器的内存要求，解码器限制了允许编码器为动态表容量设置的最大值。在
+HTTP/3中，此限制由解码器发送的SETTINGS_QPACK_MAX_TABLE_CAPACITY的值确定
+(请参阅{{configuration}})。编码器不能设置超过此最大值的动态表容量，但它可以
+选择使用较低的动态表容量(请参见{{set-dynamic-capacity}})。
+
+对于使用HTTP/3中的0-RTT数据的客户端，服务器的最大表容量是设置的记忆值，如果该值
+以前未发送，则为零。当客户端的设置的0-RTT值为0时，服务器可以在其SETTINGS帧中将
+其设置为非零值。如果记住的值为非零，则服务器必须在其SETTINGS帧中发送相同的非零值。
+如果它指定了任何其他值，或者在SETTINGS帧中忽略了SETTINGS_QPACK_MAX_TABLE_CAPACITY，
+编码器必须将其视为`HTTP_QPACK_DECODER_STREAM_ERROR`类型的连接错误。
+
+当0-RTT未到达或被拒绝时，对于HTTP/3服务器和HTTP/3客户端，最大表容量为0，直到
+编码器处理具有非零值SETTINGS_QPACK_MAX_TABLE_CAPACITY的SETTINGS帧。
+
+当最大表容量为0时，编码器不能向动态表中插入条目，也**禁止**在编码器流上发送任何
+编码器指令。
+
+### 绝对索引（Absolute Indexing） {#indexing}
+
+每个条目都具有为该条目的生存期固定的绝对索引和根据引用的上下文而改变的相对索引。
+插入的第一个条目具有绝对索引“0”；索引随着每次插入而增加1。
+
+### 相对索引（Relative Indexing）
+
+相对索引从零开始，在与绝对索引相反的方向上增加。确定哪个条目具有相对索引“0”取决于
+引用的上下文。
+
+在编码器指令中，相对索引“0”总是指动态表中最近插入的值。请注意，这意味着在解释编码
+器流上的指令时，给定相对索引引用的条目将发生更改。
 
 ~~~~~ drawing
       +-----+---------------+-------+
-      | n-1 |      ...      |   d   |  Absolute Index
+      | n-1 |      ...      |   d   |  绝对索引
       + - - +---------------+ - - - +
-      |  0  |      ...      | n-d-1 |  Relative Index
+      |  0  |      ...      | n-d-1 |  相对索引
       +-----+---------------+-------+
       ^                             |
       |                             V
-Insertion Point               Dropping Point
+    插入点                        丢弃点
 
-n = count of entries inserted
-d = count of entries dropped
+n = 插入的条目计数
+d = 已删除的条目计数
 ~~~~~
-{: title="Example Dynamic Table Indexing - Control Stream"}
+{: title="动态表索引-控制流示例"}
 
-Unlike encoder instructions, relative indices in header block instructions are
-relative to the Base at the beginning of the header block (see
-{{header-prefix}}). This ensures that references are stable even if the dynamic
-table is updated while decoding a header block.
+与编码器指令不同，标头块指令中的相对索引相对于标头块开始处的基索引
+(请参见{{header-prefix}})。这确保了即使在解码报头块时更新了动态表，引用也是
+稳定的。
 
-The Base is encoded as a value relative to the Required Insert Count. The Base
-identifies which dynamic table entries can be referenced using relative
-indexing, starting with 0 at the last entry added.
+基被编码为相对于所需插入计数的值。基标识了可以使用相对索引引用从添加的最后一个条目
+的0开始的哪些动态表条目。
 
-Post-Base references are used for entries inserted after base, starting at 0 for
-the first entry added after the Base, see {{post-base}}.
+后基引用用于在基之后插入的条目，从0开始，对于在基之后添加的第一个条目，
+请参见{{post-base}}。
 
 ~~~~~ drawing
- Required
-  Insert
-  Count        Base
+ 规定的
+  插入
+  计数        基
     |           |
     V           V
     +-----+-----+-----+-----+-------+
-    | n-1 | n-2 | n-3 | ... |   d   |  Absolute Index
+    | n-1 | n-2 | n-3 | ... |   d   |  绝对索引
     +-----+-----+  -  +-----+   -   +
-                |  0  | ... | n-d-3 |  Relative Index
+                |  0  | ... | n-d-3 |  相对索引
                 +-----+-----+-------+
 
-n = count of entries inserted
-d = count of entries dropped
+n = 插入的条目计数
+d = 已删除的条目计数
 ~~~~~
-{: title="Example Dynamic Table Indexing - Relative Index in Header Block"}
+{: title="表头块中的动态表索引-相对索引示例"}
 
 
 ### Post-Base Indexing {#post-base}
@@ -869,7 +835,7 @@ The encoder transforms the Required Insert Count as follows before encoding:
 
 Here `MaxEntries` is the maximum number of entries that the dynamic table can
 have.  The smallest entry has empty name and value strings and has the size of
-32.  Hence `MaxEntries` is calculated as
+1.   Hence `MaxEntries` is calculated as
 
 ~~~
    MaxEntries = floor( MaxTableCapacity / 32 )
