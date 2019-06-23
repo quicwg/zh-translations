@@ -539,7 +539,7 @@ PRIORITY帧有效负载具有以下字段：
   {{priority}}和{{!RFC7540}}, 第5.3节.
 
   权重:
-  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。 
+  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。
   向值中添加一个以获得介于1和256之间的权重。
 
 优先元素类型({{prioritized-element-types}})和元素依赖类型({{element-dependency-types}})
@@ -580,31 +580,33 @@ HTTP_MALFORMED_FRAME的连接错误。
 HTTP_WRONG_STREAM的连接错误。
 
 客户端接收到的PRIORITY帧**必须**被视为HTTP_UNEXPECTED_FRAME类型
-的流错误。 
+的流错误。
 
-### CANCEL_PUSH {#frame-cancel-push}
+### CANCEL_PUSH帧 {#frame-cancel-push}
 
-The CANCEL_PUSH frame (type=0x3) is used to request cancellation of a server
-push prior to the push stream being received.  The CANCEL_PUSH frame identifies
-a server push by Push ID (see {{frame-push-promise}}), encoded as a
-variable-length integer.
+CANCEL_PUSH帧(type=0x3)用于在接收到
+推送流之前请求取消服务器的推送。
+CANCEL_PUSH帧通过推送ID标识服务器的
+推送(请参阅{{frame-push-promise}})，
+推送ID被编码为可变长度整数。
 
-When a server receives this frame, it aborts sending the response for the
-identified server push.  If the server has not yet started to send the server
-push, it can use the receipt of a CANCEL_PUSH frame to avoid opening a push
-stream.  If the push stream has been opened by the server, the server SHOULD
-send a QUIC RESET_STREAM frame on that stream and cease transmission of the
-response.
+当服务器接收到此帧时，它将中止发送
+帧标识的服务器推送流的响应。
+如果服务器尚未开始发送服务器推送，
+则可以通过接收CANCEL_PUSH帧来避免
+打开推送流。如果服务器已打开推送流，
+则服务器应在该流上发送QUIC RESET_STREAM帧
+并停止响应的传输。
 
-A server can send the CANCEL_PUSH frame to indicate that it will not be
-fulfilling a promise prior to creation of a push stream.  Once the push stream
-has been created, sending CANCEL_PUSH has no effect on the state of the push
-stream.  A QUIC RESET_STREAM frame SHOULD be used instead to abort transmission
-of the server push response.
+服务器可以在创建推送流之前发送CANCEL_PUSH帧
+以表明它不会创建推送流。
+一旦推送流建立后，再发送CANCEL_PUSH将不会
+对推送流的状态产生影响。
+**应该**改用QUIC RESET_STREAM帧中止服务器推送响应的传输。
 
-A CANCEL_PUSH frame is sent on the control stream.  Receiving a CANCEL_PUSH
-frame on a stream other than the control stream MUST be treated as a stream
-error of type HTTP_WRONG_STREAM.
+CANCEL_PUSH帧是在控制流上发送的。
+在控制流以外的流上接收到CANCEL_PUSH帧时，
+必须将其视为类型为HTTP_OWRY_STREAM的流错误。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -615,48 +617,54 @@ error of type HTTP_WRONG_STREAM.
 ~~~~~~~~~~
 {: #fig-cancel-push title="CANCEL_PUSH frame payload"}
 
-The CANCEL_PUSH frame carries a Push ID encoded as a variable-length integer.
-The Push ID identifies the server push that is being cancelled (see
-{{frame-push-promise}}).
+CANCEL_PUSH帧携带一个可变长度整数编码的推送ID，
+推送ID用于标识被取消的
+服务器推送(请参阅{{frame-push-promise}})。
 
-If the client receives a CANCEL_PUSH frame, that frame might identify a Push ID
-that has not yet been mentioned by a PUSH_PROMISE frame.
+如果客户端接收到CANCEL_PUSH帧，
+则该帧可能标识PUSH_PROMISE帧
+尚未提及的推送ID。
 
 
-### SETTINGS {#frame-settings}
+### SETTINGS帧 {#frame-settings}
 
-The SETTINGS frame (type=0x4) conveys configuration parameters that affect how
-endpoints communicate, such as preferences and constraints on peer behavior.
-Individually, a SETTINGS parameter can also be referred to as a "setting"; the
-identifier and value of each setting parameter can be referred to as a "setting
-identifier" and a "setting value".
+SETTINGS帧(type=0x4)用于传递影响端点
+通信方式的配置参数，
+例如对端行为的默认项和约束。
+单独地，SETTINGS参数也可以称为“设置”；
+每个设置参数的标识符和值可以称为
+“设置标识符”和“设置值”。
 
-SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS
-frame MUST be sent as the first frame of each control stream (see
-{{control-streams}}) by each peer, and MUST NOT be sent subsequently or on any
-other stream. If an endpoint receives a SETTINGS frame on a different stream,
-the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM. If
-an endpoint receives a second SETTINGS frame, the endpoint MUST respond with a
-connection error of type HTTP_UNEXPECTED_FRAME.
+SETTINGS帧始终应用于连接，而不是单个流。
+每个对端**必须**将SETTINGS帧作为每个
+控制流(请参见{{control-streams}})的第一个帧
+发送，并且**禁止**在非流的开始时或
+在任何其他流上发送SETTINGS帧。
+如果终端接收到同个链接不同流上的SETTINGS帧，
+则该终端**必须**响应类型为HTTP_OWRY_STREAM的连接错误。
+如果终端接收到第二个设置帧，
+则该终端**必须**响应类型为HTTP_UNIRECTION_FRAME的连接错误。
 
-SETTINGS parameters are not negotiated; they describe characteristics of the
-sending peer, which can be used by the receiving peer. However, a negotiation
-can be implied by the use of SETTINGS - each peer uses SETTINGS to advertise a
-set of supported values. The definition of the setting would describe how each
-peer combines the two sets to conclude which choice will be used.  SETTINGS does
-not provide a mechanism to identify when the choice takes effect.
+SETTINGS参数不是通过协商确立的；
+它们描述了接收端可以支持的发送端的特性。
+但是，协商可以通过使用SETTINGS来暗中进行-
+每个对端使用SETTINGS来通告一组受支持的值。
+设置的定义将描述每个对端如何组合这两个集，
+以确定将使用哪个选项。SETTINGS
+没有提供标识选择何时生效的机制。
 
-Different values for the same parameter can be advertised by each peer. For
-example, a client might be willing to consume a very large response header,
-while servers are more cautious about request size.
+每个对端可以通告同一参数的不同值。
+例如，客户端可能愿意使用非常大的响应头，
+而服务器则对请求大小更加谨慎。
 
-Parameters MUST NOT occur more than once in the SETTINGS frame.  A receiver MAY
-treat the presence of the same parameter more than once as a connection error of
-type HTTP_MALFORMED_FRAME.
+参数**禁止**在SETTINGS帧中出现多次。
+接收方**可以**将同一参数的多次出现
+视为类型为HTTP_MALMALFORM_FRAME的
+连接错误。
 
-The payload of a SETTINGS frame consists of zero or more parameters.  Each
-parameter consists of a setting identifier and a value, both encoded as QUIC
-variable-length integers.
+SETTINGS帧的有效负载由零个或多个参数组成。
+每个参数由一个设置标识符和一个值组成，
+两者都编码为QUIC可变长度整数。
 
 ~~~~~~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -669,8 +677,7 @@ variable-length integers.
 ~~~~~~~~~~~~~~~
 {: #fig-ext-settings title="SETTINGS parameter format"}
 
-An implementation MUST ignore the contents for any SETTINGS identifier it does
-not understand.
+实现**必须**忽略它不理解的任何SETTINGS标识符的内容。
 
 
 #### Defined SETTINGS Parameters {#settings-parameters}
@@ -1305,129 +1312,134 @@ QUIC允许应用程序在遇到错误时突然终止(重置)单个流或整个�
 
 本节介绍特定于HTTP/3的错误代码，这些代码可用于表示连接或流错误的原因。
 
-## HTTP/3 Error Codes {#http-error-codes}
+## HTTP/3 错误码 {#http-error-codes}
 
-The following error codes are defined for use in QUIC RESET_STREAM frames,
-STOP_SENDING frames, and CONNECTION_CLOSE frames when using HTTP/3.
+以下错误码被定义用于HTTP/3协议下的
+QUIC RESET_STREAM帧、STOP_SESSING帧和
+CONNECTION_CLOSE帧。
 
 HTTP_NO_ERROR (0x00):
-: No error.  This is used when the connection or stream needs to be closed, but
-  there is no error to signal.
+: 没有错误。当需要关闭连接或者流，
+ 但没有错误要发送的时候使用。
 
 HTTP_WRONG_SETTING_DIRECTION (0x01):
-: A client-only setting was sent by a server, or a server-only setting by a
-  client.
+: 一个客户端限定的设置项由服务端发送，
+ 或者服务端限定的设置项由客户端发送时使用。
 
 HTTP_PUSH_REFUSED (0x02):
-: The server has attempted to push content which the client will not accept
-  on this connection.
+: 服务端尝试在该连接中推送客户端不能接受的内容。
 
 HTTP_INTERNAL_ERROR (0x03):
-: An internal error has occurred in the HTTP stack.
+: 在HTTP栈内部发生错误。
 
 HTTP_PUSH_ALREADY_IN_CACHE (0x04):
-: The server has attempted to push content which the client has cached.
+: 服务端尝试推送的内容已经在客户端缓存。
 
 HTTP_REQUEST_CANCELLED (0x05):
-: The request or its response is cancelled.
+: 请求或者请求的响应被取消
 
 HTTP_INCOMPLETE_REQUEST (0x06):
-: The client's stream terminated without containing a fully-formed request.
+: 客户端流在没有完成完整格式的请求的情况下终止。
 
 HTTP_CONNECT_ERROR (0x07):
-: The connection established in response to a CONNECT request was reset or
-  abnormally closed.
+: 响应CONNECT请求而建立的连接被重置或异常关闭。
 
 HTTP_EXCESSIVE_LOAD (0x08):
-: The endpoint detected that its peer is exhibiting a behavior that might be
-  generating excessive load.
+: 终端检测到其对等端正在表现出可能会产生
+ 过多负载的行为。
 
 HTTP_VERSION_FALLBACK (0x09):
-: The requested operation cannot be served over HTTP/3.  The
-  peer should retry over HTTP/1.1.
+: 请求的操作无法通过HTTP/3提供。对端应通过HTTP/1.1重试。
 
 HTTP_WRONG_STREAM (0x0A):
-: A frame was received on a stream where it is not permitted.
+: 从流中接收到一个帧，而该流不允许发送这个帧。
 
 HTTP_LIMIT_EXCEEDED (0x0B):
-: A Stream ID, Push ID, or Placeholder ID greater than the current maximum for
-  that identifier was referenced.
+: 引用的流ID、推送ID或占位符ID大于该标识符的当前最大值。
 
 HTTP_DUPLICATE_PUSH (0x0C):
-: A Push ID was referenced in two different stream headers.
+: 在两个不同的流头部中引用了相同的推送ID。
 
 HTTP_UNKNOWN_STREAM_TYPE (0x0D):
-: A unidirectional stream header contained an unknown stream type.
+: 单向流标头包含未知的流类型。
 
 HTTP_WRONG_STREAM_COUNT (0x0E):
-: A unidirectional stream type was used more times than is permitted by that
-  type.
+: 单向流类型的使用次数超过了该类型所允许的次数。
 
 HTTP_CLOSED_CRITICAL_STREAM (0x0F):
-: A stream required by the connection was closed or reset.
+: 连接所需的流已关闭或重置。
 
 HTTP_WRONG_STREAM_DIRECTION (0x0010):
 : A unidirectional stream type was used by a peer which is not permitted to do
   so.
+: 对端使用了被禁止的单向流类型。
 
 HTTP_EARLY_RESPONSE (0x0011):
-: The remainder of the client's request is not needed to produce a response.
-  For use in STOP_SENDING only.
+: 客户端请求的其余部分不需要生成响应。仅用于STOP_SENDING。
 
 HTTP_MISSING_SETTINGS (0x0012):
-: No SETTINGS frame was received at the beginning of the control stream.
+: 在控制流的开始处未接收到任何设置帧。
 
 HTTP_UNEXPECTED_FRAME (0x0013):
-: A frame was received which was not permitted in the current state.
+: 接收到当前状态下不允许接收的帧。
 
 HTTP_REQUEST_REJECTED (0x0014):
-: A server rejected a request without performing any application processing.
+: 服务端在未执行任何应用程序处理的情况下拒绝了请求。
 
 HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):
-: Peer violated protocol requirements in a way which doesn't match a more
-  specific error code, or endpoint declines to use the more specific error code.
+: 对端违反了协议要求
+并且未明确定义错误码，
+或者终端拒绝使用更明确的错误码。
 
 HTTP_MALFORMED_FRAME (0x01XX):
-: An error in a specific frame type.  If the frame type is `0xfe` or less, the
-  type is included as the last byte of the error code.  For example, an error in
-  a MAX_PUSH_ID frame would be indicated with the code (0x10D).  The last byte
-  `0xff` is used to indicate any frame type greater than `0xfe`.
+: 特定帧类型中的错误。如果帧类型
+为‘0xfe`或更小，则该类型
+将包含在错误代码的最后一个字节。
+例如，MAX_Push_ID帧中的
+错误将用代码(0x10D)指示。
+最后一个字节`0xff`用于表示
+任何大于`0xfe`的帧类型。
 
 
-# Security Considerations
+# 安全注意事项(Security Considerations)
 
-The security considerations of HTTP/3 should be comparable to those of HTTP/2
-with TLS.  Note that where HTTP/2 employs PADDING frames and Padding fields in
-other frames to make a connection more resistant to traffic analysis, HTTP/3 can
-rely on QUIC PADDING frames or employ the reserved frame and stream types
-discussed in {{frame-grease}} and {{stream-grease}}.
+HTTP/3的安全注意事项应与具有TLS的
+HTTP/2的安全注意事项类似。
+请注意，如果HTTP/2在其他帧
+中使用PADDING帧和填充字段来使连接
+更不受流量分析的影响，则HTTP/3可以
+依赖QUIC PADDING帧或使用在{{frame-grease}}和
+{{stream-grease}}中讨论的保留帧和流类型。
 
-When HTTP Alternative Services is used for discovery for HTTP/3 endpoints, the
-security considerations of {{!ALTSVC}} also apply.
+当HTTP替代服务被用于发现HTTP/3终端时，
+{{!ALTSVC}}的安全注意事项也适用。
 
-Several protocol elements contain nested length elements, typically in the form
-of frames with an explicit length containing variable-length integers.  This
-could pose a security risk to an incautious implementer.  An implementation MUST
-ensure that the length of a frame exactly matches the length of the fields it
-contains.
+几个协议要素包含嵌套的长度要素，
+通常以帧中带有包含可变长度整数
+显式长度形式出现。这可能会给
+一个鲁莽的实现者带来安全风险。
+实现**必须**确保帧的长度与
+其包含的字段的长度完全匹配。
 
-Certain HTTP implementations use the client address for logging or
-access-control purposes.  Since a QUIC client's address might change during a
-connection (and future versions might support simultaneous use of multiple
-addresses), such implementations will need to either actively retrieve the
-client's current address or addresses when they are relevant or explicitly
-accept that the original address might change.
+某些HTTP实现使用客户端地址
+进行日志记录或访问控制。
+由于QUIC客户端的地址可能
+在连接过程中发生更改
+(未来版本可能支持同时使用多个地址)，
+因此此类实现需要主动检索客户端的
+一个或多个与当前地址相关的地址，
+或者明确接受原始地址可能会更改。
 
 
-# IANA Considerations
+# IANA注意事项(IANA Considerations)
 
-## Registration of HTTP/3 Identification String
+## 注册HTTP/3标识字符串(Registration of HTTP/3 Identification String)
 
-This document creates a new registration for the identification of
-HTTP/3 in the "Application Layer Protocol Negotiation (ALPN)
-Protocol IDs" registry established in {{?RFC7301}}.
+本文档在{{?RFC7301}}中
+建立的“应用层协议协商(ALPN)协议ID”注册表
+中新注册了HTTP/3标识
 
-The "h3" string identifies HTTP/3:
+“h3”字符串标识HTTP/3:
 
   Protocol:
   : HTTP/3
