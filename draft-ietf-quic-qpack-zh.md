@@ -993,26 +993,18 @@ field, represented as an integer with a 4-bit prefix (see Section 5.1 of
 {: title="Indexed Header Field with Post-Base Index"}
 
 
-### Literal Header Field With Name Reference
+### 具有名称引用的文本标头字段(Literal Header Field With Name Reference)
 
-A literal header field with a name reference represents a header where the
-header field name matches the header field name of an entry stored in the static
-table or the dynamic table.
+具有名称引用的文本标头字段表示标头字段名称与存储在静态表或动态表中的条目的标头字段名称
+相匹配的标头。
 
-If the entry is in the static table, or in the dynamic table with an absolute
-index less than the Base, this representation starts with the '01' two-bit
-pattern.  If the entry is in the dynamic table with an absolute index greater
-than or equal to the Base, the representation starts with the '0000' four-bit
-pattern.
+如果条目位于静态表或动态表中，且绝对索引小于Base，则此表示以‘01’两位模式开始。如果该条
+目位于动态表中，且绝对索引大于或等于Base，则表示将以“0000”四位模式开始。
 
-The following bit, 'N', indicates whether an intermediary is permitted to add
-this header to the dynamic header table on subsequent hops. When the 'N' bit is
-set, the encoded header MUST always be encoded with a literal representation. In
-particular, when a peer sends a header field that it received represented as a
-literal header field with the 'N' bit set, it MUST use a literal representation
-to forward this header field.  This bit is intended for protecting header field
-values that are not to be put at risk by compressing them (see Section 7.1 of
-[RFC7541] for more details).
+下一位‘N’表示是否允许中间件在后续跃点上将此标头添加到动态标头表。 当'N'位置位时，编码头
+必须始终用文字表示法编码。 特别是，当对等体发送它接收的头字段表示为带有'N'位设置的文字
+头字段时，它必须使用文字表示来转发该头字段。 该位用于通过压缩来保护不存在风险的头字段值
+（更多详细信息，请参见[RFC7541]的第7.1节）。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -1024,19 +1016,16 @@ values that are not to be put at risk by compressing them (see Section 7.1 of
    |  Value String (Length bytes)  |
    +-------------------------------+
 ~~~~~~~~~~
-{: title="Literal Header Field With Name Reference"}
+{: title="具有名称引用的文本标头字段"}
 
-For entries in the static table or in the dynamic table with an absolute index
-less than the Base, the header field name is represented using the relative
-index of that entry, which is represented as an integer with a 4-bit prefix (see
-Section 5.1 of [RFC7541]). The `S` bit indicates whether the reference is to the
-static (S=1) or dynamic (S=0) table.
+对于静态表或动态表中绝对索引小于Base的条目，标头字段名称使用该条目的相对索引表示，该索
+引表示为具有4位前缀的整数(参见[RFC7541]的5.1节)。S位指示引用是静态(S=1)还是动态(S=0)表。
 
-### Literal Header Field With Post-Base Name Reference
+### 具有后基名称引用的文本标头字段(Literal Header Field With Post-Base Name Reference)
 
-For entries in the dynamic table with an absolute index greater than or equal to
-the Base, the header field name is represented using the post-base index of that
-entry (see {{post-base}}) encoded as an integer with a 3-bit prefix.
+
+对于动态表中绝对索引大于或等于Base的条目，标头字段名称使用该条目的后基索引
+(参见{{post-base}})表示，该索引被编码为具有3位前缀的整数。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -1048,26 +1037,19 @@ entry (see {{post-base}}) encoded as an integer with a 3-bit prefix.
    |  Value String (Length bytes)  |
    +-------------------------------+
 ~~~~~~~~~~
-{: title="Literal Header Field With Post-Base Name Reference"}
+{: title="具有后基名称引用的文本标头字段"}
 
 
-### Literal Header Field Without Name Reference
+### 无名称引用的文字标题字段(Literal Header Field Without Name Reference)
 
-An addition to the header table where both the header field name and the header
-field value are represented as string literals (see {{primitives}}) starts with
-the '001' three-bit pattern.
+对头表的添加，其中标头字段名称和标头字段值均表示为字符串文字(参见4.1节)，以‘001’三位模式开始。
 
-The fourth bit, 'N', indicates whether an intermediary is permitted to add this
-header to the dynamic header table on subsequent hops. When the 'N' bit is set,
-the encoded header MUST always be encoded with a literal representation. In
-particular, when a peer sends a header field that it received represented as a
-literal header field with the 'N' bit set, it MUST use a literal representation
-to forward this header field.  This bit is intended for protecting header field
-values that are not to be put at risk by compressing them (see Section 7.1 of
-[RFC7541] for more details).
+第四位‘N’指示是否允许中间件在后续跃点上将该报头添加到动态报头表中。设置“N”位时，编码的标头**必须**
+始终使用文字表示进行编码。特别地，当对等发送其接收到的表示为设置了“N”位的文字报头字段的报头
+字段时，它必须使用文字表示来转发该报头字段。此位用于通过压缩来保护不会被置于风险中的标头字段值
+(有关更多详细信息，请参见[RFC7541]的7.1节)。
 
-The name is represented as a 4-bit prefix string literal, while the value is
-represented as an 8-bit prefix string literal.
+名称表示为4位前缀字符串文字，而值表示为8位前缀字符串文字。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -1081,43 +1063,36 @@ represented as an 8-bit prefix string literal.
    |  Value String (Length bytes)  |
    +-------------------------------+
 ~~~~~~~~~~
-{: title="Literal Header Field Without Name Reference"}
+{: title="无名称引用的文字标题字段"}
 
 
-#  Configuration
+#  配置(Configuration)
 
-QPACK defines two settings which are included in the HTTP/3 SETTINGS frame.
+QPACK定义了HTTP/3设置帧中包含的两个设置。
 
   SETTINGS_QPACK_MAX_TABLE_CAPACITY (0x1):
-  : An integer with a maximum value of 2^30 - 1.  The default value is zero
-    bytes.  See {{table-dynamic}} for usage.  This is the equivalent of the
-    SETTINGS_HEADER_TABLE_SIZE from HTTP/2.
+  : 最大值为2^30-1的整数。默认值为零字节。有关用法，请参阅{{table-dynamic}}。这相当于HTTP/2中
+    的SETINGS_HEADER_TABLE_SIZE。
 
   SETTINGS_QPACK_BLOCKED_STREAMS (0x7):
-  : An integer with a maximum value of 2^16 - 1.  The default value is zero.
-    See {{overview-hol-avoidance}}.
+  : 最大值为2^16-1的整数。默认值为零。参见{{overview-hol-avoidance}}。
 
 
-# Error Handling {#error-handling}
+# 错误处理(Error Handling) {#error-handling}
 
-The following error codes are defined for HTTP/3 to indicate failures of
-QPACK which prevent the stream or connection from continuing:
+HTTP/3中QPACK里的中止流与连接的故障可以通过如下错误代码表示：
 
 HTTP_QPACK_DECOMPRESSION_FAILED (TBD):
-: The decoder failed to interpret a header block instruction and is not
-  able to continue decoding that header block.
+: 解码器无法解释报头块指令，且不能继续解码该报头块。
 
 HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):
-: The decoder failed to interpret an encoder instruction received on the
-  encoder stream.
+: 解码器无法解释在编码器流上接收的编码器指令。
 
 HTTP_QPACK_DECODER_STREAM_ERROR (TBD):
-: The encoder failed to interpret a decoder instruction received on the
-  decoder stream.
+: 编码器无法解释在解码器流上接收的解码器指令。
 
-Upon encountering an error, an implementation MAY elect to treat it as a
-connection error even if this document prescribes that it MUST be treated as a
-stream error.
+
+在遇到错误时，实现**可以**选择将其视为连接错误，即使该文档规定**必须**将其视为流错误。
 
 
 # Security Considerations
