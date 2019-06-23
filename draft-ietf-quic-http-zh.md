@@ -539,7 +539,7 @@ PRIORITY帧有效负载具有以下字段：
   {{priority}}和{{!RFC7540}}, 第5.3节.
 
   权重:
-  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。 
+  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。
   向值中添加一个以获得介于1和256之间的权重。
 
 优先元素类型({{prioritized-element-types}})和元素依赖类型({{element-dependency-types}})
@@ -580,7 +580,7 @@ HTTP_MALFORMED_FRAME的连接错误。
 HTTP_WRONG_STREAM的连接错误。
 
 客户端接收到的PRIORITY帧**必须**被视为HTTP_UNEXPECTED_FRAME类型
-的流错误。 
+的流错误。
 
 ### CANCEL_PUSH {#frame-cancel-push}
 
