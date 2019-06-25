@@ -546,12 +546,12 @@ d = count of entries dropped
 已被驱逐的动态表条目的引用，
 或者其绝对索引大于或等于声明
 所需的插入数(请参见{{header-prefix}})，
-则*必须*将其视为`HTTP_QPACK_DURSPAMPAGE_FAILED‘类型的
+则**必须**将其视为`HTTP_QPACK_DURSPAMPAGE_FAILED‘类型的
 流错误。
 
 如果解码器在编码器指令中遇到
 对已删除的动态表条目的引用，
-则*必须*将其视为`HTTP_QPACK_CONTORDER_STREAM_ERROR`类型的
+则**必须**将其视为`HTTP_QPACK_CONTORDER_STREAM_ERROR`类型的
 连接错误。
 
 # 线路格式 {# wire-format}
@@ -562,13 +562,13 @@ d = count of entries dropped
 
 本文档中大量使用了在[RFC7541]5.1节中提到的前缀整数。
 前缀整数的格式和[RFC7541]中的一致。
-QPACK实现*必须*能够解码长达62位的整数。
+QPACK实现**必须**能够解码长达62位的整数。
 
 ### 字符常量
 
 在[RFC7541]第5.2节定义的字符常量
 也在本文档中大量使用，该字符串格式包括
-可选的Huffman编码。.
+可选的Huffman编码。
 
 HPACK定义了从字节边界开始的字符常量。
 它们以单个标志开头(指示字符串是否由Huffman编码)，
@@ -614,11 +614,11 @@ QPACK定义了两种单向流类型:
 
 <!-- s/exactly/no more than/  ? -->
 HTTP/3终端包含QPACK编码器和解码器。
-每个终端*必须*启动单个编码器流和解码器流。
-接收第二个任意流类型的实例时，*必须*将
+每个终端**必须**启动单个编码器流和解码器流。
+接收第二个任意流类型的实例时，**必须**将
 其视为类型为HTTP_OWRY_STREAM_COUNT的连接错误。
-这些流*禁止*关闭。
-任何一个单向流类型的关闭都*必须*
+这些流**必须**关闭。
+任何一个单向流类型的关闭都**必须**
 被视为HTTP_CLOSED_CRIMARY_STREAM类型的连接错误。
 
 ## 编码器指令 {#encoder-instructions}
