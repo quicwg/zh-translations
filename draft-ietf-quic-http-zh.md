@@ -1624,7 +1624,7 @@ The entries in the following table are registered by this document.
 发送者(Sender):
 : 可能会建立此种类流的连接的端。值可以是"客户端(Client)", "服务端(Server)", "均可(Both)"。
 
-下表中的条目已注册在这篇文当中。
+下表中的条目已注册在这篇文档中。
 
 | ---------------- | ------ | -------------------------- | ------ |
 | Stream Type      |  Code  | Specification              | Sender |
@@ -1633,7 +1633,8 @@ The entries in the following table are registered by this document.
 | Push Stream      |  0x01  | {{server-push}}            | Server |
 | ---------------- | ------ | -------------------------- | ------ |
 
-额外的，每一个形如 `0x1f * N + 0x21` 的整数值N(意思是`0x21`, `0x40`, ..., 直到 `0x3FFFFFFFFFFFFFFE`)**禁止**被 IANA 赋值。
+额外的，每一个形如 `0x1f * N + 0x21` 的整数值N
+(意思是`0x21`, `0x40`, ..., 直到 `0x3FFFFFFFFFFFFFFE`)**禁止**被 IANA 赋值。
 
 --- back
 
@@ -1642,7 +1643,7 @@ The entries in the following table are registered by this document.
 HTTP/3 承袭于 HTTP/2，并且有许多相似之处。
 本节描述了设计 HTTP/3 所采用的方法，指出了与 HTTP/2 的重要区别，并描述了如何将 HTTP/2 扩展映射到 HTTP/3。
 
-HTTP/3 始于这样一个前提，即与 HTTP/2 的相似的设计更可取，但并不是一个困难的要求。
+HTTP/3 始于这样一个前提，即与 HTTP/2 的相似的设计更可取，但并不是一个硬性的要求。
 HTTP/3 主要在必要时脱离HTTP/2，以适应 QUIC 和 TCP 之间的行为差异(缺乏排序，对流的支持)。
 我们打算避免无端的更改，因为它会使得构建同时适用于两种协议具有相同语义的扩展变得困难或不可能。
 
@@ -1651,7 +1652,7 @@ HTTP/3 主要在必要时脱离HTTP/2，以适应 QUIC 和 TCP 之间的行为�
 ## 流(Streams) {#h2-streams}
 
 HTTP/3 允许使用比 HTTP/2 更多的流(2^62-1)。
-有关流标识符空间耗尽的注意事项仍适用，尽管空间要大得多，防止可能首先达到 QUIC 中的其他限制，例如连接流控制窗口的限制。
+有关流标识符空间耗尽的注意事项仍适用，尽管空间要大得多，防止可能出现的 QUIC 中的其他限制首先达到，例如连接流控制窗口的限制。
 
 ## HTTP帧类型(HTTP Frame Types) {#h2-frames}
 
@@ -1688,7 +1689,9 @@ HTTP/3 中的一些帧使用标识符而不是流ID(例如，优先级帧中的�
 
 由于“标志”字段不存在于通用 HTTP/3 帧中，因此依赖于标志存在的那些帧需要为标志分配空间作为其帧载荷的一部分。
 
-除了此问题之外，帧类型 HTTP/2 扩展通常只需将 HTTP/2 中的流0替换为 HTTP/3 中的控制流即可移植到 QUIC。HTTP/3 扩展不会承诺有序，但不会因有序受损，并且将以相同的方式可移植到 HTTP/2。
+除了此问题之外，帧类型 HTTP/2 扩展通常只需将 HTTP/2 中的流 0
+替换为 HTTP/3 中的控制流即可移植到 QUIC。
+HTTP/3 扩展不会承诺有序，但不会因有序受损，并且将以相同的方式可移植到 HTTP/2。
 
 下面列出了每种HTTP/2帧类型的映射方式:
 
@@ -1702,13 +1705,15 @@ PRIORITY (0x2):
 : 如上描述，PRIORITY 帧在控制流上发送，并且可以引用各种标识。详见{{frame-priority}}.
 
 RST_STREAM (0x3):
-: RST_STREAM 帧不再存在，因为 QUIC 提供了流生命周期管理。相同码点用于CANCEL_PUSH 帧({{frame-cancel-push}})。
+: RST_STREAM 帧不再存在，因为 QUIC 提供了流生命周期管理。
+相同码点用于CANCEL_PUSH 帧({{frame-cancel-push}})。
 
 SETTINGS (0x4):
 : SETTINGS 帧仅当连接开始的时候发送，详见{{frame-settings}} 和 {{h2-settings}}.
 
 PUSH_PROMISE (0x5):
-: PUSH_PROMISE 不再引用一个流，相反，推送流通过 Push ID 来引用 PUSH_PROMISE 帧。详见{{frame-push-promise}}.
+: PUSH_PROMISE 不再引用一个流，相反，推送流通过 Push ID 来引用 PUSH_PROMISE 帧。
+详见{{frame-push-promise}}.
 
 PING (0x6):
 : PING 帧不再存在, 因为 QUIC 提供了等同的功能。
@@ -1724,7 +1729,8 @@ CONTINUATION (0x9):
 
 HTTP/2 扩展定义的帧类型需要单独注册 HTTP/3(如果仍然适用)。
 为简单起见，已保留在 {{!RFC7540}}中定义的帧的ID。
-请注意，HTTP/3 中的帧类型空间实质上更大(62位对8位)，因此许多 HTTP/3 帧类型没有等效的 HTTP/2 代码点。详见 {{iana-frames}}。
+请注意，HTTP/3 中的帧类型空间实质上更大(62位对8位)，
+因此许多 HTTP/3 帧类型没有等效的 HTTP/2 代码点。详见 {{iana-frames}}。
 
 ## HTTP/2设置参数(HTTP/2 SETTINGS Parameters) {#h2-settings}
 
@@ -1762,7 +1768,8 @@ SETTINGS_MAX_HEADER_LIST_SIZE:
 
 需要分别为 HTTP/2 和 HTTP/3 定义设置。
 为简单起见，已保留在{{!RFC7540}}中定义的设置ID。
-请注意，HTTP/3 中的设置标识符空间非常大(62位对16位)，因此许多 HTTP/3 设置没有等效的 HTTP/2 代码点。详见{{iana-settings}}。
+请注意，HTTP/3 中的设置标识符空间非常大(62位对16位)，
+因此许多 HTTP/3 设置没有等效的 HTTP/2 代码点。详见{{iana-settings}}。
 
 
 ## HTTP/2错误码(HTTP/2 Error Codes)
@@ -1794,7 +1801,8 @@ FRAME_SIZE_ERROR (0x6):
 : HTTP_MALFORMED_FRAME 错误码定义于{{http-error-codes}}.
 
 REFUSED_STREAM (0x7):
-: HTTP_REQUEST_REJECTED (在{{http-error-codes}}中)用于指示未处理请求。否则不适用，因为 QUIC 处理了流管理。QUIC 层的 STREAM_ID_ERROR用于不正确打开的流。
+: HTTP_REQUEST_REJECTED (在{{http-error-codes}}中)用于指示未处理请求。
+否则不适用，因为 QUIC 处理了流管理。QUIC 层的 STREAM_ID_ERROR用于不正确打开的流。
 
 CANCEL (0x8):
 : {{http-error-codes}}中 HTTP_REQUEST_CANCELLED。
