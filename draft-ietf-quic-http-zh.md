@@ -84,40 +84,48 @@ code and issues list for this draft can be found at
 --- middle
 
 
-# 简介(Introduction)
+# Introduction
 
-HTTP 语义用于互联网上的广泛服务。这些语义一般用于两不同端的TCP映射，HTTP/1.1以及HTTP/2。
-HTTp/2 引入了帧和多路复用来不修改传输层的改善延迟。
-然而，TCP在两端映射中对并行请求的可见性的缺失限制了性能提高的可能空间。
+HTTP semantics are used for a broad range of services on the Internet. These
+semantics have commonly been used with two different TCP mappings, HTTP/1.1 and
+HTTP/2.  HTTP/2 introduced a framing and multiplexing layer to improve latency
+without modifying the transport layer.  However, TCP's lack of visibility into
+parallel requests in both mappings limited the possible performance gains.
 
-QUIC 传输协议包含了类似于HTTP/2在成帧层提供的流多路复用与基于流的流量控制。
-提供在流级别可靠性和对整个连接的拥塞控制，与HTTP映射相比，提高HTTP性能有了空间。
-QUIC 在传输层同样包含了 TLS 1.3，在提供了类似于在TCP上的运行TLS的安全性的前提下，
-提高了连接建立阶段的延迟(除非开启了TCP快速打开{{?RFC7413}})。
+The QUIC transport protocol incorporates stream multiplexing and per-stream flow
+control, similar to that provided by the HTTP/2 framing layer. By providing
+reliability at the stream level and congestion control across the entire
+connection, it has the capability to improve the performance of HTTP compared to
+a TCP mapping.  QUIC also incorporates TLS 1.3 at the transport layer, offering
+comparable security to running TLS over TCP, but with improved connection setup
+latency (unless TCP Fast Open {{?RFC7413}}} is used).
 
-这篇文档定义了HTTP语义在QUIC传输协议上的映射，在很大程度上依赖了HTTP/2的设计。
-这篇文档标识了QUIC拥有的HTTP/2特性，并且描述了其他可在QUIC上实现的特性。
+This document defines a mapping of HTTP semantics over the QUIC transport
+protocol, drawing heavily on the design of HTTP/2. This document identifies
+HTTP/2 features that are subsumed by QUIC, and describes how the other features
+can be implemented atop QUIC.
 
-QUIC 描述于{{QUIC-TRANSPORT}}。
-关于完整的HTTP/2的描述，详见{{!RFC7540}}。
+QUIC is described in {{QUIC-TRANSPORT}}.  For a full description of HTTP/2, see
+{{!RFC7540}}.
 
 
-## 通用术语(Notational Conventions)
+## Notational Conventions
 
-关键词“必须(MUST)”，“禁止(MUST NOT)”，“必需(REQUIRED)”，“应当(SHALL)”，
-“应当不(SHALL NOT)”，“应该(SHOULD)”，“不应该(SHOULD NOT)”，“推荐(RECOMMENDED)”，
-“不推荐(NOT RECOMMENDED)”，“可以(MAY)”，“可选(OPTIONAL)”
-在这篇文档中将会如 BCP 14{{!RFC2119}} {{!RFC8174}}中描述的，当且仅当他们如此例子显示的以加粗的形式出现时。
-文档中常用的术语在下方描述。
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
+when, and only when, they appear in all capitals, as shown here.
 
-字段描述以扩展的巴科斯范式(Augmented Backus-Naur Form 即ABNF)给出，定义在{{!RFC5234}}中。
+Field definitions are given in Augmented Backus-Naur Form (ABNF), as defined in
+{{!RFC5234}}.
 
-这篇文档使用了{{QUIC-TRANSPORT}}中的变长的整数编码。
+This document uses the variable-length integer encoding from
+{{QUIC-TRANSPORT}}.
 
-称呼为"帧"的协议元素存在于本文档和{{QUIC-TRANSPORT}}。
-当引用的帧是{{QUIC-TRANSPORT}}中的，帧名字会以"QUIC"打头。
-例如"QUIC CONNECTION_CLOSE 帧"。
-不以这个开头的引用的帧定义于{{frames}}。
+Protocol elements called "frames" exist in both this document and
+{{QUIC-TRANSPORT}}. Where frames from {{QUIC-TRANSPORT}} are referenced, the
+frame name will be prefaced with "QUIC."  For example, "QUIC CONNECTION_CLOSE
+frames."  References without this preface refer to frames defined in {{frames}}.
 
 
 # Connection Setup and Management
@@ -390,15 +398,14 @@ The payload and length of the stream are selected in any manner the
 implementation chooses.
 
 
-# HTTP Framing Layer {#http-framing-layer}
+# HTTP帧层(HTTP Framing Layer) {#http-framing-layer}
 
-HTTP frames are carried on QUIC streams, as described in {{stream-mapping}}.
-HTTP/3 defines three stream types: control stream, request stream, and push
-stream. This section describes HTTP/3 frame formats and the streams types on
-which they are permitted; see {{stream-frame-mapping}} for an overiew.  A
-comparison between HTTP/2 and HTTP/3 frames is provided in {{h2-frames}}.
 
-| Frame          | Control Stream | Request Stream | Push Stream | Section                  |
+HTTP帧在QUIC流上传输，如{{stream-mapping}}所述。HTTP/3定义了三种流类型：控制流、请求流和推送流。
+本节介绍HTTP/3帧格式及其允许的流类型；有关概述，请参见{{stream-frame-mapping}}。{{h2-frames}}
+提供了HTTP/2和HTTP/3帧的比较。
+
+| 帧             | 控制流         | 请求流          | 推送流      | 章节                     |
 | -------------- | -------------- | -------------- | ----------- | ------------------------ |
 | DATA           | No             | Yes            | Yes         | {{frame-data}}           |
 | HEADERS        | No             | Yes            | Yes         | {{frame-headers}}        |
@@ -409,81 +416,75 @@ comparison between HTTP/2 and HTTP/3 frames is provided in {{h2-frames}}.
 | GOAWAY         | Yes            | No             | No          | {{frame-goaway}}         |
 | MAX_PUSH_ID    | Yes            | No             | No          | {{frame-max-push-id}}    |
 | DUPLICATE_PUSH | No             | Yes            | No          | {{frame-duplicate-push}} |
-{: #stream-frame-mapping title="HTTP/3 frames and stream type overview"}
+{: #stream-frame-mapping title="HTTP/3帧和流类型概述"}
 
-Certain frames can only occur as the first frame of a particular stream type;
-these are indicated in {{stream-frame-mapping}} with a (1).  Specific guidance
-is provided in the relevant section.
+某些帧只能作为特定流类型的第一帧出现；这些帧在{{stream-frame-mapping}}中用(1)表示。
+相关章节提供了具体指导。
 
-## Frame Layout
+## 帧布局(Frame Layout)
 
-All frames have the following format:
-
-~~~~~~~~~~ drawing
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                           Type (i)                          ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Length (i)                         ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Frame Payload (*)                     ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-~~~~~~~~~~
-{: #fig-frame title="HTTP/3 frame format"}
-
-A frame includes the following fields:
-
-  Type:
-  : A variable-length integer that identifies the frame type.
-
-  Length:
-  : A variable-length integer that describes the length of the Frame Payload.
-
-  Frame Payload:
-  : A payload, the semantics of which are determined by the Type field.
-
-Each frame's payload MUST contain exactly the fields identified in its
-description.  A frame payload that contains additional bytes after the
-identified fields or a frame payload that terminates before the end of the
-identified fields MUST be treated as a connection error of type
-HTTP_MALFORMED_FRAME.
-
-## Frame Definitions {#frames}
-
-### DATA {#frame-data}
-
-DATA frames (type=0x0) convey arbitrary, variable-length sequences of bytes
-associated with an HTTP request or response payload.
-
-DATA frames MUST be associated with an HTTP request or response.  If a DATA
-frame is received on either control stream, the recipient MUST respond with a
-connection error ({{errors}}) of type HTTP_WRONG_STREAM.
+所有帧都具有以下格式：
 
 ~~~~~~~~~~ drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Payload (*)                         ...
+|                           类型 (i)                          ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           长度 (i)                          ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          帧荷载 (*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
-{: #fig-data title="DATA frame payload"}
+{: #fig-frame title="HTTP/3帧格式"}
 
-### HEADERS {#frame-headers}
+帧包括以下字段：
 
-The HEADERS frame (type=0x1) is used to carry a header block, compressed using
-QPACK. See [QPACK] for more details.
+  类型:
+  : 标识帧类型的可变长度整数。
+
+  长度:
+  : 描述帧有效载荷长度的可变长度整数。
+
+  帧荷载:
+  : 有效荷载，其语义由Type字段确定。
+
+每个帧的有效荷载**必须**精确地包含在其描述中标识的字段。在标识字段之后包含其他字节
+的帧有效荷载或在标识字段结束之前终止的帧荷载**必须**被视为类型为
+HTTP_MALFORM_FRAME的连接错误。
+
+## 帧定义(Frame Definitions) {#frames}
+
+### DATA帧(DATA) {#frame-data}
+
+DATA帧(类型为0x0)传递与HTTP请求或响应有效荷载相关联的任意可变长度的字节序列。
+
+DATA帧**必须**与HTTP请求或响应相关联。如果在任一控制流上接收到数据帧，则接收方
+**必须**响应类型为HTTP_WRONG_STREAM的连接错误({{errors}})。
+
+~~~~~~~~~~ drawing
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         有效荷载 (*)                        ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~~~~~~~~
+{: #fig-data title="DATA帧有效荷载"}
+
+### HEADERS帧(HEADERS) {#frame-headers}
+
+HEADERS帧(类型为0x1)用于承载头信息块，并使用QPACK进行压缩。有关详细信息，请参见[QPACK]。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Header Block (*)                      ...
+|                       头信息块 (*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
-{: #fig-headers title="HEADERS frame payload"}
+{: #fig-headers title="HEADERS帧有效荷载"}
 
-HEADERS frames can only be sent on request / push streams.
+HEADERS帧只能在请求流与推送流发出。
 
 ### 优先级帧(PRIORITY) {#frame-priority}
 
