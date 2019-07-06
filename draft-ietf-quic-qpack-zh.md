@@ -540,7 +540,7 @@ d = count of entries dropped
 {: title="Example Dynamic Table Indexing - Post-Base Index in Header Block"}
 
 
-### 无效引用 {# invalid-references}
+### 无效引用 {#invalid-references}
 
 如果解码器在报头块指令中遇到对
 已被驱逐的动态表条目的引用，
@@ -554,11 +554,11 @@ d = count of entries dropped
 则**必须**将其视为`HTTP_QPACK_CONTORDER_STREAM_ERROR`类型的
 连接错误。
 
-# 线路格式 {# wire-format}
+# 线路格式 {#wire-format}
 
-## 原语 {# primitives}
+## 原语 {#primitives}
 
-### 前缀整数 {# string-literals}
+### 前缀整数 {#string-literals}
 
 本文档中大量使用了在[RFC7541]5.1节中提到的前缀整数。
 前缀整数的格式和[RFC7541]中的一致。
