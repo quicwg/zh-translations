@@ -346,7 +346,7 @@ acknowledged before using it.
 
 ### 阻塞解码(Blocked Decoding)
 
-要跟踪阻塞的流，可以使用每个流所需的插入计数值。每当解码器处理表更新时，它就
+每个流中要求插入的计数值可以用于跟踪阻塞的流。每当解码器处理表更新时，它就
 可以开始解码任何现在满足其相关性的阻塞流。
 
 
@@ -835,7 +835,7 @@ The encoder transforms the Required Insert Count as follows before encoding:
 
 Here `MaxEntries` is the maximum number of entries that the dynamic table can
 have.  The smallest entry has empty name and value strings and has the size of
-1.   Hence `MaxEntries` is calculated as
+32.   Hence `MaxEntries` is calculated as
 
 ~~~
    MaxEntries = floor( MaxTableCapacity / 32 )
