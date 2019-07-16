@@ -947,29 +947,30 @@ ciphersuite, AES header protection is used ({{hp-aes}}), matching the
 AEAD_AES_128_GCM packet protection.
 
 
-### Header Protection Sample {#hp-sample}
+### 简单的包头保护（Header Protection Sample） {#hp-sample}
 
-The header protection algorithm uses both the header protection key and a sample
-of the ciphertext from the packet Payload field.
+包头保护算法使用包头保护密钥和
+数据包负载字段中的一小段密文。
 
-The same number of bytes are always sampled, but an allowance needs to be made
-for the endpoint removing protection, which will not know the length of the
-Packet Number field.  In sampling the packet ciphertext, the Packet Number field
-is assumed to be 4 bytes long (its maximum possible encoded length).
+虽然每次采样都适用相同的长度，但还是要为了终端移能除保护做 *这一点是意翻的，感觉是这个意思*
+一些工作，终端不知道包编号字段 *意思应该是在解密的时候需要先得到包编号，但是不知道包编号的在密文当中的位置和长度*
+的长度。在采样密文时，包编号字段
+被假设为4字节（编码过后它的最大可能长度）。
 
-An endpoint MUST discard packets that are not long enough to contain a complete
-sample.
+终端 **必须** 丢弃哪些不足一个样本长度
+的数据包。
 
-To ensure that sufficient data is available for sampling, packets are padded so
-that the combined lengths of the encoded packet number and protected payload is
-at least 4 bytes longer than the sample required for header protection.  For the
-AEAD functions defined in {{?TLS13}}, which have 16-byte expansions and 16-byte
-header protection samples, this results in needing at least 3 bytes of frames in
-the unprotected payload if the packet number is encoded on a single byte, or 2
-bytes of frames for a 2-byte packet number encoding.
+为了确保在采样时有足够多的数据，数据包是扩展后的，所以
+编码后的数据包的包编号字段和填充物的总长度，至少
+比包头保护的采样过程要求的长4个字节。在{{?TLS13}}
+定义的AEAD中，采用了16位扩展和16位
+包头保护采样，这意味着如果包编号字段
+被编码成单个字节，则至少需要3个字节  *这点的of frames我理解的
+是这个填充字段不占用数据包的总长度但占用此帧的总长度所以是'来自帧的'但是翻译的时候翻译出来怪怪的*
+的填充物，如果被编码成2个字节，则需要2字节。
 
-The sampled ciphertext for a packet with a short header can be determined by the
-following pseudocode:
+具有一个短包头的数据包的密文可以用如下伪码
+采样（sample：样本）：
 
 ~~~
 sample_offset = 1 + len(connection_id) + 4
@@ -977,13 +978,13 @@ sample_offset = 1 + len(connection_id) + 4
 sample = packet[sample_offset..sample_offset+sample_length]
 ~~~
 
-For example, for a packet with a short header, an 8 byte connection ID, and
-protected with AEAD_AES_128_GCM, the sample takes bytes 13 to 28 inclusive
-(using zero-based indexing).
+比如，对于一个短包头的数据包，8为的连接ID，以及
+使用AEAD_AES_128_GCM加密，采样选取第13到28个字节
+（包含13和28，编号从0开始）。
 
-A packet with a long header is sampled in the same way, noting that multiple
-QUIC packets might be included in the same UDP datagram and that each one is
-handled separately.
+对长包头的数据包采用相同的采样方式，注意统一UDP数据报可能
+包含多个QUIC数据包，每个数据包都是
+单独处理的。
 
 ~~~
 sample_offset = 6 + len(destination_connection_id) +
@@ -997,35 +998,35 @@ sample = packet[sample_offset..sample_offset+sample_length]
 ~~~
 
 
-### AES-Based Header Protection {#hp-aes}
+### AES包头保护（AES-Based Header Protection） {#hp-aes}
 
-This section defines the packet protection algorithm for AEAD_AES_128_GCM,
-AEAD_AES_128_CCM, AEAD_AES_256_GCM, and AEAD_AES_256_CCM. AEAD_AES_128_GCM and
-AEAD_AES_128_CCM use 128-bit AES {{!AES=DOI.10.6028/NIST.FIPS.197}} in
-electronic code-book (ECB) mode. AEAD_AES_256_GCM, and AEAD_AES_256_CCM use
-256-bit AES in ECB mode.
+本部分定义使用AEAD_AES_128_GCM，AEAD_AES_128_CCM，
+AEAD_AES_256_GCM和AEAD_AES_256_CCM进行包头保护的算法。AEAD_AES_128_GCM和
+AEAD_AES_128_CCM使用128位AES{{!AES=DOI.10.6028/NIST.FIPS.197}}和
+电子密码簿（ECB）模式。AEAD_AES_256_CCM和AEAD_256_CCM使用
+256位AES和ECB模式。
 
-This algorithm samples 16 bytes from the packet ciphertext. This value is used
-as the input to AES-ECB.  In pseudocode:
+这个算法采集密文的16字节。采样结果用作
+算法的输入。伪代码如下：
 
 ~~~
 mask = AES-ECB(hp_key, sample)
 ~~~
 
 
-### ChaCha20-Based Header Protection {#hp-chacha}
+### ChaCha20包头保护（ChaCha20-Based Header Protection） {#hp-chacha}
 
-When AEAD_CHACHA20_POLY1305 is in use, header protection uses the raw ChaCha20
-function as defined in Section 2.4 of {{!CHACHA}}.  This uses a 256-bit key and
-16 bytes sampled from the packet protection output.
+当使用AEAD_CHACHA20_POLY1305的时候，包头保护使用在2.4章{{!CHACHA}}定义的
+原始的ChaCha20函数。它使用256位的密钥和
+16位密文采样。
 
-The first 4 bytes of the sampled ciphertext are interpreted as a 32-bit number
-in little-endian order and are used as the block count.  The remaining 12 bytes
-are interpreted as three concatenated 32-bit numbers in little-endian order and
-used as the nonce.
+密文采样结果的前4字节被解释为32位小端整数，
+用来存储块数量。剩下的12位
+被解释为3个连续的32位小端整数，
+用来存放随机数。
 
-The encryption mask is produced by invoking ChaCha20 to protect 5 zero bytes. In
-pseudocode:
+通过使用5个0来调用ChaCha20来得到加密掩码。
+伪代码如下：
 
 ~~~
 counter = DecodeLE(sample[0..3])
@@ -1034,68 +1035,68 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 ~~~
 
 
-## Receiving Protected Packets
+## 接收被保护的数据包（Receiving Protected Packets）
 
-Once an endpoint successfully receives a packet with a given packet number, it
-MUST discard all packets in the same packet number space with higher packet
-numbers if they cannot be successfully unprotected with either the same key, or
-- if there is a key update - the next packet protection key (see
-{{key-update}}).  Similarly, a packet that appears to trigger a key update, but
-cannot be unprotected successfully MUST be discarded.
+终端一旦成功的接收到一个有特定包编号的数据包之后，
+如果此包编号空间当中更高编号的包无法被此密钥或下一个 -如果密钥发生了更新-
+ 密钥（参见{{key-update}}）解密，则终端 **必须** 此包编号空间当中所有
+高编号的数据包。 *这里有一个歧义，要丢弃的包是所有的，还是那些符合定义的，我感觉他想表达的意思是所有的，但是字面意思看上去是丢弃那些符合定义的留下剩下的*
+类似的，试图更新密钥但无法
+被成功解密的数据包包 **必须** 被丢弃。
 
-Failure to unprotect a packet does not necessarily indicate the existence of a
-protocol error in a peer or an attack.  The truncated packet number encoding
-used in QUIC can cause packet numbers to be decoded incorrectly if they are
-delayed significantly.
-
-
-## Use of 0-RTT Keys {#using-early-data}
-
-If 0-RTT keys are available (see {{enable-0rtt}}), the lack of replay protection
-means that restrictions on their use are necessary to avoid replay attacks on
-the protocol.
-
-A client MUST only use 0-RTT keys to protect data that is idempotent.  A client
-MAY wish to apply additional restrictions on what data it sends prior to the
-completion of the TLS handshake.  A client otherwise treats 0-RTT keys as
-equivalent to 1-RTT keys, except that it MUST NOT send ACKs with 0-RTT keys.
-
-A client that receives an indication that its 0-RTT data has been accepted by a
-server can send 0-RTT data until it receives all of the server's handshake
-messages.  A client SHOULD stop sending 0-RTT data if it receives an indication
-that 0-RTT data has been rejected.
-
-A server MUST NOT use 0-RTT keys to protect packets; it uses 1-RTT keys to
-protect acknowledgements of 0-RTT packets.  A client MUST NOT attempt to
-decrypt 0-RTT packets it receives and instead MUST discard them.
-
-Note:
-
-: 0-RTT data can be acknowledged by the server as it receives it, but any
-  packets containing acknowledgments of 0-RTT data cannot have packet protection
-  removed by the client until the TLS handshake is complete.  The 1-RTT keys
-  necessary to remove packet protection cannot be derived until the client
-  receives all server handshake messages.
+数据包解密失败并不意味着
+对端存在协议错误或者攻击。QUIC使用的包编号截断方式
+可能导致在数据包严重延迟的情况下无法被
+正常解码。
 
 
-## Receiving Out-of-Order Protected Frames {#pre-hs-protected}
+## 使用0-RTT密钥（Use of 0-RTT Keys） {#using-early-data}
 
-Due to reordering and loss, protected packets might be received by an endpoint
-before the final TLS handshake messages are received.  A client will be unable
-to decrypt 1-RTT packets from the server, whereas a server will be able to
-decrypt 1-RTT packets from the client.
+如果0-RTT密钥可用（参见{{enable-0rtt}}），则在缺乏重放保护的
+情况下，有必要限制他们的使用来避免对协议发起的
+重访攻击。
 
-However, a server MUST NOT process data from incoming 1-RTT protected packets
-before verifying either the client Finished message or - in the case that the
-server has chosen to use a pre-shared key - the pre-shared key binder (see
-Section 4.2.11 of {{!TLS13}}).  Verifying these values provides the server with
-an assurance that the ClientHello has not been modified.  Packets protected with
-1-RTT keys MAY be stored and later decrypted and used once the handshake is
-complete.
+客户端 **必须** 仅使用0-RTT密钥来保护幂等的数据。客户端
+ **可能** 想要对完成TLS握手前发送的数据
+添加额外的限制。客户端要么把0-RTT密钥视为1-RTT密钥，否则
+他 **必须不** 发送具有0-RTT密钥的ACK。
 
-A server could receive packets protected with 0-RTT keys prior to receiving a
-TLS ClientHello.  The server MAY retain these packets for later decryption in
-anticipation of receiving a ClientHello.
+客户端在收到0-RTT数据被接受之后和在
+收到完整的服务端握手消息之前，可以发送
+0-RTT数据。客户端在收到0-RTT数据被拒绝的信息
+之后 **应该** 停止发送0-RTT数据。
+
+服务端 **必须不** 使用0-RTT密钥来保护数据包；服务端使用1-RTT密钥来
+保护0-RTT数据包的确认信息。客户端 **必须不** 尝试去解密
+他收到的0-RTT数据，反之 **必须** 丢弃他们。
+
+注意：
+
+: 服务端可以对0-RTT数据回复确认信息，但是
+  任何包含0-RTT数据确认信息的数据包，都不应该
+  让客户端在TLS握手完成前能够移除其保护。用来移除
+  包保护的1-RTT密钥在客户端收到完整的
+  握手消息之前不能被传输。
+
+
+## 接收无需的保护后的帧（Receiving Out-of-Order Protected Frames） {#pre-hs-protected}
+
+由于乱序和丢失，终端在接收TLS握手消息之前可能接收到
+被保护的数据包。客户端可能无法解密服务端
+发过来的1-RTT的数据包，但此时服务端又可以
+解密客户端发送的1-RTT数据包。
+
+然而，服务器在确认客户端完成握手，或 *这一段大部分为意义，因为没有看其他的部分所以可能会有问题*
+验证了预共享密钥
+ -在这种情况下服务器选择使用预共享密钥-（参见4.2.11章{{!TLS13}}）
+之前，**必须不** 处理传入的1-RTT保护后的数据包。
+验证这些信息可以让服务器确保ClientHello没有被修改过。被1-RTT密钥
+保护的数据包 **可能** 被存储然后被解密并在握手完成
+之后被使用。
+
+服务器可能在收到ClientHello之前收到被0-RTT密钥保护
+的数据包。服务器 **可能** 保留这个数据包以后再解密
+并等待接受ClientHello。
 
 
 # Key Update
