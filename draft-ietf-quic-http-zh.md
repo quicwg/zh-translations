@@ -739,8 +739,7 @@ with its 0-RTT data.
 
 ### PUSH_PROMISE {#frame-push-promise}
 
-The PUSH_PROMISE frame (type=0x05) is used to carry a promised request header
-set from server to client on a request stream, as in HTTP/2.
+PUSH_PROMISE帧（类型= 0x05）用于在请求流上承载从服务器到客户端的约定请求头集，如在HTTP/2中。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -753,36 +752,27 @@ set from server to client on a request stream, as in HTTP/2.
 ~~~~~~~~~~
 {: #fig-push-promise title="PUSH_PROMISE frame payload"}
 
-The payload consists of:
+有效载荷包括:
 
 Push ID:
-: A variable-length integer that identifies the server push operation.  A Push
-  ID is used in push stream headers ({{server-push}}), CANCEL_PUSH frames
-  ({{frame-cancel-push}}), DUPLICATE_PUSH frames ({{frame-duplicate-push}}), and
-  PRIORITY frames ({{frame-priority}}).
+: 一个可变长度的整数，用于标识服务器推送操作。 
+推送ID用于推送流标头({{server-push}})，CANCEL_PUSH帧({{frame-cancel-push}})，DUPLICATE_PUSH帧({{frame-duplicate-push}})和PRIORITY帧({{frame-priority}})。
 
 Header Block:
-: QPACK-compressed request header fields for the promised response.  See [QPACK]
-  for more details.
+: 承诺响应的QPACK压缩请求头字段。 有关详细信息，请参阅 [QPACK]。
 
-A server MUST NOT use a Push ID that is larger than the client has provided in a
-MAX_PUSH_ID frame ({{frame-max-push-id}}) and MUST NOT use the same Push ID in
-multiple PUSH_PROMISE frames.  A client MUST treat receipt of a PUSH_PROMISE
-that contains a larger Push ID than the client has advertised or a Push ID which
-has already been promised as a connection error of type HTTP_MALFORMED_FRAME.
+服务器**禁止**使用大于客户端在MAX_PUSH_ID帧中提供的推送ID（{{frame-max-push-id}}），并且**禁止**在多个PUSH_PROMISE帧中使用相同的推送ID。
+客户端**必须**处理包含比客户端公布的推送ID更大的推送ID的PUSH_PROMISE/或已经承诺为HTTP_MALFORMED_FRAME类型的连接错误的推送ID的接收。
 
-If a PUSH_PROMISE frame is received on either control stream, the recipient MUST
-respond with a connection error ({{errors}}) of type HTTP_WRONG_STREAM.
+如果在任一控制流上接收到PUSH_PROMISE帧，则接收方**必须**以HTTP_WRONG_STREAM类型的连接错误（{{errors}}）进行响应。
 
-See {{server-push}} for a description of the overall server push mechanism.
+有关整体服务器推送机制的说明，请参阅{{server-push}}。
 
 ### GOAWAY {#frame-goaway}
 
-The GOAWAY frame (type=0x7) is used to initiate graceful shutdown of a
-connection by a server.  GOAWAY allows a server to stop accepting new requests
-while still finishing processing of previously received requests.  This enables
-administrative actions, like server maintenance.  GOAWAY by itself does not
-close a connection.
+GOAWAY帧（类型= 0x7）用于启动服务器正常关闭连接的操作。 
+GOAWAY允许服务器停止接受新请求，同时仍然完成先前收到的请求的处理。 
+这可以实现管理操作，例如服务器维护。 GOAWAY本身并不会关闭连接。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -793,40 +783,32 @@ close a connection.
 ~~~~~~~~~~
 {: #fig-goaway title="GOAWAY frame payload"}
 
-The GOAWAY frame is always sent on the control stream. It carries a QUIC Stream
-ID for a client-initiated bidirectional stream encoded as a variable-length
-integer.  A client MUST treat receipt of a GOAWAY frame containing a Stream ID
-of any other type as a connection error of type HTTP_WRONG_STREAM.
+GOAWAY帧始终在控制流上发送。 
+它携带用于客户端发起的双向流的QUIC流ID，该双向流被编码为可变长度整数。 
+客户端**必须**将包含任何其他类型的流ID的GOAWAY帧的接收视为HTTP_WRONG_STREAM类型的连接错误。
 
-Clients do not need to send GOAWAY to initiate a graceful shutdown; they simply
-stop making new requests.  A server MUST treat receipt of a GOAWAY frame on any
-stream as a connection error ({{errors}}) of type HTTP_UNEXPECTED_FRAME.
+客户端无需发送GOAWAY即可启动正常关机; 他们只是停止提出新请求。 
+服务器**必须**将任何流上的GOAWAY帧的接收视为HTTP_UNEXPECTED_FRAME类型的连接错误（{{errors}}）。
 
-The GOAWAY frame applies to the connection, not a specific stream.  A client
-MUST treat a GOAWAY frame on a stream other than the control stream as a
-connection error ({{errors}}) of type HTTP_UNEXPECTED_FRAME.
+GOAWAY帧适用于连接，而不是特定的流。 
+客户端**必须**将除控制流之外的流上的GOAWAY帧视为HTTP_UNEXPECTED_FRAME类型的连接错误（{{errors}}）。
 
-See {{connection-shutdown}} for more information on the use of the GOAWAY frame.
+有关使用GOAWAY帧的更多信息，请参阅{{connection-shutdown}}。
 
 ### MAX_PUSH_ID {#frame-max-push-id}
 
-The MAX_PUSH_ID frame (type=0xD) is used by clients to control the number of
-server pushes that the server can initiate.  This sets the maximum value for a
-Push ID that the server can use in a PUSH_PROMISE frame.  Consequently, this
-also limits the number of push streams that the server can initiate in addition
-to the limit set by the QUIC MAX_STREAM_ID frame.
+客户端使用MAX_PUSH_ID帧（类型= 0xD）来控制服务器可以启动的服务器推送次数。 
+这将设置服务器可在PUSH_PROMISE帧中使用的推送ID的最大值。 
+因此，除了QUIC MAX_STREAM_ID帧设置的限制之外，这还限制了服务器可以启动的推送流的数量。
 
-The MAX_PUSH_ID frame is always sent on the control stream.  Receipt of a
-MAX_PUSH_ID frame on any other stream MUST be treated as a connection error of
-type HTTP_WRONG_STREAM.
+MAX_PUSH_ID帧始终在控制流上发送。 
+在任何其他流上接收MAX_PUSH_ID帧**必须**被视为HTTP_WRONG_STREAM类型的连接错误。
 
-A server MUST NOT send a MAX_PUSH_ID frame.  A client MUST treat the receipt of
-a MAX_PUSH_ID frame as a connection error of type HTTP_UNEXPECTED_FRAME.
+服务器**禁止**发送MAX_PUSH_ID帧。 
+客户端**必须**将MAX_PUSH_ID帧的接收视为HTTP_UNEXPECTED_FRAME类型的连接错误。
 
-The maximum Push ID is unset when a connection is created, meaning that a server
-cannot push until it receives a MAX_PUSH_ID frame.  A client that wishes to
-manage the number of promised server pushes can increase the maximum Push ID by
-sending MAX_PUSH_ID frames as the server fulfills or cancels server pushes.
+创建连接时，将取消设置最大推送ID，这意味着服务器在收到MAX_PUSH_ID帧之前无法推送。 
+希望管理承诺的服务器推送次数的客户端可以通过在服务器满足或取消服务器推送时发送MAX_PUSH_ID帧来增加最大推送ID。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -837,23 +819,18 @@ sending MAX_PUSH_ID frames as the server fulfills or cancels server pushes.
 ~~~~~~~~~~
 {: #fig-max-push title="MAX_PUSH_ID frame payload"}
 
-The MAX_PUSH_ID frame carries a single variable-length integer that identifies
-the maximum value for a Push ID that the server can use (see
-{{frame-push-promise}}).  A MAX_PUSH_ID frame cannot reduce the maximum Push ID;
-receipt of a MAX_PUSH_ID that contains a smaller value than previously received
-MUST be treated as a connection error of type HTTP_MALFORMED_FRAME.
+MAX_PUSH_ID帧携带单个可变长度整数，该整数标识服务器可以使用的推送ID的最大值（请参阅{{frame-push-promise}}）。
+MAX_PUSH_ID帧不能减少最大推送ID;接收包含比先前接收的值小的MAX_PUSH_ID**必须**被视为HTTP_MALFORMED_FRAME类型的连接错误。
 
 ### DUPLICATE_PUSH {#frame-duplicate-push}
 
-The DUPLICATE_PUSH frame (type=0xE) is used by servers to indicate that an
-existing pushed resource is related to multiple client requests.
+服务器使用DUPLICATE_PUSH帧（类型= 0xE）来指示现有推送资源与多个客户端请求相关。
 
-The DUPLICATE_PUSH frame is always sent on a request stream.  Receipt of a
-DUPLICATE_PUSH frame on any other stream MUST be treated as a connection error
-of type HTTP_WRONG_STREAM.
+DUPLICATE_PUSH帧始终在请求流上发送。 
+在任何其他流上接收DUPLICATE_PUSH帧**必须**被视为HTTP_WRONG_STREAM类型的连接错误。
 
-A client MUST NOT send a DUPLICATE_PUSH frame.  A server MUST treat the receipt
-of a DUPLICATE_PUSH frame as a connection error of type HTTP_MALFORMED_FRAME.
+客户端**禁止**发送DUPLICATE_PUSH帧。 
+服务器**必须**将DUPLICATE_PUSH帧的接收视为HTTP_MALFORMED_FRAME类型的连接错误。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -864,21 +841,15 @@ of a DUPLICATE_PUSH frame as a connection error of type HTTP_MALFORMED_FRAME.
 ~~~~~~~~~~
 {: #fig-duplicate-push title="DUPLICATE_PUSH frame payload"}
 
-The DUPLICATE_PUSH frame carries a single variable-length integer that
-identifies the Push ID of a resource that the server has previously promised
-(see {{frame-push-promise}}).
+DUPLICATE_PUSH帧携带单个可变长度整数，该整数标识服务器先前承诺的资源的推送ID（请参阅{{frame-push-promise}}）。
 
-This frame allows the server to use the same server push in response to multiple
-concurrent requests.  Referencing the same server push ensures that a promise
-can be made in relation to every response in which server push might be needed
-without duplicating request headers or pushed responses.
+此框架允许服务器使用相同的服务器推送来响应多个并发请求。 
+引用相同的服务器推送可确保可以对可能需要服务器推送的每个响应做出承诺，而不会复制请求标头或推送响应。
 
-Allowing duplicate references to the same Push ID is primarily to reduce
-duplication caused by concurrent requests.  A server SHOULD avoid reusing a Push
-ID over a long period.  Clients are likely to consume server push responses and
-not retain them for reuse over time.  Clients that see a DUPLICATE_PUSH that
-uses a Push ID that they have since consumed and discarded are forced to ignore
-the DUPLICATE_PUSH.
+允许对同一推送ID的重复引用主要是为了减少并发请求导致的重复。 
+服务器**应该**避免长时间重用推送ID。
+客户端可能会消耗服务器推送响应，并且不会保留它们以便重复使用。 
+看到DUPLICATE_PUSH使用其已经消耗和丢弃的推送ID的客户端会强制忽略DUPLICATE_PUSH。
 
 
 ### 保留帧类型(Reserved Frame Types) {#frame-grease}
@@ -1438,11 +1409,9 @@ The "h3" string identifies HTTP/3:
   Specification:
   : This document
 
-## Registration of QUIC Version Hint Alt-Svc Parameter
+## 注册QUIC版本的提示Alt-Svc参数(Registration of QUIC Version Hint Alt-Svc Parameter)
 
-This document creates a new registration for version-negotiation hints in the
-"Hypertext Transfer Protocol (HTTP) Alt-Svc Parameter" registry established in
-{{!RFC7838}}.
+本文档为{{!RFC7838}}中注册的超文本协议(HTTP)的Alt-Svc参数创建了一个版本协商提示的新注册。
 
   Parameter:
   : "quic"
@@ -1450,36 +1419,27 @@ This document creates a new registration for version-negotiation hints in the
   Specification:
   : This document, {{alt-svc-version-hint}}
 
-## Frame Types {#iana-frames}
+## 帧类型(Frame Types) {#iana-frames}
 
-This document establishes a registry for HTTP/3 frame type codes. The "HTTP/3
-Frame Type" registry governs a 62-bit space. This space is split into three
-spaces that are governed by different policies. Values between `0x00` and `0x3f`
-(in hexadecimal) are assigned via the Standards Action or IESG Review policies
-{{!RFC8126}}. Values from `0x40` to `0x3fff` operate on the Specification
-Required policy {{!RFC8126}}. All other values are assigned to Private Use
-{{!RFC8126}}.
+本文档为HTTP/3帧类型代码建立了一个注册。 "HTTP / 3帧"类型的注册管理62-bit空间。 
+此空间分为三个空间，由不同的策略管理。 “0x00”和“0x3f”（十六进制）之间的值通过Standards Action或IESG Review策略分配 {{!RFC8126}}。
+从“0x40”到“0x3fff”的值在特定“规范要求”策略上运行{{!RFC8126}}。所有其他值都分配给私有{{!RFC8126}}。
 
-While this registry is separate from the "HTTP/2 Frame Type" registry defined in
-{{RFC7540}}, it is preferable that the assignments parallel each other where the
-code spaces overlap.  If an entry is present in only one registry, every effort
-SHOULD be made to avoid assigning the corresponding value to an unrelated
-operation.
+虽然此注册表与{{RFC7540}}中定义的“HTTP/2帧”类型的注册是分开的
+, 当代码空间重叠时最好也分开看待两者。如果一个条目只存在于一个注册中，则**应该**尽一切努力避免将相应的值分配给不相关的操作。
 
-New entries in this registry require the following information:
+此注册中的新条目需要以下信息:
 
-Frame Type:
-: A name or label for the frame type.
+帧类型(Frame Type):
+: 该类型的名称或标签
 
-Code:
-: The 62-bit code assigned to the frame type.
+代码(Code):
+: 分配给该类型帧的62-bit代码
 
-Specification:
-: A reference to a specification that includes a description of the frame layout
-  and its semantics, including any parts of the frame that are conditionally
-  present.
+格式(Specification):
+: 对规范的引用，包括对帧布局及其语义的描述，包括有条件存在的帧的任何部分。
 
-The entries in the following table are registered by this document.
+下表中的条目由本文档注册。
 
 | ---------------- | ------ | -------------------------- |
 | Frame Type       |  Code  | Specification              |
@@ -1498,39 +1458,29 @@ The entries in the following table are registered by this document.
 | DUPLICATE_PUSH   |  0xE   | {{frame-duplicate-push}}   |
 | ---------------- | ------ | -------------------------- |
 
-Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
-(that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
-assigned by IANA.
+此外，IANA的整数值（即从“0x21”，“0x40”，......，到“0x3FFFFFFFFFFFFFFE”）中满足规则为“0x1f * N + 0x21”的每个代码都**禁止**由IANA分配。
 
-## Settings Parameters {#iana-settings}
+## 设置参数(Settings Parameters) {#iana-settings}
 
-This document establishes a registry for HTTP/3 settings.  The "HTTP/3 Settings"
-registry governs a 62-bit space. This space is split into three spaces that are
-governed by different policies. Values between `0x00` and `0x3f` (in
-hexadecimal) are assigned via the Standards Action or IESG Review policies
-{{!RFC8126}}. Values from `0x40` to `0x3fff` operate on the Specification
-Required policy {{!RFC8126}}. All other values are assigned to Private Use
-{{!RFC8126}}.  The designated experts are the same as those for the "HTTP/2
-Settings" registry defined in {{RFC7540}}.
+本文档为HTTP/3设置建立了一个注册。“HTTP / 3设置”注册可管理62-bit空间。
+此空间分为三个空间，由不同的策略管理。“0x00”和“0x3f”（十六进制）之间的值通过Standards Action或IESG Review策略分配{{!RFC8126}}.
+其他所有值注册为私有{{!RFC8126}}。该项指定的专家与{{RFC7540}}中定义的“HTTP/2设置”注册的专家相同。
 
-While this registry is separate from the "HTTP/2 Settings" registry defined in
-{{RFC7540}}, it is preferable that the assignments parallel each other.  If an
-entry is present in only one registry, every effort SHOULD be made to avoid
-assigning the corresponding value to an unrelated operation.
+虽然此注册与{{RFC7540}}中定义的“HTTP/2设置”注册是分开的，最好也将两者分开看待。
+如果一个条目只存在于一个注册表中，则**应该**尽一切努力避免将相应的值分配给不相关的操作。
 
-New registrations are advised to provide the following information:
+建议新注册提供以下信息:
 
-Name:
-: A symbolic name for the setting.  Specifying a setting name is optional.
+名称(Name):
+: 设置的符号名称。可选指定设置名称。
 
-Code:
-: The 62-bit code assigned to the setting.
+代码(Code):
+: 分配给该设置的62-bit代码
 
-Specification:
-: An optional reference to a specification that describes the use of the
-  setting.
+格式(Specification):
+: 对描述使用的规范的可选引用设置。
 
-The entries in the following table are registered by this document.
+下表中的条目由本文档注册.
 
 | ---------------------------- | ------ | ------------------------- |
 | Setting Name                 |  Code  | Specification             |
@@ -1543,9 +1493,7 @@ The entries in the following table are registered by this document.
 | NUM_PLACEHOLDERS             |  0x8   | {{settings-parameters}}   |
 | ---------------------------- | ------ | ------------------------- |
 
-Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
-(that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
-assigned by IANA.
+此外，IANA的整数值（即从“0x21”，“0x40”，......，到“0x3FFFFFFFFFFFFFFE”）中满足规则为“0x1f * N + 0x21”的每个代码都**禁止**由IANA分配。
 
 ## 错误码 {#iana-error-codes}
 
