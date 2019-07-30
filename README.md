@@ -13,6 +13,8 @@
 
 [QUIC-QPACK封装 draft-ietf-quic-qpack-zh](http://docs.wxclimb.top/draft-ietf-quic-qpack-zh.html)
 
+[QUIC-TLS 加密 draft-ietf-quic-tls-zh](http://docs.wxclimb.top/draft-ietf-quic-tls-zh.html)
+
 ## 翻译格式与翻译相关
 
 * 采用 [IETF Internet Draft 标准格式](https://github.com/martinthomson/i-d-template)
