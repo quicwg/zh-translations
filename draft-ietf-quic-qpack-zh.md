@@ -80,87 +80,78 @@ code and issues list for this draft can be found at
 
 --- middle
 
-# Introduction
+# 简介(Introduction)
 
-The QUIC transport protocol was designed from the outset to support HTTP
-semantics, and its design subsumes many of the features of HTTP/2.  HTTP/2 uses
-HPACK ({{!RFC7541}}) for header compression, but QUIC's stream multiplexing
-comes into some conflict with HPACK.  A key goal of the design of QUIC is to
-improve stream multiplexing relative to HTTP/2 by reducing head-of-line
-blocking.  If HPACK were used for HTTP/3, it would induce head-of-line
-blocking due to built-in assumptions of a total ordering across frames on all
-streams.
+QUIC 传输协议从一开始就设计为支持 HTTP 语义，其设计包含了 HTTP/2 的许多特性。
+HTTP/2使用 HPACK({{!RFC7541}})进行报头压缩，但 QUIC 的流复用与 HPACK 发生了一些冲突。
+QUIC设计的一个关键目标是通过减少队头阻塞来改进相对于 HTTP/2 的流的多路复用。
+如果 HPACK 用于 HTTP/3，由于它内建的所有流上的帧之间的总排序的假设，会导致队头阻塞。
 
-QUIC is described in {{QUIC-TRANSPORT}}.  The HTTP/3 mapping is described in
-{{HTTP3}}. For a full description of HTTP/2, see {{?RFC7540}}. The
-description of HPACK is {{!RFC7541}}.
+QUIC 描述在{{QUIC-TRANSPORT}}中。
+HTTP/3 映射描述于{{HTTP3}}。
+对于 HTTP/2 的详细描述，参见{{?RFC7540}}。
+HPACK 的描述详见{{!RFC7541}}。
 
-QPACK reuses core concepts from HPACK, but is redesigned to allow correctness in
-the presence of out-of-order delivery, with flexibility for implementations to
-balance between resilience against head-of-line blocking and optimal compression
-ratio.  The design goals are to closely approach the compression ratio of HPACK
-with substantially less head-of-line blocking under the same loss conditions.
+QPACK 重新使用了 HPACK 的核心概念，但经过重新设计，
+在针对队头阻塞的恢复能力和最佳压缩比做平衡，允许在出现无序交付的情况下保持正确性，具有实现的灵活性。
+设计目标是在相同的损耗条件下，以实质上较少的队头阻塞达到接近 HPACK 的压缩比。
 
-## Conventions and Definitions
+## 惯例与定义(Conventions and Definitions)
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
+"应当(SHALL)"， "应当不(SHALL NOT)"， "应该(SHOULD)"，
+"不应该(SHOULD NOT)"， "推荐(RECOMMENDED)"，
+"不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
+在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
+当且仅当他们如此例子显示的以加粗的形式出现时。
+文档中使用的术语在下方描述。
 
-Definitions of terms that are used in this document:
+头字段(Header field):
 
-Header field:
+: 作为 HTTP 消息的一部分发送的键值对。
 
-: A name-value pair sent as part of an HTTP message.
+头列表(Header list):
 
-Header list:
+: 和一个 HTTP 消息关联的有序的头字段的集合。一个头列表可以包含多个同键名的头字段。也可以包含重复的头字段。
 
-: An ordered collection of header fields associated with an HTTP message.  A
-  header list can contain multiple header fields with the same name.  It can
-  also contain duplicate header fields.
+头区块(Header block):
 
-Header block:
+: 头列表的压缩表示。
 
-: The compressed representation of a header list.
+编码器(Encoder):
 
-Encoder:
+: 将头列表转化成头区块的实现。
 
-: An implementation which transforms a header list into a header block.
+解码器(Decoder):
 
-Decoder:
+: 将头区块转化成头列表的实现。
 
-: An implementation which transforms a header block into a header list.
+完全索引(Absolute Index):
 
-Absolute Index:
+: 动态表中每一记录的唯一索引。
 
-: A unique index for each entry in the dynamic table.
+基准(Base):
 
-Base:
+: 指向关联索引的引用。动态引用用于关联到头取款中的某个基准。
 
-: A reference point for relative indicies.  Dynamic references are made relative
-  to a Base in header blocks.
+插入数(Insert Count):
 
-Insert Count:
+: 动态表中插入的记录总的数量。
 
-: The total number of entries inserted in the dynamic table.
+QPACK 是一个名字，不是一个缩写。
 
-QPACK is a name, not an acronym.
+## 全局惯例(Notational Conventions)
 
-## Notational Conventions
-
-Diagrams use the format described in Section 3.1 of {{?RFC2360}}, with the
-following additional conventions:
+示意图使用了描述在 {{?RFC2360}}中3.1章的格式，包含以下额外的惯例:
 
 x (A)
-: Indicates that x is A bits long
+: 表示 X 是 A 位长
 
 x (A+)
-: Indicates that x uses the prefixed integer encoding defined in Section 5.1 of
-  [RFC7541], beginning with an A-bit prefix.
+: 表示 X 使用了定义于[RFC7541]中5.1章的，以A位的前缀开始。
 
 x ...
-: Indicates that x is variable-length and extends to the end of the region.
+: 表示 x 是变长的，并延展到区域末端。
 
 # Compression Process Overview
 
