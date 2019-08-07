@@ -367,129 +367,87 @@ retransmissions and increase the reordering threshold in packets or time MAY
 choose to start with smaller initial reordering thresholds to minimize recovery
 latency.
 
-### Packet Threshold
+### 数据包阈值(Packet Threshold)
 
-The RECOMMENDED initial value for the packet reordering threshold
-(kPacketThreshold) is 3, based on best practices for TCP loss detection
-{{?RFC5681}} {{?RFC6675}}.
+根据TCP丢失检测的最佳实践，数据包重新排序阈值（kPacketThreshold）的**建议**初始值为3{{?RFC5681}} {{?RFC6675}}.
 
-Some networks may exhibit higher degrees of reordering, causing a sender to
-detect spurious losses.  Implementers MAY use algorithms developed for TCP, such
-as TCP-NCR {{?RFC4653}}, to improve QUIC's reordering resilience.
+某些网络可能表现出较高程度的重新排序，导致发送方检测到虚假损失。
+实施者**可以**使用为TCP开发的算法，例如TCP-NCR {{?RFC4653}}，以提高QUIC的重新排序弹性。
 
-### Time Threshold {#time-threshold}
+### 时间门槛(Time Threshold) {#time-threshold}
 
-Once a later packet has been acknowledged, an endpoint SHOULD declare an earlier
-packet lost if it was sent a threshold amount of time in the past. The time
-threshold is computed as kTimeThreshold * max(SRTT, latest_RTT).
-If packets sent prior to the largest acknowledged packet cannot yet be declared
-lost, then a timer SHOULD be set for the remaining time.
+一旦确认了以后的数据包，终端**应该**声明如果在过去发送了一个阈值时间量的早期数据包丢失了。
+时间阈值计算方法为kTimeThreshold * max（SRTT，latest_RTT）。
+如果在最大确认数据包之前发送的数据包尚未被声明丢失，那么**应该**为剩余时间设置一个定时器。
 
-The RECOMMENDED time threshold (kTimeThreshold), expressed as a round-trip time
-multiplier, is 9/8.
+表达为往返时间乘数的**建议**时间阈值（kTimeThreshold）是9/8。
 
-Using max(SRTT, latest_RTT) protects from the two following cases:
+使用max（SRTT，latest_RTT）可以防止以下两种情况：
 
-* the latest RTT sample is lower than the SRTT, perhaps due to reordering where
-  the acknowledgement encountered a shorter path;
+* 最新的RTT样本低于SRTT，可能是由于重新排序确认遇到了较短的路径;
+* 最新的RTT样本高于SRTT，可能是由于实际RTT持续增加，但平滑后的SRTT还没有赶上。
 
-* the latest RTT sample is higher than the SRTT, perhaps due to a sustained
-  increase in the actual RTT, but the smoothed SRTT has not yet caught up.
-
-Implementations MAY experiment with absolute thresholds, thresholds from
-previous connections, adaptive thresholds, or including RTT variance.  Smaller
-thresholds reduce reordering resilience and increase spurious retransmissions,
-and larger thresholds increase loss detection delay.
+实现**可以**尝试绝对阈值，阈值前连接，自适应阈值或包含RTT方差。
+阈值阈值降低会使得重新排序的弹性范围减小并增加伪重传几率，并且较大的阈值增加了丢失检测延迟。
 
 
-## Crypto Retransmission Timeout
+## 加密重传超时(Crypto Retransmission Timeout)
 
-Data in CRYPTO frames is critical to QUIC transport and crypto negotiation, so a
-more aggressive timeout is used to retransmit it.
+CRYPTO帧中的数据对于QUIC传输和加密协商至关重要，因此要使用较大的激活超时来重新传输它。
 
-The initial crypto retransmission timeout SHOULD be set to twice the initial
-RTT.
+初始加密重传超时应该设置为初始RTT的两倍。
 
-At the beginning, there are no prior RTT samples within a connection.  Resumed
-connections over the same network SHOULD use the previous connection's final
-smoothed RTT value as the resumed connection's initial RTT.  If no previous RTT
-is available, or if the network changes, the initial RTT SHOULD be set to 100ms.
-When an acknowledgement is received, a new RTT is computed and the timer
-SHOULD be set for twice the newly computed smoothed RTT.
+开始时，连接中没有先前的RTT样本。
+通过同一网络恢复的连接**应该**使用先前连接的最终平滑后RTT值作为恢复连接的初始RTT。
+如果没有先前的RTT可用，或者网络发生变化，则初始RTT**应该**设置为100ms。
+当接收到确认时，计算新的RTT并且应该将定时器设置为新计算的平滑RTT的两倍。
 
-When a crypto packet is sent, the sender MUST set a timer for the crypto
-timeout period.  This timer MUST be updated when a new crypto packet is sent.
-Upon timeout, the sender MUST retransmit all unacknowledged CRYPTO data if
-possible.
+当发送加密数据包时，发送方必须为加密超时时段设置一个定时器。 
+必须在发送新的加密数据包时更新此计时器。
+超时后，如果可能，发送方必须重新发送所有未确认的CRYPTO数据。
 
-Until the server has validated the client's address on the path, the amount of
-data it can send is limited, as specified in {{QUIC-TRANSPORT}}.  If not all
-unacknowledged CRYPTO data can be sent, then all unacknowledged CRYPTO data sent
-in Initial packets should be retransmitted.  If no data can be sent, then no
-alarm should be armed until data has been received from the client.
+在服务器验证路径上的客户端地址之前，它可以发送的数据量是有限的，如{{QUIC-TRANSPORT}}中所述。
+如果不能发送所有未确认的CRYPTO数据，则应重新发送在初始数据包中发送的所有未确认的CRYPTO数据。
+如果无法发送数据，则在从客户端收到数据之前不应设置警报。
 
-Because the server could be blocked until more packets are received, the client
-MUST start the crypto retransmission timer even if there is no unacknowledged
-CRYPTO data.  If the timer expires and the client has no CRYPTO data to
-retransmit and does not have Handshake keys, it SHOULD send an Initial packet in
-a UDP datagram of at least 1200 bytes.  If the client has Handshake keys, it
-SHOULD send a Handshake packet.
+因为服务器可能被阻塞直到收到更多的数据包，所以即使没有未确认的CRYPTO数据，客户端也**必须**启动加密重传定时器。
+如果计时器到期并且客户端没有要重新传输的CRYPTO数据并且没有握手密钥，它应该在至少1200字节的UDP数据报中发送初始数据包。
+如果客户端有握手密钥，它**应该**发送握手数据包。
 
-On each consecutive expiration of the crypto timer without receiving an
-acknowledgement for a new packet, the sender SHOULD double the crypto
-retransmission timeout and set a timer for this period.
+在没有接收到对新数据包的确认的加密定时器的每个连续到期时，发送方**应该**加倍加密重传超时并为该时段设置定时器。
 
-When crypto packets are in flight, the probe timer ({{pto}}) is not active.
+当加密数据包在传输中时，探测计时器（{{pto}}）不活动。
 
 
-### Retry and Version Negotiation
+### 重试和版本协商(Retry and Version Negotiation)
 
-A Retry or Version Negotiation packet causes a client to send another Initial
-packet, effectively restarting the connection process and resetting congestion
-control and loss recovery state, including resetting any pending timers.  Either
-packet indicates that the Initial was received but not processed.  Neither
-packet can be treated as an acknowledgment for the Initial.
+重试或版本协商数据包会导致客户端发送另一个初始数据包Initial，有效地重新启动连接过程并重置拥塞控制和丢失恢复状态，包括重置任何挂起的定时器。
+两个数据包都表示已收到初始化Initial但未处理。
+这两个数据包都不能被视为对初始化Initial的确认。
 
-The client MAY however compute an RTT estimate to the server as the time period
-from when the first Initial was sent to when a Retry or a Version Negotiation
-packet is received.  The client MAY use this value to seed the RTT estimator for
-a subsequent connection attempt to the server.
+然而，客户端**可以**计算服务器的RTT估计值，作为从发送第一个Initial时到收到Retry或Version Negotiation数据包的时间段。
+客户端**可以**使用此值为RTT估计器播种，以便后续连接到服务器。
 
+### 丢弃密钥和数据包状态(Discarding Keys and Packet State) {#discarding-packets}
 
-### Discarding Keys and Packet State {#discarding-packets}
+丢弃数据包保护密钥时（参见{{QUIC-TLS}}的第4.9节），无法在确认使用这些密钥发送的所有数据包，因为已经无法再处理它们的确认。
+发送方**必须**丢弃与这些数据包关联的所有恢复状态，并务必将它们从传输中的字节数中删除。
 
-When packet protection keys are discarded (see Section 4.9 of {{QUIC-TLS}}), all
-packets that were sent with those keys can no longer be acknowledged because
-their acknowledgements cannot be processed anymore. The sender MUST discard
-all recovery state associated with those packets and MUST remove them from
-the count of bytes in flight.
+端点在开始交换握手数据包后停止发送和接收初始数据包（参见{{QUIC-TRANSPORT}}的第17.2.2.1节）。
+此时，丢弃所有正在进行的初始数据包的恢复状态。
 
-Endpoints stop sending and receiving Initial packets once they start exchanging
-Handshake packets (see Section 17.2.2.1 of {{QUIC-TRANSPORT}}). At this point,
-recovery state for all in-flight Initial packets is discarded.
+当0-RTT被拒绝时，丢弃所有正在进行的0-RTT分组的恢复状态。
 
-When 0-RTT is rejected, recovery state for all in-flight 0-RTT packets is
-discarded.
+如果服务器接受0-RTT，但不缓冲在Initial数据包之前到达的0-RTT数据包，则早期的0-RTT数据包将被声明丢失，但预计这种情况很少发生。
 
-If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive
-before Initial packets, early 0-RTT packets will be declared lost, but that
-is expected to be infrequent.
+期望是在用它们加密的分组被确认或声明丢失之后丢弃密钥。 
+但是，只要握手密钥可用，就可以尽快销毁初始机密（参见{{QUIC-TLS}}的第4.10节）。
 
-It is expected that keys are discarded after packets encrypted with them would
-be acknowledged or declared lost.  Initial secrets however might be destroyed
-sooner, as soon as handshake keys are available (see Section 4.10 of
-{{QUIC-TLS}}).
+## 探测超时(Probe Timeout) {#pto}
 
-
-## Probe Timeout {#pto}
-
-A Probe Timeout (PTO) triggers a probe packet when ack-eliciting data is in
-flight but an acknowledgement is not received within the expected period of
-time.  A PTO enables a connection to recover from loss of tail packets or acks.
-The PTO algorithm used in QUIC implements the reliability functions of Tail Loss
-Probe {{?TLP=I-D.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}, RTO {{?RFC5681}} and
-F-RTO algorithms for TCP {{?RFC5682}}, and the timeout computation is based on
-TCP's retransmission timeout period {{?RFC6298}}.
+探测超时（PTO）在ack引出数据处于传输状态但在预期的时间段内未收到确认时触发探测数据包。
+PTO使连接能够从丢失尾包或确认中恢复。
+QUIC中使用的PTO算法实现了尾部丢失探测{{?TLP = ID.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}，RTO {{?RFC5681}}和F-RTO的可靠性功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重传超时时间{{?RFC6298}}。
 
 ### Computing PTO
 
