@@ -1170,69 +1170,48 @@ In deciding when to update keys, endpoints MUST NOT exceed the limits for use of
 specific keys, as described in Section 5.5 of {{!TLS13}}.
 
 
-# Security of Initial Messages
+# 初始消息的安全性(Security of Initial Messages)
 
-Initial packets are not protected with a secret key, so they are subject to
-potential tampering by an attacker.  QUIC provides protection against attackers
-that cannot read packets, but does not attempt to provide additional protection
-against attacks where the attacker can observe and inject packets.  Some forms
-of tampering -- such as modifying the TLS messages themselves -- are detectable,
-but some -- such as modifying ACKs -- are not.
+初始数据包不受密钥保护，因此它们易受到攻击者的可能的篡改。
+QUIC 提供针对无法读取数据包的攻击者的保护，但不尝试提供此外的保护，如防止攻击者可以观察和注入数据包的情况下攻击。
+某些形式的篡改 -- 例如修改 TLS 消息本身 -- 是可检测的，但有些 -- 例如修改 ACK -- 是不可检测的。
 
-For example, an attacker could inject a packet containing an ACK frame that
-makes it appear that a packet had not been received or to create a false
-impression of the state of the connection (e.g., by modifying the ACK Delay).
-Note that such a packet could cause a legitimate packet to be dropped as a
-duplicate.  Implementations SHOULD use caution in relying on any data which is
-contained in Initial packets that is not otherwise authenticated.
+例如，攻击者可以注入包含 ACK 帧的分组，该 ACK 帧使分组看起来没有被接收到，或者造成连接状态的错误印象(例如，通过修改ACK延迟)。
+值得注意的是，这样的数据包可能会导致合法数据包作为副本被丢弃。
+实现**应该**谨慎依赖包含在未进行身份验证的初始数据包中的任何数据。
 
-It is also possible for the attacker to tamper with data that is carried in
-Handshake packets, but because that tampering requires modifying TLS handshake
-messages, that tampering will cause the TLS handshake to fail.
+攻击者也可能篡改握手数据包中携带的数据，但由于篡改需要修改 TLS 握手消息，因此篡改将导致 TLS 握手失败。
 
 
-# QUIC-Specific Additions to the TLS Handshake
+# QUIC对TLS握手的额外特性(QUIC-Specific Additions to the TLS Handshake)
 
-QUIC uses the TLS handshake for more than just negotiation of cryptographic
-parameters.  The TLS handshake validates protocol version selection, provides
-preliminary values for QUIC transport parameters, and allows a server to perform
-return routeability checks on clients.
+QUIC 使用 TLS 握手不仅仅用于加密参数的协商。
+TLS 握手会验证协议版本选择，提供 QUIC 传输参数的初始值，并允许服务端让客户端执行返回可路由性检查。
 
+## 协议和版本协商(Protocol and Version Negotiation) {#version-negotiation}
 
-## Protocol and Version Negotiation {#version-negotiation}
+QUIC 版本协商机制用于协商完成握手之前使用的 QUIC 版本。
+然而此数据包是未经过身份验证的，这使得主动攻击者能够强制版本降级。
 
-The QUIC version negotiation mechanism is used to negotiate the version of QUIC
-that is used prior to the completion of the handshake.  However, this packet is
-not authenticated, enabling an active attacker to force a version downgrade.
+为了确保 QUIC 版本降级不是被攻击者强行降级的，版本信息被拷贝到 TLS 握手中，为 QUIC 协商提供完整性保护。
+这并不能防止在握手完成之前版本降级，尽管这意味着降级会导致握手失败。
 
-To ensure that a QUIC version downgrade is not forced by an attacker, version
-information is copied into the TLS handshake, which provides integrity
-protection for the QUIC negotiation.  This does not prevent version downgrade
-prior to the completion of the handshake, though it means that a downgrade
-causes a handshake failure.
+QUIC 要求加密握手提供经过身份验证的协议协商。
+TLS 使用应用层协议协商(ALPN){{!RFC7301}}来选择应用协议。
+除非使用另一种机制来商定应用协议，否则终端**必须**为此使用 ALPN。
+使用 ALPN 时，如果未协商应用协议，则终端**必须**中止连接。
 
-QUIC requires that the cryptographic handshake provide authenticated protocol
-negotiation.  TLS uses Application Layer Protocol Negotiation (ALPN)
-{{!RFC7301}} to select an application protocol.  Unless another mechanism is
-used for agreeing on an application protocol, endpoints MUST use ALPN for this
-purpose.  When using ALPN, endpoints MUST abort a connection if an application
-protocol is not negotiated.
+应用层协议**可能**会限制它可以操作的 QUIC 版本。
+服务端**必须**选择与客户端选择的 QUIC 版本兼容的应用程序协议。
+如果服务端无法选择应用程序协议和 QUIC 版本的兼容组合，则**必须**中止连接。
+如果服务器选择 QUIC 版本和 ALPN 标识符的不兼容的组合，则客户端**必须**中止连接。
 
-An application-layer protocol MAY restrict the QUIC versions that it can operate
-over.  Servers MUST select an application protocol compatible with the QUIC
-version that the client has selected.  If the server cannot select a compatible
-combination of application protocol and QUIC version, it MUST abort the
-connection. A client MUST abort a connection if the server picks an incompatible
-combination of QUIC version and ALPN identifier.
+## QUIC传输参数扩展(QUIC Transport Parameters Extension) {#quic_parameters}
 
+QUIC 传输参数携带在 TLS 拓展中。
+不同版本的 QUIC 可能给这个结构定义了不同的格式。
 
-## QUIC Transport Parameters Extension {#quic_parameters}
-
-QUIC transport parameters are carried in a TLS extension. Different versions of
-QUIC might define a different format for this struct.
-
-Including transport parameters in the TLS handshake provides integrity
-protection for these values.
+将传输参数包含在在 TLS 握手中提供了对这些值的完整性保护。
 
 ~~~
    enum {
@@ -1240,61 +1219,45 @@ protection for these values.
    } ExtensionType;
 ~~~
 
-The `extension_data` field of the quic_transport_parameters extension contains a
-value that is defined by the version of QUIC that is in use.  The
-quic_transport_parameters extension carries a TransportParameters struct when
-the version of QUIC defined in {{QUIC-TRANSPORT}} is used.
+`quic_transport_parameters`的`extension_data`字段包含由正在使用的 QUIC 版本定义的值。
+使用{{QUIC-TRANSPORT}}中定义的 QUIC 版本时，
+`quic_transport_parameters`扩展会携带传输参数结构(TransportParameters)。
 
-The quic_transport_parameters extension is carried in the ClientHello and the
-EncryptedExtensions messages during the handshake.
+`quic_transport_parameters`扩展在握手期间在 ClientHello 和 EncryptedExtensions 消息中携带。
 
-While the transport parameters are technically available prior to the completion
-of the handshake, they cannot be fully trusted until the handshake completes,
-and reliance on them should be minimized.  However, any tampering with the
-parameters will cause the handshake to fail.
+虽然在握手完成之前传输参数在技术上是可用的，但在握手完成之前不能完全信任它们，并且应该尽量减少对它们的依赖。
+然而，对参数的任何篡改都会导致握手失败。
 
-Endpoints MUST NOT send this extension in a TLS connection that does not use
-QUIC (such as the use of TLS with TCP defined in {{!TLS13}}).  A fatal
-unsupported_extension alert MUST be sent if this extension is received when the
-transport is not QUIC.
+终端**禁止**在不使用 QUIC 的 TLS 连接(例如使用定义在{{!TLS13}}中的带有 TLS 的 TCP )中发送该拓展。
+如果在传输协议不是 QUIC 时收到此扩展，则**必须**发送不支持拓展警报的致命错误。
 
+## 移除前期数据的末尾消息(Removing the EndOfEarlyData Message) {#remove-eoed}
 
-## Removing the EndOfEarlyData Message {#remove-eoed}
+TLS EndOfEarlyData 消息未与 QUIC 一起使用。
+QUIC 不依赖于此消息来标记 0-RTT 数据的结束或用信号通知对握手密钥的更改。
 
-The TLS EndOfEarlyData message is not used with QUIC.  QUIC does not rely on
-this message to mark the end of 0-RTT data or to signal the change to Handshake
-keys.
+客户端**禁止**发送 EndOfEarlyData 消息。
+服务端**必须**以 PROTOCOL_VIOLATION 类型的连接错误来处理在 0-RTT 包中接收到的 CRYPTO 帧。
 
-Clients MUST NOT send the EndOfEarlyData message.  A server MUST treat receipt
-of a CRYPTO frame in a 0-RTT packet as a connection error of type
-PROTOCOL_VIOLATION.
-
-As a result, EndOfEarlyData does not appear in the TLS handshake transcript.
+因此，EndOfEarlyData 不会出现在 TLS 握手记录中。
 
 
-# Security Considerations
+# 安全相关考虑(Security Considerations)
 
-There are likely to be some real clangers here eventually, but the current set
-of issues is well captured in the relevant sections of the main text.
+这里最终可能会出现一些真正的问题，但当前的一系列问题在正文的相关章节中得到了很好的处理。
 
-Never assume that because it isn't in the security considerations section it
-doesn't affect security.  Most of this document does.
+永远不要假设因为它不在安全注意事项部分，它就不会影响安全性。
+本文档的大部分内容都是如此。
 
+## 包反射攻击缓解(Packet Reflection Attack Mitigation) {#reflection}
 
-## Packet Reflection Attack Mitigation {#reflection}
+来自服务器的大量握手消息的小 ClientHello 可用于包反射攻击，以放大攻击者生成的通信量。
 
-A small ClientHello that results in a large block of handshake messages from a
-server can be used in packet reflection attacks to amplify the traffic generated
-by an attacker.
-
-QUIC includes three defenses against this attack. First, the packet containing a
-ClientHello MUST be padded to a minimum size. Second, if responding to an
-unverified source address, the server is forbidden to send more than three UDP
-datagrams in its first flight (see Section 8.1 of {{QUIC-TRANSPORT}}). Finally,
-because acknowledgements of Handshake packets are authenticated, a blind
-attacker cannot forge them.  Put together, these defenses limit the level of
-amplification.
-
+QUIC 包含三种防御此攻击的方法。
+首先，ClientHello 包**必须**被填充到最小大小。
+其次，如果响应未经验证的源地址，则禁止服务端在第一次交互中发送三个以上的 UDP 数据报(参见{{QUIC-TRANSPORT}}的第8.1节)。
+最后，因为握手数据包的确认是经过身份验证的，所以盲人攻击者无法伪造它们。
+总而言之，这些防御措施限制了扩增的水平。
 
 ## Peer Denial of Service {#useless}
 
