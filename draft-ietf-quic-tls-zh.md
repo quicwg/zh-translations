@@ -1219,7 +1219,7 @@ QUIC 传输参数携带在 TLS 拓展中。
    } ExtensionType;
 ~~~
 
-`quic_transport_parameters`的`extension_data`字段包含由正在使用的 QUIC 版本定义的值。
+`quic_transport_parameters`的扩展`extension_data`字段包含由正在使用的 QUIC 版本定义的值。
 使用{{QUIC-TRANSPORT}}中定义的 QUIC 版本时，
 `quic_transport_parameters`扩展会携带传输参数结构(TransportParameters)。
 
@@ -1234,7 +1234,7 @@ QUIC 传输参数携带在 TLS 拓展中。
 ## 移除前期数据的末尾消息(Removing the EndOfEarlyData Message) {#remove-eoed}
 
 TLS EndOfEarlyData 消息未与 QUIC 一起使用。
-QUIC 不依赖于此消息来标记 0-RTT 数据的结束或用信号通知对握手密钥的更改。
+QUIC 不依赖于此消息来标记 0-RTT 数据的结束，也不依赖于用信号通知对握手密钥的更改。
 
 客户端**禁止**发送 EndOfEarlyData 消息。
 服务端**必须**以 PROTOCOL_VIOLATION 类型的连接错误来处理在 0-RTT 包中接收到的 CRYPTO 帧。
@@ -1256,7 +1256,7 @@ QUIC 不依赖于此消息来标记 0-RTT 数据的结束或用信号通知对�
 QUIC 包含三种防御此攻击的方法。
 首先，ClientHello 包**必须**被填充到最小大小。
 其次，如果响应未经验证的源地址，则禁止服务端在第一次交互中发送三个以上的 UDP 数据报(参见{{QUIC-TRANSPORT}}的第8.1节)。
-最后，因为握手数据包的确认是经过身份验证的，所以盲人攻击者无法伪造它们。
+最后，因为握手数据包的确认是经过身份验证的，所以无信息攻击者(blind attacker)无法伪造它们。
 总而言之，这些防御措施限制了扩增的水平。
 
 ## Peer Denial of Service {#useless}
