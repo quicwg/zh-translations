@@ -226,119 +226,172 @@ QUIC supports many ACK ranges, opposed to TCP's 3 SACK ranges.  In high loss
 environments, this speeds recovery, reduces spurious retransmits, and ensures
 forward progress without relying on timeouts.
 
-### Explicit Correction For Delayed ACKs
+### 延迟ACK的显式修正
 
-QUIC ACKs explicitly encode the delay incurred at the receiver between when a
-packet is received and when the corresponding ACK is sent.  This allows the
-receiver of the ACK to adjust for receiver delays, specifically the delayed ack
-timer, when estimating the path RTT.  This mechanism also allows a receiver to
-measure and report the delay from when a packet was received by the OS kernel,
-which is useful in receivers which may incur delays such as context-switch
-latency before a userspace QUIC receiver processes a received packet.
+QUIC ACK 在接收数据包的时间和
+正确的ACK发送时间之间显式编码了
+在接收方发生的延迟。这允许ACK的
+接收方对数据包接收方的延迟进行调整，
+特别指当估测路径RTT时的延迟ack计时器。
+这种方式也允许一个接收方去测量和
+上报延误是从哪个数据包被操作系统内核
+接收到时开始的，这对于可能受延迟，
+例如，在用户态QUIC接收方处理收到的
+数据包前的上下文切换延迟，这样对
+接受者非常有用。
+
+# 生成确认
+
+QUIC**应该**延迟发送
+响应数据包的确认，但**禁止**
+过于延迟确认需要ack的数据包。
+特别的，
+实现**必须**尝试强制最大ACK延迟，
+以避免导致对端虚假超时。
+最大ACK延迟在`max_ack_delay`传输参数
+中传递，默认值为25ms。
+
+**应该**在接收到第二个
+ACK引出分组后立即发送确认。
+QUIC恢复算法不假设对端在
+接收到第二个ack引出分组时
+立即发送ACK。
+
+为了加快丢失恢复并减少超时，
+接收方**应该**在收到无序数据包
+后立即发送ACK。
+它在收到乱序分组后到
+发送立即ACK的时间**禁止**超过1/8 RTT，
+除非更多乱序分组到达。
+如果每个数据包都无序到达，
+则应为每个接收到的数据包发送立即ACK。
+
+同样，在IP报头中标记有ECN拥塞经历(CE)
+代码点的数据包**应该**立即得到确认，
+以减少对端对拥塞事件的响应时间。
+
+作为优化，接收器**可以**在发送
+任何ACK帧作为响应之前处理多个分组。
+在这种情况下，接收器可以确定在
+处理传入分组之后应该生成立即确认
+还是延迟确认。
+
+## 加密握手数据
+
+为了快速完成握手并避免
+由于密码重传超时而导致的
+虚假重传，密码分组的发送**应该**
+使用非常短的ACK延迟，
+例如本地计时器粒度。
+当密码栈指示已经接收到
+该分组编号空间的所有数据时，
+**可以**立即发送ACK帧。
+
+## ACK范围
+
+当发送ACK帧时，
+可以包括一个或多个数据包的确认。
+包括较旧的分组的确认，
+这降低了由于丢失先前发送的
+ACK帧而导致的虚假重传的机会，
+但代价是较大的ACK帧。
+
+ACK帧**应该**始终
+确认最近接收到的数据包，
+并且数据包越乱序，就越需要
+快速发送更新的ACK帧，
+以防止对端宣布数据包丢失
+并突发地重新传输它包含的帧。
+
+以下是一种用于确定ACK帧中
+包含哪些数据包的推荐方法。
+
+## 接受者追踪ACK帧
+
+当发送包含ACK帧的数据包时，
+可以保存在该帧中确认的最大值。
+当确认包含ACK帧的数据包时，
+接收方可以停止确认小于或
+等于发送的ACK帧中已确认的
+最大值的数据包。
+
+在没有ACK帧丢失的情况下，
+此算法允许最小1RTT的重新排序。
+在ACK帧丢失和重新排序的情况下，
+此方法不能保证发送方在确认
+不再包含在ACK帧中前看到
+每个确认。分组可能被无序接收，
+并且包含它们的所有后续ACK帧都
+可能丢失。
+在这种情况下，
+丢失恢复算法可能会
+导致虚假重传，但发送方将
+继续向前处理。
+
+# 计算RTT估计值
+
+当ACK帧到达时计算
+往返时间(RTT)。
+计算当前时间和发送
+最大确认数据包的
+时间之间的差值。
+**禁止**对未被新确认
+或未进行ACK-LEICING的
+数据包采取RTT样本。
+
+计算RTT时，来自ACK帧的
+ACK延迟字段**应该**限制
+为对等体指定的max_ack_delay。
+将ack_delay限制为max_ack_delay
+可确保指定极小的max_ack_delay的
+对端不会比正确指定max_ack_delay的
+对等体造成更多虚假超时。
+只要结果大于min_RTT，
+就**应该**从RTT中减去它。
+如果结果小于MIN_RTT，
+则应使用RTT，但应忽略ACK
+延迟字段。
+
+发送方计算平滑RTT(SRTT)和
+RTT方差(RTTVAR)的方法与
+{{?RFC6298}}中指定的类似，
+参见{{on-ack-received}}。
+
+当接收到确认比之前更大的
+数据包编号的ACK帧时，
+发送方获取RTT样本
+(参见{{on-ack-received}})。
+当在RTT内接收到多个这样的ACK帧时，
+发送方将在每个RTT中获取多个RTT样本。
+当在一个RTT内生成多个样本时，
+平滑的RTT和RTT方差可能会
+保留不充分的历史记录，
+如{{?RFC6298}}中所建议的。
+改变这些计算目前是一个开放的
+研究问题。
+
+MIN_RTT是在按ACK延迟
+进行调整之前通过连接测量的
+最小RTT。
+忽略MIN RTT的
+ACK延迟可防止有意或
+无意低估MIN RTT，
+进而防止低估平滑的RTT。
 
 
-# Generating Acknowledgements
+# 丢包检测 {#loss-detection}
 
-QUIC SHOULD delay sending acknowledgements in response to packets, but MUST NOT
-excessively delay acknowledgements of ack-eliciting packets. Specifically,
-implementations MUST attempt to enforce a maximum ack delay to avoid causing
-the peer spurious timeouts.  The maximum ack delay is communicated in the
-`max_ack_delay` transport parameter and the default value is 25ms.
+QUIC发送器使用ACK信息和
+超时来检测丢失的数据包，
+本节介绍了这些算法。
 
-An acknowledgement SHOULD be sent immediately upon receipt of a second
-ack-eliciting packet. QUIC recovery algorithms do not assume the peer sends
-an ACK immediately when receiving a second ack-eliciting packet.
-
-In order to accelerate loss recovery and reduce timeouts, the receiver SHOULD
-send an immediate ACK after it receives an out-of-order packet. It could send
-immediate ACKs for in-order packets for a period of time that SHOULD NOT exceed
-1/8 RTT unless more out-of-order packets arrive. If every packet arrives out-of-
-order, then an immediate ACK SHOULD be sent for every received packet.
-
-Similarly, packets marked with the ECN Congestion Experienced (CE) codepoint in
-the IP header SHOULD be acknowledged immediately, to reduce the peer's response
-time to congestion events.
-
-As an optimization, a receiver MAY process multiple packets before sending any
-ACK frames in response.  In this case the receiver can determine whether an
-immediate or delayed acknowledgement should be generated after processing
-incoming packets.
-
-## Crypto Handshake Data
-
-In order to quickly complete the handshake and avoid spurious retransmissions
-due to crypto retransmission timeouts, crypto packets SHOULD use a very short
-ack delay, such as the local timer granularity.  ACK frames MAY be sent
-immediately when the crypto stack indicates all data for that packet number
-space has been received.
-
-## ACK Ranges
-
-When an ACK frame is sent, one or more ranges of acknowledged packets are
-included.  Including older packets reduces the chance of spurious retransmits
-caused by losing previously sent ACK frames, at the cost of larger ACK frames.
-
-ACK frames SHOULD always acknowledge the most recently received packets, and the
-more out-of-order the packets are, the more important it is to send an updated
-ACK frame quickly, to prevent the peer from declaring a packet as lost and
-spuriously retransmitting the frames it contains.
-
-Below is one recommended approach for determining what packets to include in an
-ACK frame.
-
-## Receiver Tracking of ACK Frames
-
-When a packet containing an ACK frame is sent, the largest acknowledged in that
-frame may be saved.  When a packet containing an ACK frame is acknowledged, the
-receiver can stop acknowledging packets less than or equal to the largest
-acknowledged in the sent ACK frame.
-
-In cases without ACK frame loss, this algorithm allows for a minimum of 1 RTT
-of reordering. In cases with ACK frame loss and reordering, this approach does
-not guarantee that every acknowledgement is seen by the sender before it is no
-longer included in the ACK frame. Packets could be received out of order and
-all subsequent ACK frames containing them could be lost. In this case, the
-loss recovery algorithm may cause spurious retransmits, but the sender will
-continue making forward progress.
-
-# Computing the RTT estimate
-
-Round-trip time (RTT) is calculated when an ACK frame arrives by
-computing the difference between the current time and the time the largest
-acked packet was sent.  An RTT sample MUST NOT be taken for a packet that
-is not newly acknowledged or not ack-eliciting.
-
-When RTT is calculated, the ack delay field from the ACK frame SHOULD be limited
-to the max_ack_delay specified by the peer.  Limiting ack_delay to max_ack_delay
-ensures a peer specifying an extremely small max_ack_delay doesn't cause more
-spurious timeouts than a peer that correctly specifies max_ack_delay. It SHOULD
-be subtracted from the RTT as long as the result is larger than the min_rtt.
-If the result is smaller than the min_rtt, the RTT should be used, but the
-ack delay field should be ignored.
-
-A sender calculates both smoothed RTT (SRTT) and RTT variance (RTTVAR) similar
-to those specified in {{?RFC6298}}, see {{on-ack-received}}.
-
-A sender takes an RTT sample when an ACK frame is received that acknowledges a
-larger packet number than before (see {{on-ack-received}}).  A sender will take
-multiple RTT samples per RTT when multiple such ACK frames are received within
-an RTT.  When multiple samples are generated within an RTT, the smoothed RTT and
-RTT variance could retain inadequate history, as suggested in {{?RFC6298}}.
-Changing these computations is currently an open research question.
-
-min_rtt is the minimum RTT measured over the connection, prior to adjusting by
-ack delay.  Ignoring ack delay for min RTT prevents intentional or unintentional
-underestimation of min RTT, which in turn prevents underestimating smoothed RTT.
-
-
-# Loss Detection {#loss-detection}
-
-QUIC senders use both ack information and timeouts to detect lost packets, and
-this section provides a description of these algorithms.
-
-If a packet is lost, the QUIC transport needs to recover from that loss, such
-as by retransmitting the data, sending an updated frame, or abandoning the
-frame.  For more information, see Section 13.2 of {{QUIC-TRANSPORT}}.
+如果数据包丢失，
+QUIC传输需要从该丢失中恢复，
+例如通过重新传输数据、
+发送更新的帧或丢弃该帧。
+有关更多信息，
+请参见{{QUIC-TRANSPORT}}的
+第13.2节。
 
 
 ## Acknowledgement-based Detection {#ack-loss-detection}
@@ -857,7 +910,7 @@ time_of_last_sent_ack_eliciting_packet:
 time_of_last_sent_crypto_packet:
 : The time the most recent crypto packet was sent.
 
-largest_acked_packet[kPacketNumberSpace]:
+largest_acked_packet:
 : The largest packet number acknowledged in the packet number space so far.
 
 latest_rtt:
@@ -880,11 +933,11 @@ max_ack_delay:
   received ACK frame may be larger due to late timers, reordering,
   or lost ACKs.
 
-loss_time[kPacketNumberSpace]:
+loss_time:
 : The time at which the next packet in that packet number space will be
   considered lost based on exceeding the reordering window in time.
 
-sent_packets[kPacketNumberSpace]:
+sent_packets:
 : An association of packet numbers in a packet number space to information
   about them.  Described in detail above in {{tracking-sent-packets}}.
 
