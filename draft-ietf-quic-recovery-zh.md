@@ -106,7 +106,7 @@ Linux TCP实现中都有描述。本文档描述了QUIC拥塞控制和丢失恢�
 **“应当(SHALL)”**， **“应当不(SHALL NOT)”**， **“应该(SHOULD)”**，
 **“不应该(SHOULD NOT)”**， **“推荐(RECOMMENDED)”**， 
 **“不推荐(NOT RECOMMENDED)”**， **“可以(MAY)”**， **“可选(OPTIONAL)”**
-在这篇文档中将会如 BCP 14 [RFC2119] [RFC8174] 中描述的， 当且仅当
+在这篇文档中将会如 BCP 14 [`RFC2119`] [`RFC8174`] 中描述的， 当且仅当
 他们如此例子显示的以加粗的形式出现时。 文档中使用的术语在下方描述。
 
 本文档中使用的术语定义：
@@ -838,7 +838,7 @@ time_of_last_sent_ack_eliciting_packet:
 time_of_last_sent_crypto_packet:
 : The time the most recent crypto packet was sent.
 
-largest_acked_packet[kPacketNumberSpace]:
+largest_acked_packet[`kPacketNumberSpace`]:
 : The largest packet number acknowledged in the packet number space so far.
 
 latest_rtt:
@@ -861,11 +861,11 @@ max_ack_delay:
   received ACK frame may be larger due to late timers, reordering,
   or lost ACKs.
 
-loss_time[kPacketNumberSpace]:
+loss_time[`kPacketNumberSpace`]:
 : The time at which the next packet in that packet number space will be
   considered lost based on exceeding the reordering window in time.
 
-sent_packets[kPacketNumberSpace]:
+sent_packets[`kPacketNumberSpace`]:
 : An association of packet numbers in a packet number space to information
   about them.  Described in detail above in {{tracking-sent-packets}}.
 
