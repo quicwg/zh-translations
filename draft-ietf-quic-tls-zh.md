@@ -1285,104 +1285,81 @@ attacker cannot forge them.  Put together, these defenses limit the level of
 amplification.
 
 
-## Peer Denial of Service {#useless}
+## 对端拒绝服务（Peer Denial of Service） {#useless}
 
-QUIC, TLS, and HTTP/2 all contain messages that have legitimate uses in some
-contexts, but that can be abused to cause a peer to expend processing resources
-without having any observable impact on the state of the connection.  If
-processing is disproportionately large in comparison to the observable effects
-on bandwidth or state, then this could allow a malicious peer to exhaust
-processing capacity without consequence.
+QUIC、TLS和HTTP/2都包含在某些上下文中具有合法用途的消息，
+但是这些消息可能被滥用，导致对端花费处理资源，而不会对连接状态产生任何可见的影响。
+如果处理与可观察到的带宽或状态影响相比异常大，
+那么这可能允许恶意对端耗尽处理能力而不产生后果不被察觉。
 
-QUIC prohibits the sending of empty `STREAM` frames unless they are marked with
-the FIN bit.  This prevents `STREAM` frames from being sent that only waste
-effort.
+QUIC禁止发送空`STREAM`帧，除非它们被标记为FIN位。
+这可以防止只会浪费精力的`STREAM`帧被发送。
 
-While there are legitimate uses for some redundant packets, implementations
-SHOULD track redundant packets and treat excessive volumes of any non-productive
-packets as indicative of an attack.
+虽然某些冗余包有合法的用途，但是实现**应该**跟踪冗余包，
+并将任何非生产性包的过量数量视为攻击的指示。
 
 
-## Header Protection Analysis {#header-protect-analysis}
+## 报头保护分析（Header Protection Analysis） {#header-protect-analysis}
 
-Header protection relies on the packet protection AEAD being a pseudorandom
-function (PRF), which is not a property that AEAD algorithms
-guarantee. Therefore, no strong assurances about the general security of this
-mechanism can be shown in the general case. The AEAD algorithms described in
-this document are assumed to be PRFs.
+报头保护依赖于包保护AEAD是伪随机函数(PRF)，而这不是AEAD算法所保证的属性。
+因此，不能在一般情况下对这一机制的一般安全作出强有力的保证。
+本文中描述的AEAD算法假设为PRFs。
 
-The header protection algorithms defined in this document take the form:
+本文档定义的包头保护算法采用以下形式:
 
 ~~~
-protected_field = field XOR PRF(hp_key, sample)
+受保护的字段（protected_field） = 字段 XOR 伪随机算法（PRF） (hp_key, sample)
 ~~~
 
-This construction is secure against chosen plaintext attacks (IND-CPA) {{IMC}}.
+这种结构对选择明文攻击是安全的(IND-CPA) {{IMC}}。
 
-Use of the same key and ciphertext sample more than once risks compromising
-header protection. Protecting two different headers with the same key and
-ciphertext sample reveals the exclusive OR of the protected fields.  Assuming
-that the AEAD acts as a PRF, if L bits are sampled, the odds of two ciphertext
-samples being identical approach 2^(-L/2), that is, the birthday bound. For the
-algorithms described in this document, that probability is one in 2^64.
+多次使用相同的密钥和密文样本可能会损害报头保护。
+使用相同的密钥和密文示例保护两个不同的报头，可以显示受保护字段的排他性或。
+假设AEAD作为PRF，如果采样L位，两个密文样本相同的概率接近2^(-L/2)，即生日界。
+对于本文描述的算法，这个概率是2^64分之一。
 
-Note:
+注意:
 
-: In some cases, inputs shorter than the full size required by the packet
-  protection algorithm might be used.
+: 在某些情况下，可以使用小于包保护算法所需的完整大小的输入。
 
-To prevent an attacker from modifying packet headers, the header is transitively
-authenticated using packet protection; the entire packet header is part of the
-authenticated additional data.  Protected fields that are falsified or modified
-can only be detected once the packet protection is removed.
+为了防止攻击者修改包报头，使用包保护对包报头进行瞬时身份验证;
+整个包报头是经过身份验证的附加数据的一部分。
+被伪造或修改的受保护字段只有在删除包保护之后才能检测到。
 
-An attacker could guess values for packet numbers and have an endpoint confirm
-guesses through timing side channels.  Similarly, guesses for the packet number
-length can be trialed and exposed.  If the recipient of a packet discards
-packets with duplicate packet numbers without attempting to remove packet
-protection they could reveal through timing side-channels that the packet number
-matches a received packet.  For authentication to be free from side-channels,
-the entire process of header protection removal, packet number recovery, and
-packet protection removal MUST be applied together without timing and other
-side-channels.
+攻击者可以猜测包号的值，并通过定时侧通道进行终端确认猜测。
+类似地，可以测试和公开数据包长度的猜测。
+如果数据包的接收者丢弃了具有重复数据包号的数据包，而没有试图删除数据包保护，
+那么他们可以通过定时侧通道显示数据包号与接收到的数据包匹配。
+为了使认证不受侧通道的影响，**必须**同时应用报头保护移除、包号恢复和包保护移除的整个过程，
+而不需要定时和其他侧通道。
 
-For the sending of packets, construction and protection of packet payloads and
-packet numbers MUST be free from side-channels that would reveal the packet
-number or its encoded size.
+对于包的发送，包有效载荷和包号的构造和保护**必须**不受侧通道的影响，
+侧通道会显示包号或其编码大小。
 
 
-## Key Diversity
+## 密钥的多样性 (Key Diversity)
 
-In using TLS, the central key schedule of TLS is used.  As a result of the TLS
-handshake messages being integrated into the calculation of secrets, the
-inclusion of the QUIC transport parameters extension ensures that handshake and
-1-RTT keys are not the same as those that might be produced by a server running
-TLS over TCP.  To avoid the possibility of cross-protocol key synchronization,
-additional measures are provided to improve key separation.
+在使用TLS时，使用了TLS的中心密钥调度。
+由于将TLS握手消息集成到机密计算中，包含QUIC传输参数扩展可以确保握手和1-RTT密钥
+与在TCP上运行TLS的服务器可能生成的密钥不同。
+为了避免跨协议密钥同步的可能性，还提供了其他措施来改进密钥分离。
 
-The QUIC packet protection keys and IVs are derived using a different label than
-the equivalent keys in TLS.
+与TLS中的等效密钥不同，QUIC包保护密钥和IVs是使用不同的标签派生的。
 
-To preserve this separation, a new version of QUIC SHOULD define new labels for
-key derivation for packet protection key and IV, plus the header protection
-keys.  This version of QUIC uses the string "quic".  Other versions can use a
-version-specific label in place of that string.
+为了保持这种分离，新版本的QUIC**应该**为包保护密钥和IV的密钥派生定义新的标签，
+以及报头保护密钥。这个版本的QUIC使用字符串“quic”。
+其他版本可以使用特定于版本的标签来替代该字符串。
 
-The initial secrets use a key that is specific to the negotiated QUIC version.
-New QUIC versions SHOULD define a new salt value used in calculating initial
-secrets.
+最初的秘密使用的密钥是特定于协商好的QUIC版本。
+新的QUIC版本**应该**定义一个新的随机混淆值，用于计算初始秘密。
 
 
-# IANA Considerations
+# IANA的考虑 （IANA Considerations）
+本文档不创建任何新的IANA注册表，但在以下注册表中注册值:
 
-This document does not create any new IANA registries, but it registers the
-values in the following registries:
-
-* TLS ExtensionsType Registry {{!TLS-REGISTRIES=RFC8447}} - IANA is to register
-  the quic_transport_parameters extension found in {{quic_parameters}}.  The
-  Recommended column is to be marked Yes.  The TLS 1.3 Column is to include CH
-  and EE.
-
+* TLS ExtensionsType Registry {{!TLS-REGISTRIES=RFC8447}} -
+  IANA用于注册 {{quic_parameters}}中找到的quic_transport_parameters扩展。
+  建议将列标记为Yes。TLS 1.3列包括CH和EE。
 
 --- back
 
