@@ -230,143 +230,119 @@ application data until it has received all of the handshake messages sent by the
 server.
 
 
-# Protocol Overview
+# 协议概述
 
-QUIC {{QUIC-TRANSPORT}} assumes responsibility for the confidentiality and
-integrity protection of packets.  For this it uses keys derived from a TLS
-handshake {{!TLS13}}, but instead of carrying TLS records over QUIC (as with
-TCP), TLS Handshake and Alert messages are carried directly over the QUIC
-transport, which takes over the responsibilities of the TLS record layer, as
-shown below.
+QUIC {{QUIC-TRANSPORT}}负责保护数据包的机密性和完整性。为此，它使用从
+TLS握手{{!TLS13}}派生的密钥，而不是通过QUIC(如TCP)携带TLS记录。TLS握手
+和警报消息直接通过QUIC传输，相当于接管了TLS记录层的职责，如下所示。
 
 ~~~~
 
 +--------------+--------------+ +-------------+
 |     TLS      |     TLS      | |    QUIC     |
-|  Handshake   |    Alerts    | | Applications|
-|              |              | |  (h3, etc.) |
+|     握手     |     警报      | | 应用        |
+|              |              | |  (h3等)     |
 +--------------+--------------+-+-------------+
 |                                             |
-|                QUIC Transport               |
-|   (streams, reliability, congestion, etc.)  |
+|                QUIC 传输                    |
+|              (流、可靠性、拥塞等)             |
 |                                             |
 +---------------------------------------------+
 |                                             |
-|            QUIC Packet Protection           |
+|           QUIC数据包保护                     |
 |                                             |
 +---------------------------------------------+
 ~~~~
 
 
-QUIC also relies on TLS for authentication and negotiation of parameters that
-are critical to security and performance.
+QUIC还依赖TLS进行身份验证和参数协商，这些参数对安全性和性能至关重要。
 
-Rather than a strict layering, these two protocols are co-dependent: QUIC uses
-the TLS handshake; TLS uses the reliability, ordered delivery, and record
-layer provided by QUIC.
+这两个协议不是严格的分层，而是相互依赖的：QUIC使用TLS握手；TLS使用QUIC
+提供的可靠性、有序交付和记录层。
 
-At a high level, there are two main interactions between the TLS and QUIC
-components:
+在高层次上，TLS和QUIC组件之间有两种主要的交互作用：
 
-* The TLS component sends and receives messages via the QUIC component, with
-  QUIC providing a reliable stream abstraction to TLS.
+* TLS组件通过QUIC组件发送和接收消息，QUIC为TLS提供可靠的流抽象。
 
-* The TLS component provides a series of updates to the QUIC component,
-  including (a) new packet protection keys to install (b) state changes such as
-  handshake completion, the server certificate, etc.
+* TLS组件向QUIC组件提供一系列更新，包括(a)用于安装的新的数据包保护密钥
+  (b)状态更改，例如握手完成、服务器证书等。
 
-{{schematic}} shows these interactions in more detail, with the QUIC packet
-protection being called out specially.
+{{schematic}}更详细地展示了这些交互，特别调用了QUIC数据包保护。
 
 ~~~
 +------------+                        +------------+
-|            |<- Handshake Messages ->|            |
-|            |<---- 0-RTT Keys -------|            |
-|            |<--- Handshake Keys-----|            |
-|   QUIC     |<---- 1-RTT Keys -------|    TLS     |
-|            |<--- Handshake Done ----|            |
+|            |<-      握手消息      ->|            |
+|            |<---- 0-RTT 密钥 -------|            |
+|            |<--- 握手密钥-----|            |
+|   QUIC     |<---- 1-RTT 密钥 -------|    TLS     |
+|            |<--- 握手完成 ----|            |
 +------------+                        +------------+
  |         ^
- | Protect | Protected
- v         | Packet
+ | Protect | 受保护的包
+ v         |
 +------------+
 |   QUIC     |
-|  Packet    |
-| Protection |
+|  包保护 |
 +------------+
 ~~~
-{: #schematic title="QUIC and TLS Interactions"}
+{: #schematic title="QUIC和TLS交互"}
 
-Unlike TLS over TCP, QUIC applications which want to send data do not send it
-through TLS "application_data" records. Rather, they send it as QUIC STREAM
-frames which are then carried in QUIC packets.
+与TCP上的TLS不同，想要发送数据的QUIC应用程序不会通过TLS“application_data”
+记录发送数据。相反，他们将其作为QUIC数据包中QUIC STREAM帧发送。
 
-# Carrying TLS Messages {#carrying-tls}
+# 携带TLS消息 {#carrying-tls}
 
-QUIC carries TLS handshake data in CRYPTO frames, each of which consists of a
-contiguous block of handshake data identified by an offset and length. Those
-frames are packaged into QUIC packets and encrypted under the current TLS
-encryption level.  As with TLS over TCP, once TLS handshake data has been
-delivered to QUIC, it is QUIC's responsibility to deliver it reliably. Each
-chunk of data that is produced by TLS is associated with the set of keys that
-TLS is currently using.  If QUIC needs to retransmit that data, it MUST use the
-same keys even if TLS has already updated to newer keys.
+QUIC在CRYPTO帧中携带TLS握手数据，每个帧由偏移量和长度标识的连续握手数据块组成。
+这些帧被打包成QUIC数据包，并在当前的TLS加密级别下进行加密。与TCP上的TLS一样，
+一旦TLS握手数据传送到QUIC，QUIC就有责任可靠地传送它。TLS产生的每个数据块都与
+TLS当前使用的一组密钥相关联。如果QUIC需要重新传输该数据，它**必须**使用相同的密钥，
+即使TLS已经更新到更新的密钥。
 
-One important difference between TLS records (used with TCP) and QUIC CRYPTO
-frames is that in QUIC multiple frames may appear in the same QUIC packet as
-long as they are associated with the same encryption level. For instance, an
-implementation might bundle a Handshake message and an ACK for some Handshake
-data into the same packet.
+TLS记录(与TCP一起使用)和QUIC加密帧之间的一个重要区别是，在QUIC中，多个帧可能
+出现在同一个QUIC数据包中，只要它们与相同的加密级别相关联。例如，一个实现可以将
+握手消息和一些握手数据的ACK捆绑到同一个包中。
 
-Each encryption level has a specific list of frames which may appear in it. The
-rules here generalize those of TLS, in that frames associated with establishing
-the connection can usually appear at any encryption level, whereas those
-associated with transferring data can only appear in the 0-RTT and 1-RTT
-encryption levels:
+每个加密级别具有可能出现在其中的帧的特定列表。这里的规则概括了TLS的规则，因为与
+建立连接相关联的帧通常可以出现在任何加密级别，而与传输数据相关联的帧只能出现在
+0-RTT和1-RTT加密级别中：
 
-- CRYPTO frames MAY appear in packets of any encryption level except 0-RTT.
+- CRYPTO帧**可以**出现在除0-RTT之外的任何加密级别的包中。
 
-- CONNECTION_CLOSE MAY appear in packets of any encryption level other than
-  0-RTT.
+- CONNECTION_CLOSE帧**可以**可以出现在0-RTT以外的任何加密级别的数据包中。
 
-- PADDING frames MAY appear in packets of any encryption level.
+- PADDING帧**可以**出现在任何加密级别的包中。
 
-- ACK frames MAY appear in packets of any encryption level other than 0-RTT, but
-  can only acknowledge packets which appeared in that packet number space.
+- ACK帧**可以**出现在除0-RTT之外的任何加密级别的包中，但只能确认出现在该包
+  编号空间中的包。
 
-- STREAM frames MUST ONLY appear in the 0-RTT and 1-RTT levels.
+- STREAM帧**只能**出现在0-RTT和1-RTT级别中。
 
-- All other frame types MUST only appear at the 1-RTT levels.
+- 所有其他帧类型**必须**出现在1-RTT级别。
 
-Because packets could be reordered on the wire, QUIC uses the packet type to
-indicate which level a given packet was encrypted under, as shown in
-{{packet-types-levels}}. When multiple packets of different encryption levels
-need to be sent, endpoints SHOULD use coalesced packets to send them in the same
-UDP datagram.
+因为数据包可以在线路上重新排序，所以QUIC使用数据包类型来指示在哪个级别下对给定
+的数据包进行加密，如{{packet-types-levels}}所示。当需要发送多个不同加密级别的
+数据包时，端点**应该**使用合并的数据包在同一UDP数据报中发送它们。
 
-| Packet Type     | Encryption Level | PN Space  |
+| 包类型     | 加密级别| PN 空间  |
 |:----------------|:-----------------|:----------|
-| Initial         | Initial secrets  | Initial   |
-| 0-RTT Protected | 0-RTT            | 0/1-RTT   |
-| Handshake       | Handshake        | Handshake |
-| Retry           | N/A              | N/A       |
-| Short Header    | 1-RTT            | 0/1-RTT   |
-{: #packet-types-levels title="Encryption Levels by Packet Type"}
+| 初始化         |初始密钥  |初始化   |
+|0-RTT保护 | 0-RTT            | 0/1-RTT   |
+| 握手       | 握手       | 握手 |
+| 重试           | N/A              | N/A       |
+| 短头部    | 1-RTT            | 0/1-RTT   |
+{: #packet-types-levels title="按数据包类型划分的加密级别"}
 
-Section 17 of {{QUIC-TRANSPORT}} shows how packets at the various encryption
-levels fit into the handshake process.
+{{QUIC-TRANSPORT}}的第17节展示了不同加密级别的数据包如何适合握手过程。
 
+## 到TLS的接口
 
-## Interface to TLS
+如{{schematic}}所示，QUIC到TLS的接口由三个主要函数组成：
 
-As shown in {{schematic}}, the interface from QUIC to TLS consists of three
-primary functions:
+- 发送和接收握手消息
+- 更新密钥(发送和接收)
+- 握手状态更新
 
-- Sending and receiving handshake messages
-- Rekeying (both transmit and receive)
-- Handshake state updates
-
-Additional functions might be needed to configure TLS.
+配置TLS可能需要其他功能。
 
 
 ### Sending and Receiving Handshake Messages
