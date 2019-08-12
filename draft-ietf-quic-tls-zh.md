@@ -279,7 +279,7 @@ QUIC还依赖TLS进行身份验证和参数协商，这些参数对安全性和�
 +------------+                        +------------+
  |         ^
  | Protect | 受保护的包
- v         | 
+ v         |
 +------------+
 |   QUIC     |
 |  包保护 |
@@ -288,7 +288,7 @@ QUIC还依赖TLS进行身份验证和参数协商，这些参数对安全性和�
 {: #schematic title="QUIC和TLS交互"}
 
 与TCP上的TLS不同，想要发送数据的QUIC应用程序不会通过TLS“application_data”
-记录发送数据。相反，他们将其作为QUIC数据包中QUIC STREAM帧发送。 
+记录发送数据。相反，他们将其作为QUIC数据包中QUIC STREAM帧发送。
 
 # 携带TLS消息 {#carrying-tls}
 
