@@ -948,6 +948,14 @@ HTTP/3 的实现**可能**强制要求一个它在单个 HTTP 消息上会接受
 服务器**禁止**对已部分或完全处理的请求使用HTTP_REQUEST_REJECTED错误代码。
 当服务器在部分处理后放弃响应时，它**应该**以错误码 HTTP_REQUEST_CANCELLED 中止响应流。
 
+保留N的整数值格式为“0x1f * N + 0x21”的帧类型，以满足忽略未知类型的要求（{{extensions}}）。
+
+这些帧没有语义，并且可以在需要应用层填充时发送。 
+它们也**可能**在当前没有数据传输的连接上发送。 
+端点**禁止**认为这些帧在收到时具有任何意义。
+
+可以任何方式实现选择的帧的有效载荷和长度。
+
 当客户端发送带有 HTTP_REQUEST_CANCELLED 的 STOP_SENDING 帧时，
 如果未执行任何处理，服务器**可能**会在相应的 RESET_STREAM 中发送 HTTP_REQUEST_REBJECT 错误码。
 除非响应包含相同错误码的 QUIC STOP_SENDING 帧，否则客户端**禁止**使用 HTTP_REQUEST_REJECTED 错误码来重置流。
