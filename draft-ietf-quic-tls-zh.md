@@ -538,7 +538,7 @@ Handshake Received
 这是可以接受的，前提是新版本支持QUIC使用的TLS 1.3的功能。
 
 配置错误的TLS实施会导致协商TLS 1.2或其他旧版本的TLS。
-端点**必须**终止协商了旧于1.3的TLS版本连接。
+端点**必须**终止协商旧于1.3的TLS版本连接。
 
 
 ## ClientHello大小(ClientHello Size) {#clienthello-size}
@@ -548,11 +548,11 @@ QUIC要求来自客户端的第一个初始数据包包含整个加密握手消�
 
 QUIC数据包和成帧中，ClientHello消息至少需要增加36个字节的开销。
 如果客户端选择非零长度的连接ID，则开销会增加。
-开销也不包括令牌或长度超过8个字节的连接ID（如果服务器发送重试数据包时可能需要这两个ID）。
+开销也不包括令牌或长度超过8个字节的连接ID（如果服务器发送重试数据包时可能需要令牌和连接id这两项）。
 
 典型的TLS ClientHello可以很容易地装入1200字节的数据包。
 但是，除了QUIC添加的开销之外，还有一些变量可能导致大小超出此限制。
-大型会话票证，多个或大型密钥共享以及支持的密码，签名算法，版本，QUIC传输参数以及其他可协商参数和扩展的长列表均可能会导致此消息增大。
+大型会话票证，多个或大型密钥共享以及支持的加密算法，签名算法，版本列表，QUIC传输参数以及其他可协商参数和扩展的长列表均可能会导致此消息增大。
 
 对于服务器来说，除了连接ID和令牌之外，TLS会话票证的大小可能会影响客户端的连接能力。 
 最小化这些值增加了客户端成功使用它们的可能性。
@@ -560,7 +560,8 @@ QUIC数据包和成帧中，ClientHello消息至少需要增加36个字节的开
 客户端不需要将响应HelloRetryRequest消息而发送的ClientHello放入单个UDP数据报中。
 
 TLS实现不需要确保ClientHello足够大。
-添加QUIC PADDING帧以根据需要增加数据包的大小。
+可以根据需要
+添加QUIC PADDING帧增加数据包的大小。
 
 
 ## 对等身份验证(Peer Authentication)
@@ -590,7 +591,8 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
 ## 拒绝0-RTT(Rejecting 0-RTT)
 
-服务器通过拒绝TLS层的0-RTT来0-RTT。 
+服务器通过拒绝TLS层的0-RTT来拒绝
+0-RTT。 
 这也会阻止QUIC发送0-RTT数据。
 如果服务器发送TLS HelloRetryRequest，它将始终拒绝0-RTT。
 
@@ -610,13 +612,13 @@ HelloRetryRequest仍用于请求密钥共享。
 
 ## TLS错误(TLS Errors)
 
-如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当警报。
+如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当alert。
 
-通过将单字节警报描述转换为QUIC错误代码，TLS警报将变为QUIC连接错误。
+通过将单字节alert描述转换为QUIC错误代码，TLS警报将变为QUIC连接错误。
 警报描述被添加到0x100以生成QUIC错误代码（从为CRYPTO_ERROR保留的范围中）。
-结果值在QUIC CONNECTION_CLOSE框架中发送。
+结果值在QUIC CONNECTION_CLOSE帧中发送。
 
-所有TLS警报的警报级别都是“致命的”;TLS堆栈**禁止**在“警告”级别生成警报。
+所有TLS alert的警报级别都是“fatal”;TLS堆栈**禁止**在“warn”级别生成alerts。
 
 
 ## 丢弃未使用的密钥( Discarding Unused Keys)
