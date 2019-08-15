@@ -84,40 +84,48 @@ code and issues list for this draft can be found at
 --- middle
 
 
-# 简介(Introduction)
+# Introduction
 
-HTTP 语义用于互联网上的广泛服务。这些语义一般用于两不同端的TCP映射，HTTP/1.1以及HTTP/2。
-HTTp/2 引入了帧和多路复用来不修改传输层的改善延迟。
-然而，TCP在两端映射中对并行请求的可见性的缺失限制了性能提高的可能空间。
+HTTP semantics are used for a broad range of services on the Internet. These
+semantics have commonly been used with two different TCP mappings, HTTP/1.1 and
+HTTP/2.  HTTP/2 introduced a framing and multiplexing layer to improve latency
+without modifying the transport layer.  However, TCP's lack of visibility into
+parallel requests in both mappings limited the possible performance gains.
 
-QUIC 传输协议包含了类似于HTTP/2在成帧层提供的流多路复用与基于流的流量控制。
-提供在流级别可靠性和对整个连接的拥塞控制，与HTTP映射相比，提高HTTP性能有了空间。
-QUIC 在传输层同样包含了 TLS 1.3，在提供了类似于在TCP上的运行TLS的安全性的前提下，
-提高了连接建立阶段的延迟(除非开启了TCP快速打开{{?RFC7413}})。
+The QUIC transport protocol incorporates stream multiplexing and per-stream flow
+control, similar to that provided by the HTTP/2 framing layer. By providing
+reliability at the stream level and congestion control across the entire
+connection, it has the capability to improve the performance of HTTP compared to
+a TCP mapping.  QUIC also incorporates TLS 1.3 at the transport layer, offering
+comparable security to running TLS over TCP, but with improved connection setup
+latency (unless TCP Fast Open {{?RFC7413}}} is used).
 
-这篇文档定义了HTTP语义在QUIC传输协议上的映射，在很大程度上依赖了HTTP/2的设计。
-这篇文档标识了QUIC拥有的HTTP/2特性，并且描述了其他可在QUIC上实现的特性。
+This document defines a mapping of HTTP semantics over the QUIC transport
+protocol, drawing heavily on the design of HTTP/2. This document identifies
+HTTP/2 features that are subsumed by QUIC, and describes how the other features
+can be implemented atop QUIC.
 
-QUIC 描述于{{QUIC-TRANSPORT}}。
-关于完整的HTTP/2的描述，详见{{!RFC7540}}。
+QUIC is described in {{QUIC-TRANSPORT}}.  For a full description of HTTP/2, see
+{{!RFC7540}}.
 
 
-## 通用术语(Notational Conventions)
+## Notational Conventions
 
-关键词“必须(MUST)”，“禁止(MUST NOT)”，“必需(REQUIRED)”，“应当(SHALL)”，
-“应当不(SHALL NOT)”，“应该(SHOULD)”，“不应该(SHOULD NOT)”，“推荐(RECOMMENDED)”，
-“不推荐(NOT RECOMMENDED)”，“可以(MAY)”，“可选(OPTIONAL)”
-在这篇文档中将会如 BCP 14{{!RFC2119}} {{!RFC8174}}中描述的，当且仅当他们如此例子显示的以加粗的形式出现时。
-文档中常用的术语在下方描述。
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
+when, and only when, they appear in all capitals, as shown here.
 
-字段描述以扩展的巴科斯范式(Augmented Backus-Naur Form 即ABNF)给出，定义在{{!RFC5234}}中。
+Field definitions are given in Augmented Backus-Naur Form (ABNF), as defined in
+{{!RFC5234}}.
 
-这篇文档使用了{{QUIC-TRANSPORT}}中的变长的整数编码。
+This document uses the variable-length integer encoding from
+{{QUIC-TRANSPORT}}.
 
-称呼为"帧"的协议元素存在于本文档和{{QUIC-TRANSPORT}}。
-当引用的帧是{{QUIC-TRANSPORT}}中的，帧名字会以"QUIC"打头。
-例如"QUIC CONNECTION_CLOSE 帧"。
-不以这个开头的引用的帧定义于{{frames}}。
+Protocol elements called "frames" exist in both this document and
+{{QUIC-TRANSPORT}}. Where frames from {{QUIC-TRANSPORT}} are referenced, the
+frame name will be prefaced with "QUIC."  For example, "QUIC CONNECTION_CLOSE
+frames."  References without this preface refer to frames defined in {{frames}}.
 
 
 # Connection Setup and Management
@@ -390,15 +398,14 @@ The payload and length of the stream are selected in any manner the
 implementation chooses.
 
 
-# HTTP Framing Layer {#http-framing-layer}
+# HTTP帧层(HTTP Framing Layer) {#http-framing-layer}
 
-HTTP frames are carried on QUIC streams, as described in {{stream-mapping}}.
-HTTP/3 defines three stream types: control stream, request stream, and push
-stream. This section describes HTTP/3 frame formats and the streams types on
-which they are permitted; see {{stream-frame-mapping}} for an overiew.  A
-comparison between HTTP/2 and HTTP/3 frames is provided in {{h2-frames}}.
 
-| Frame          | Control Stream | Request Stream | Push Stream | Section                  |
+HTTP帧在QUIC流上传输，如{{stream-mapping}}所述。HTTP/3定义了三种流类型：控制流、请求流和推送流。
+本节介绍HTTP/3帧格式及其允许的流类型；有关概述，请参见{{stream-frame-mapping}}。{{h2-frames}}
+提供了HTTP/2和HTTP/3帧的比较。
+
+| 帧             | 控制流         | 请求流          | 推送流      | 章节                     |
 | -------------- | -------------- | -------------- | ----------- | ------------------------ |
 | DATA           | No             | Yes            | Yes         | {{frame-data}}           |
 | HEADERS        | No             | Yes            | Yes         | {{frame-headers}}        |
@@ -409,218 +416,198 @@ comparison between HTTP/2 and HTTP/3 frames is provided in {{h2-frames}}.
 | GOAWAY         | Yes            | No             | No          | {{frame-goaway}}         |
 | MAX_PUSH_ID    | Yes            | No             | No          | {{frame-max-push-id}}    |
 | DUPLICATE_PUSH | No             | Yes            | No          | {{frame-duplicate-push}} |
-{: #stream-frame-mapping title="HTTP/3 frames and stream type overview"}
+{: #stream-frame-mapping title="HTTP/3帧和流类型概述"}
 
-Certain frames can only occur as the first frame of a particular stream type;
-these are indicated in {{stream-frame-mapping}} with a (1).  Specific guidance
-is provided in the relevant section.
+某些帧只能作为特定流类型的第一帧出现；这些帧在{{stream-frame-mapping}}中用(1)表示。
+相关章节提供了具体指导。
 
-## Frame Layout
+## 帧布局(Frame Layout)
 
-All frames have the following format:
-
-~~~~~~~~~~ drawing
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                           Type (i)                          ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Length (i)                         ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Frame Payload (*)                     ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-~~~~~~~~~~
-{: #fig-frame title="HTTP/3 frame format"}
-
-A frame includes the following fields:
-
-  Type:
-  : A variable-length integer that identifies the frame type.
-
-  Length:
-  : A variable-length integer that describes the length of the Frame Payload.
-
-  Frame Payload:
-  : A payload, the semantics of which are determined by the Type field.
-
-Each frame's payload MUST contain exactly the fields identified in its
-description.  A frame payload that contains additional bytes after the
-identified fields or a frame payload that terminates before the end of the
-identified fields MUST be treated as a connection error of type
-HTTP_MALFORMED_FRAME.
-
-## Frame Definitions {#frames}
-
-### DATA {#frame-data}
-
-DATA frames (type=0x0) convey arbitrary, variable-length sequences of bytes
-associated with an HTTP request or response payload.
-
-DATA frames MUST be associated with an HTTP request or response.  If a DATA
-frame is received on either control stream, the recipient MUST respond with a
-connection error ({{errors}}) of type HTTP_WRONG_STREAM.
+所有帧都具有以下格式：
 
 ~~~~~~~~~~ drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Payload (*)                         ...
+|                           类型 (i)                          ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           长度 (i)                          ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          帧荷载 (*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
-{: #fig-data title="DATA frame payload"}
+{: #fig-frame title="HTTP/3帧格式"}
 
-### HEADERS {#frame-headers}
+帧包括以下字段：
 
-The HEADERS frame (type=0x1) is used to carry a header block, compressed using
-QPACK. See [QPACK] for more details.
+  类型:
+  : 标识帧类型的可变长度整数。
+
+  长度:
+  : 描述帧有效载荷长度的可变长度整数。
+
+  帧荷载:
+  : 有效荷载，其语义由Type字段确定。
+
+每个帧的有效荷载**必须**精确地包含在其描述中标识的字段。在标识字段之后包含其他字节
+的帧有效荷载或在标识字段结束之前终止的帧荷载**必须**被视为类型为
+HTTP_MALFORM_FRAME的连接错误。
+
+## 帧定义(Frame Definitions) {#frames}
+
+### DATA帧(DATA) {#frame-data}
+
+DATA帧(类型为0x0)传递与HTTP请求或响应有效荷载相关联的任意可变长度的字节序列。
+
+DATA帧**必须**与HTTP请求或响应相关联。如果在任一控制流上接收到数据帧，则接收方
+**必须**响应类型为HTTP_WRONG_STREAM的连接错误({{errors}})。
+
+~~~~~~~~~~ drawing
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         有效荷载 (*)                        ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~~~~~~~~
+{: #fig-data title="DATA帧有效荷载"}
+
+### HEADERS帧(HEADERS) {#frame-headers}
+
+HEADERS帧(类型为0x1)用于承载头信息块，并使用QPACK进行压缩。有关详细信息，请参见[QPACK]。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Header Block (*)                      ...
+|                       头信息块 (*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
-{: #fig-headers title="HEADERS frame payload"}
+{: #fig-headers title="HEADERS帧有效荷载"}
 
-HEADERS frames can only be sent on request / push streams.
+HEADERS帧只能在请求流与推送流发出。
 
-### PRIORITY {#frame-priority}
+### 优先级帧(PRIORITY) {#frame-priority}
 
-The PRIORITY (type=0x02) frame specifies the client-advised priority of a
-request, server push or placeholder.
 
-A PRIORITY frame identifies an element to prioritize, and an element upon which
-it depends.  A Prioritized ID or Dependency ID identifies a client-initiated
-request using the corresponding stream ID, a server push using a Push ID (see
-{{frame-push-promise}}), or a placeholder using a Placeholder ID (see
-{{placeholders}}).
+PRIORITY帧(类型=0x02)指定请求、服务器推送或占位符的客户端建议的优先级。
 
-When a client initiates a request, a PRIORITY frame MAY be sent as the first
-frame of the stream, creating a dependency on an existing element.  In order to
-ensure that prioritization is processed in a consistent order, any subsequent
-PRIORITY frames for that request MUST be sent on the control stream.  A
-PRIORITY frame received after other frames on a request stream MUST be treated
-as a stream error of type HTTP_UNEXPECTED_FRAME.
+PRIORITY帧标识要优先排序的元素以及它所依赖的元素。优先级ID或依赖ID使用
+相应的流ID标识客户端发起的请求，使用推送ID标识服务器推送(请参见
+{{frame-push-promise}})，或使用占位符ID标识占位符(请参见{{placeholders}})。
 
-If, by the time a new request stream is opened, its priority information
-has already been received via the control stream, the PRIORITY frame
-sent on the request stream MUST be ignored.
+当客户端发起请求时，**可以**将PRIORITY帧作为流的第一帧发送，从而创建对现有
+元素的依赖。为了确保以一致的顺序处理优先级，该请求的任何后续PRIORITY帧都
+**必须**在控制流上发送。在请求流上的其他帧之后接收到的PRIORITY帧**必须**被视为
+HTTP_UNEXPECTED_FRAME类型的流错误。
+
+如果在打开新的请求流时，已通过控制流接收到其优先级信息，则必须忽略在请求
+流上发送的PRIORITY帧。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|PT |DT | Empty |         [Prioritized Element ID (i)]        ...
+|PT |DT | 空 |               [优先级元素ID(i)]             ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                [Element Dependency ID (i)]                  ...
+|                         [元素依赖ID(i)]                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Weight (8)  |
+|  权重 (8)  |
 +-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
 {: #fig-priority title="PRIORITY frame payload"}
 
-The PRIORITY frame payload has the following fields:
+PRIORITY帧有效负载具有以下字段：
 
-  PT (Prioritized Element Type):
-  : A two-bit field indicating the type of element being prioritized (see
-    {{prioritized-element-types}}). When sent on a request stream, this MUST be
-    set to `11`.  When sent on the control stream, this MUST NOT be set to `11`.
+  PT (优先元素类型):
+  : 一个两位字段，指示被优先处理的元素的类型(参见
+    {{prioritized-element-types}}). 在请求流中发送时，
+    **必须**将其设置为`11`。在控制流上发送时，**禁止**将其设置为`11`。
 
-  DT (Element Dependency Type):
-  : A two-bit field indicating the type of element being depended on (see
-    {{element-dependency-types}}).
+  DT (元素依赖类型):
+  : 指示所依赖的元素类型的两位字段(参见
+    {{element-dependency-types}})。
 
-  Empty:
-  : A four-bit field which MUST be zero when sent and MUST be ignored
-    on receipt.
+  空:
+  : 发送时**必须**为零且在收到时**必须**忽略的四位字段。
 
-  Prioritized Element ID:
-  : A variable-length integer that identifies the element being prioritized.
-    Depending on the value of Prioritized Type, this contains the Stream ID of a
-    request stream, the Push ID of a promised resource, a Placeholder ID of a
-    placeholder, or is absent.
+  优先元素ID:
+  : 标识要优先处理的元素的可变长度整数。根据优先类型的值，它包含请求流的流ID、
+  承诺资源的推送ID、占位符的占位符ID或缺失。
 
-  Element Dependency ID:
-  : A variable-length integer that identifies the element on which a dependency
-    is being expressed. Depending on the value of Dependency Type, this contains
-    the Stream ID of a request stream, the Push ID of a promised resource, the
-    Placeholder ID of a placeholder, or is absent.  For details of
-    dependencies, see {{priority}} and {{!RFC7540}}, Section 5.3.
+  元素依赖ID:
+  : 一个可变长度整数，用于标识表示依赖项的元素。根据依赖类型的值，它包含请求流的
+  流ID、承诺资源的推送ID、占位符的占位符ID或缺失。有关依赖项的详细信息，请参见
+  {{priority}}和{{!RFC7540}}, 第5.3节.
 
-  Weight:
-  : An unsigned 8-bit integer representing a priority weight for the prioritized
-    element (see {{!RFC7540}}, Section 5.3). Add one to the value to obtain a
-    weight between 1 and 256.
+  权重:
+  : 一个无符号8位整数，表示优先元素的优先权重(参见 {{!RFC7540}},第5.3节)。
+  向值中添加一个以获得介于1和256之间的权重。
 
-The values for the Prioritized Element Type ({{prioritized-element-types}}) and
-Element Dependency Type ({{element-dependency-types}}) imply the interpretation
-of the associated Element ID fields.
+优先元素类型({{prioritized-element-types}})和元素依赖类型({{element-dependency-types}})
+的值隐含着关联元素ID字段的解释。
 
-| PT Bits | Type Description | Prioritized Element ID Contents |
+| PT 位 | 类型描述 | 优先元素ID内容 |
 | ------- | ---------------- | ------------------------------- |
-| 00      | Request stream   | Stream ID                       |
-| 01      | Push stream      | Push ID                         |
-| 10      | Placeholder      | Placeholder ID                  |
-| 11      | Current stream   | Absent                          |
+| 00      | 请求流  | 流ID                      |
+| 01      | 推送流      | 推送ID                       |
+| 10      | 占位符      | 占位符ID                 |
+| 11      | 当前流   | 缺失                         |
 {: #prioritized-element-types title="Prioritized Element Types"}
 
-| DT Bits | Type Description | Element Dependency ID Contents |
+| DT 位   | 类型描述 | 元素依赖ID内容 |
 | ------- | ---------------- | ------------------------------ |
-| 00      | Request stream   | Stream ID                      |
-| 01      | Push stream      | Push ID                        |
-| 10      | Placeholder      | Placeholder ID                 |
-| 11      | Root of the tree | Absent                         |
+| 00      | 请求流   | 流ID                    |
+| 01      | 推送流     | 推送ID                   |
+| 10      | 占位符      | 占位符ID                |
+| 11      | 树的根节点 | 缺失                         |
 {: #element-dependency-types title="Element Dependency Types"}
 
-Note that unlike in {{!RFC7540}}, the root of the tree cannot be referenced
-using a Stream ID of 0, as in QUIC stream 0 carries a valid HTTP request.  The
-root of the tree cannot be reprioritized.  A PRIORITY frame sent on a request
-stream with the Prioritized Element Type set to any value other than `11` or
-which expresses a dependency on a request with a greater Stream ID than the
-current stream MUST be treated as a stream error of type HTTP_MALFORMED_FRAME.
-Likewise, a PRIORITY frame sent on a control stream with the Prioritized Element
-Type set to `11` MUST be treated as a connection error of type
-HTTP_MALFORMED_FRAME.
+请注意，与{{!RFC7540}}不同，不能使用为0的流ID引用树的根节点，因为
+QUIC流0包含有效的HTTP请求。树的根节点不能被重新排序。在优先级元素类型
+设置为“11”以外的任何值的请求流上发送的PRIORITY帧，或者在具有大于当前流的
+流ID的请求流上表达依赖关系的PRIORITY帧**必须**被视为HTTP_MALFORMED_FRAME
+类型的流错误。必须将当前流视为类型为HTTP_MERFORM_FRAME的流错误。
+同样，在优先级元素类型设置为`11`的控制流上发送的优先级帧**必须**被视
+为HTTP_MALFORMED_FRAME类型的连接错误。
 
-When a PRIORITY frame claims to reference a request, the associated ID MUST
-identify a client-initiated bidirectional stream.  A server MUST treat receipt
-of a PRIORITY frame identifying a stream of any other type as a connection error
-of type HTTP_MALFORMED_FRAME.
+当PRIORITY帧声称引用请求时，关联的ID**必须**标识客户端启动的双向流。
+服务器**必须**将接收到标识任何其他类型的流的PRIORITY帧视为类型为
+HTTP_MALFORMED_FRAME的连接错误。
 
-A PRIORITY frame that references a non-existent Push ID, a Placeholder ID
-greater than the server's limit, or a Stream ID the client is not yet permitted
-to open MUST be treated as an HTTP_LIMIT_EXCEEDED error.
+引用不存在的推送ID、超过服务器限制的占位符ID或客户端尚不允许打开
+的流ID的PRIORITY帧**必须**视为HTTP_LIMIT_EXCEEDED错误。
 
-A PRIORITY frame received on any stream other than a request or control stream
-MUST be treated as a connection error of type HTTP_WRONG_STREAM.
+在请求或控制流以外的任何流上接收到的PRIORITY帧**必须**被视为类型为
+HTTP_WRONG_STREAM的连接错误。
 
-PRIORITY frames received by a client MUST be treated as a stream error of type
-HTTP_UNEXPECTED_FRAME.
+客户端接收到的PRIORITY帧**必须**被视为HTTP_UNEXPECTED_FRAME类型
+的流错误。
 
-### CANCEL_PUSH {#frame-cancel-push}
+### CANCEL_PUSH帧 {#frame-cancel-push}
 
-The CANCEL_PUSH frame (type=0x3) is used to request cancellation of a server
-push prior to the push stream being received.  The CANCEL_PUSH frame identifies
-a server push by Push ID (see {{frame-push-promise}}), encoded as a
-variable-length integer.
+CANCEL_PUSH帧(type=0x3)用于在接收到
+推送流之前请求取消服务器的推送。
+CANCEL_PUSH帧通过推送ID标识服务器的
+推送(请参阅{{frame-push-promise}})，
+推送ID被编码为可变长度整数。
 
-When a server receives this frame, it aborts sending the response for the
-identified server push.  If the server has not yet started to send the server
-push, it can use the receipt of a CANCEL_PUSH frame to avoid opening a push
-stream.  If the push stream has been opened by the server, the server SHOULD
-send a QUIC RESET_STREAM frame on that stream and cease transmission of the
-response.
+当服务器接收到此帧时，它将中止发送
+帧标识的服务器推送流的响应。
+如果服务器尚未开始发送服务器推送，
+则可以通过接收CANCEL_PUSH帧来避免
+打开推送流。如果服务器已打开推送流，
+则服务器应在该流上发送QUIC RESET_STREAM帧
+并停止响应的传输。
 
-A server can send the CANCEL_PUSH frame to indicate that it will not be
-fulfilling a promise prior to creation of a push stream.  Once the push stream
-has been created, sending CANCEL_PUSH has no effect on the state of the push
-stream.  A QUIC RESET_STREAM frame SHOULD be used instead to abort transmission
-of the server push response.
+服务器可以在创建推送流之前发送CANCEL_PUSH帧
+以表明它不会创建推送流。
+一旦推送流建立后，再发送CANCEL_PUSH将不会
+对推送流的状态产生影响。
+**应该**改用QUIC RESET_STREAM帧中止服务器推送响应的传输。
 
-A CANCEL_PUSH frame is sent on the control stream.  Receiving a CANCEL_PUSH
-frame on a stream other than the control stream MUST be treated as a stream
-error of type HTTP_WRONG_STREAM.
+CANCEL_PUSH帧是在控制流上发送的。
+在控制流以外的流上接收到CANCEL_PUSH帧时，
+必须将其视为类型为HTTP_OWRY_STREAM的流错误。
 
 ~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -631,48 +618,54 @@ error of type HTTP_WRONG_STREAM.
 ~~~~~~~~~~
 {: #fig-cancel-push title="CANCEL_PUSH frame payload"}
 
-The CANCEL_PUSH frame carries a Push ID encoded as a variable-length integer.
-The Push ID identifies the server push that is being cancelled (see
-{{frame-push-promise}}).
+CANCEL_PUSH帧携带一个可变长度整数编码的推送ID，
+推送ID用于标识被取消的
+服务器推送(请参阅{{frame-push-promise}})。
 
-If the client receives a CANCEL_PUSH frame, that frame might identify a Push ID
-that has not yet been mentioned by a PUSH_PROMISE frame.
+如果客户端接收到CANCEL_PUSH帧，
+则该帧可能标识PUSH_PROMISE帧
+尚未提及的推送ID。
 
 
-### SETTINGS {#frame-settings}
+### SETTINGS帧 {#frame-settings}
 
-The SETTINGS frame (type=0x4) conveys configuration parameters that affect how
-endpoints communicate, such as preferences and constraints on peer behavior.
-Individually, a SETTINGS parameter can also be referred to as a "setting"; the
-identifier and value of each setting parameter can be referred to as a "setting
-identifier" and a "setting value".
+SETTINGS帧(type=0x4)用于传递影响端点
+通信方式的配置参数，
+例如对端行为的默认项和约束。
+单独地，SETTINGS参数也可以称为“设置”；
+每个设置参数的标识符和值可以称为
+“设置标识符”和“设置值”。
 
-SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS
-frame MUST be sent as the first frame of each control stream (see
-{{control-streams}}) by each peer, and MUST NOT be sent subsequently or on any
-other stream. If an endpoint receives a SETTINGS frame on a different stream,
-the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM. If
-an endpoint receives a second SETTINGS frame, the endpoint MUST respond with a
-connection error of type HTTP_UNEXPECTED_FRAME.
+SETTINGS帧始终应用于连接，而不是单个流。
+每个对端**必须**将SETTINGS帧作为每个
+控制流(请参见{{control-streams}})的第一个帧
+发送，并且**禁止**在非流的开始时或
+在任何其他流上发送SETTINGS帧。
+如果终端接收到同个链接不同流上的SETTINGS帧，
+则该终端**必须**响应类型为HTTP_OWRY_STREAM的连接错误。
+如果终端接收到第二个设置帧，
+则该终端**必须**响应类型为HTTP_UNIRECTION_FRAME的连接错误。
 
-SETTINGS parameters are not negotiated; they describe characteristics of the
-sending peer, which can be used by the receiving peer. However, a negotiation
-can be implied by the use of SETTINGS - each peer uses SETTINGS to advertise a
-set of supported values. The definition of the setting would describe how each
-peer combines the two sets to conclude which choice will be used.  SETTINGS does
-not provide a mechanism to identify when the choice takes effect.
+SETTINGS参数不是通过协商确立的；
+它们描述了接收端可以支持的发送端的特性。
+但是，协商可以通过使用SETTINGS来暗中进行-
+每个对端使用SETTINGS来通告一组受支持的值。
+设置的定义将描述每个对端如何组合这两个集，
+以确定将使用哪个选项。SETTINGS
+没有提供标识选择何时生效的机制。
 
-Different values for the same parameter can be advertised by each peer. For
-example, a client might be willing to consume a very large response header,
-while servers are more cautious about request size.
+每个对端可以通告同一参数的不同值。
+例如，客户端可能愿意使用非常大的响应头，
+而服务器则对请求大小更加谨慎。
 
-Parameters MUST NOT occur more than once in the SETTINGS frame.  A receiver MAY
-treat the presence of the same parameter more than once as a connection error of
-type HTTP_MALFORMED_FRAME.
+参数**禁止**在SETTINGS帧中出现多次。
+接收方**可以**将同一参数的多次出现
+视为类型为HTTP_MALMALFORM_FRAME的
+连接错误。
 
-The payload of a SETTINGS frame consists of zero or more parameters.  Each
-parameter consists of a setting identifier and a value, both encoded as QUIC
-variable-length integers.
+SETTINGS帧的有效负载由零个或多个参数组成。
+每个参数由一个设置标识符和一个值组成，
+两者都编码为QUIC可变长度整数。
 
 ~~~~~~~~~~~~~~~  drawing
  0                   1                   2                   3
@@ -685,8 +678,7 @@ variable-length integers.
 ~~~~~~~~~~~~~~~
 {: #fig-ext-settings title="SETTINGS parameter format"}
 
-An implementation MUST ignore the contents for any SETTINGS identifier it does
-not understand.
+实现**必须**忽略它不理解的任何SETTINGS标识符的内容。
 
 
 #### Defined SETTINGS Parameters {#settings-parameters}
@@ -854,8 +846,10 @@ DUPLICATE_PUSH帧携带单个可变长度整数，该整数标识服务器先前
 
 ### 保留帧类型(Reserved Frame Types) {#frame-grease}
 
-帧类型是以`0x1f * N + 0x21`格式的，其中整数值 N 保留被
+
+帧类型是以`0x1f * N + 0x21`格式的，其中整数值 N 被保留
 用于满足未知种类被忽略的需求 ({{extensions}})。
+
 这些帧没有语义，而且可以当需要应用层填充的时候发送。
 他们也**可能**在当前没有数据传输的连接上发送。
 终端在收到时**禁止**认为这些帧有任何有意义。
@@ -877,7 +871,8 @@ DUPLICATE_PUSH帧携带单个可变长度整数，该整数标识服务器先前
 
 2. 载荷消息体(详见{{!RFC7230}}, 章节 3.3)，作为一系列 DATA 帧发送(详见{{frame-data}})。
 
-3. (可选的)HEADERS 帧有可能包括尾部校验(详见{{!RFC7230}} , 章节 4.1.2)。
+3. (可选的)一个包含包尾部分的 HEADERS 帧，如果
+存在(详见{{!RFC7230}} , 章节 4.1.2)。
 
 服务端**可能**在回复消息的帧中插入一个或更多 PUSH_PROMISE 帧(详见 {{frame-push-promise}})。
 这些 PUSH_PROMISE 帧不是回复的一部分；查看{{server-push}}获得更多细节。
@@ -1152,261 +1147,223 @@ gateway MAY maintain connections in anticipation of need rather than incur the
 latency cost of connection establishment to servers. Servers SHOULD NOT actively
 keep connections open.
 
-## Connection Shutdown
+## 连接关闭（Connection Shutdown）
 
-Even when a connection is not idle, either endpoint can decide to stop using the
-connection and let the connection close gracefully.  Since clients drive request
-generation, clients perform a connection shutdown by not sending additional
-requests on the connection; responses and pushed responses associated to
-previous requests will continue to completion.  Servers perform the same
-function by communicating with clients.
+即使连接不是空闲的，任何一个终端都可以决定停止使用连接，并让连接正常关闭。由于客户端
+主导请求生成，因此客户端通过不在连接上发送其他请求来执行连接关闭；与先前请求相关联的
+响应和推送响应将继续完成。服务器通过与客户端通信来执行相同的功能。
 
-Servers initiate the shutdown of a connection by sending a GOAWAY frame
-({{frame-goaway}}).  The GOAWAY frame indicates that client-initiated requests
-on lower stream IDs were or might be processed in this connection, while
-requests on the indicated stream ID and greater were rejected. This enables
-client and server to agree on which requests were accepted prior to the
-connection shutdown.  This identifier MAY be lower than the stream limit
-identified by a QUIC MAX_STREAM_ID frame, and MAY be zero if no requests were
-processed.  Servers SHOULD NOT increase the QUIC MAX_STREAM_ID limit after
-sending a GOAWAY frame.
+服务器通过发送GOAWAY帧({{frame-goaway}})启动连接关闭。GOAWAY帧指示在较低流ID上的
+客户端发起的请求在此连接中被处理或可能被处理，而在指示的流ID和更大流ID上的请求被拒绝。
+这使客户端和服务器能够在连接关闭之前就哪些请求被接受达成一致。此标识符**可能**低于
+QUIC MAX_STREAM_ID 帧标识的流限制，如果没有请求已被处理，则该标识符**可能**为零。
+发送GOAWAY帧后，服务器**不应**增加QUIC MAX_STREAM_ID限制。
 
-Once GOAWAY is sent, the server MUST reject requests sent on streams with an
-identifier greater than or equal to the indicated last Stream ID.  Clients MUST
-NOT send new requests on the connection after receiving GOAWAY, although
-requests might already be in transit. A new connection can be established for
-new requests.
+GOAWAY发送后，服务器**必须**拒绝使用标识符大于或等于最后一个流ID的流发送的请求。
+客户端在收到GOAWAY后**禁止**在连接上发送新的请求，尽管请求可能已经在传输中。可以
+为新请求建立新连接。
 
-If the client has sent requests on streams with a Stream ID greater than or
-equal to that indicated in the GOAWAY frame, those requests are considered
-rejected ({{request-cancellation}}).  Clients SHOULD cancel any requests on
-streams above this ID.  Servers MAY also reject requests on streams below the
-indicated ID if these requests were not processed.
+如果客户端在流ID大于或等于GOAWAY帧中指示的流ID的流上发送请求，则这些请求被视为
+被拒绝({{request-cancellation}})。客户端**应该**取消对此ID以上的流的任何请求。
+如果未处理这些请求，服务器还**可能**拒绝ID低于指示ID的流上的请求。
 
-Requests on Stream IDs less than the Stream ID in the GOAWAY frame might have
-been processed; their status cannot be known until they are completed
-successfully, reset individually, or the connection terminates.
+流ID小于GOAWAY帧中流ID的请求可能已被处理；只有在成功完成、单独重置或连接终止之前，
+才能知道它们的状态。
 
-Servers SHOULD send a GOAWAY frame when the closing of a connection is known
-in advance, even if the advance notice is small, so that the remote peer can
-know whether a request has been partially processed or not.  For example, if an
-HTTP client sends a POST at the same time that a server closes a QUIC
-connection, the client cannot know if the server started to process that POST
-request if the server does not send a GOAWAY frame to indicate what streams it
-might have acted on.
+当预先知道连接关闭时，服务器应该发送GOAWAY帧，即使提前通知很小，这样远程对端
+就可以知道请求是否已被部分处理。例如，如果HTTP客户端在服务器关闭QUIC连接的同时
+发送POST请求，则如果服务器未发送GOAWAY帧以指示它可能对哪些流执行了操作，那么
+客户端无法知道服务器是否开始处理该POST请求。
 
-A client that is unable to retry requests loses all requests that are in flight
-when the server closes the connection.  A server MAY send multiple GOAWAY frames
-indicating different stream IDs, but MUST NOT increase the value they send in
-the last Stream ID, since clients might already have retried unprocessed
-requests on another connection.  A server that is attempting to gracefully shut
-down a connection SHOULD send an initial GOAWAY frame with the last Stream ID
-set to the current value of QUIC's MAX_STREAM_ID and SHOULD NOT increase the
-MAX_STREAM_ID thereafter.  This signals to the client that a shutdown is
-imminent and that initiating further requests is prohibited.  After allowing
-time for any in-flight requests (at least one round-trip time), the server MAY
-send another GOAWAY frame with an updated last Stream ID.  This ensures that a
-connection can be cleanly shut down without losing requests.
+当服务器关闭连接时，无法重试请求的客户端将丢失正在运行的所有请求。服务器**可能**会
+发送多个GOAWAY帧，表示不同的流ID，但**禁止**增加它们在最后一个流ID中发送的值，
+因为客户端可能已经在另一个连接上重试了未处理的请求。尝试正常关闭连接的服务器**应该**
+发送初始GOAWAY帧，且最后一个流ID设置为QUIC的MAX_STREAM_ID的当前值，此后**不应**
+增加MAX_STREAM_ID。这向客户端发出信号，表明即将关闭，并且禁止进一步的请求。
+在为任何传输中请求留出时间(至少一个往返时间)后，服务器**可能**会发送另一个更新后
+且是最后的流ID的GOAWAY帧。这可以确保连接可以在不丢失请求的情况下干净地关闭。
 
-Once all accepted requests have been processed, the server can permit the
-connection to become idle, or MAY initiate an immediate closure of the
-connection.  An endpoint that completes a graceful shutdown SHOULD use the
-HTTP_NO_ERROR code when closing the connection.
+一旦所有已接受的请求都得到处理，服务器就可以允许连接变得空闲，或者**可以**启动连接
+的立即关闭。完成正常关闭的端点**应该**在关闭连接时使用HTTP_NO_ERROR代码。
 
-## Immediate Application Closure
+## 立即关闭应用程序
 
-An HTTP/3 implementation can immediately close the QUIC connection at any time.
-This results in sending a QUIC CONNECTION_CLOSE frame to the peer; the error
-code in this frame indicates to the peer why the connection is being closed.
-See {{errors}} for error codes which can be used when closing a connection.
+一个HTTP/3的实现可以随时立即关闭QUIC连接，这会发送QUIC CONNECTION_CLOSE帧到对端；
+此帧中的错误代码告诉对端为什么要关闭连接。有关关闭连接时可以使用的错误代码，
+请参见{{errors}}。
 
-Before closing the connection, a GOAWAY MAY be sent to allow the client to retry
-some requests.  Including the GOAWAY frame in the same packet as the QUIC
-CONNECTION_CLOSE frame improves the chances of the frame being received by
-clients.
+在关闭连接之前，可能会发送GOAWAY帧以允许客户端重试某些请求。将GOAWAY帧包含在QUIC
+CONNECTION_CLOSE帧所在的数据包中可以提高客户端接收该帧的机会。
 
-## Transport Closure
+## 传输关闭
 
-For various reasons, the QUIC transport could indicate to the application layer
-that the connection has terminated.  This might be due to an explicit closure
-by the peer, a transport-level error, or a change in network topology which
-interrupts connectivity.
+由于各种原因，QUIC传输可能会向应用层表明连接已终止。这可能是由于对端显式关闭、传输层
+错误或网络拓扑更改中断连接所致。
 
-If a connection terminates without a GOAWAY frame, clients MUST assume that any
-request which was sent, whether in whole or in part, might have been processed.
+如果连接在没有GOAWAY帧的情况下终止，客户端**必须**假设发送的任何请求(无论是全部还是部分)
+都可能已被处理。
 
-# Extensions to HTTP/3 {#extensions}
+# HTTP/3的扩展(Extensions to HTTP/3) {#extensions}
 
-HTTP/3 permits extension of the protocol.  Within the limitations described in
-this section, protocol extensions can be used to provide additional services or
-alter any aspect of the protocol.  Extensions are effective only within the
-scope of a single HTTP/3 connection.
+HTTP/3允许对协议进行扩展。在本节描述的限制范围内，协议扩展可用于提供附加服务或更改
+协议的任何方面。扩展仅在单个HTTP/3连接的范围内有效。
 
-This applies to the protocol elements defined in this document.  This does not
-affect the existing options for extending HTTP, such as defining new methods,
-status codes, or header fields.
+这适用于本文档中定义的协议元素。这不影响现有的HTTP扩展选项，例如定义新方法、状态码
+或标头字段。
 
-Extensions are permitted to use new frame types ({{frames}}), new settings
-({{settings-parameters}}), new error codes ({{errors}}), or new unidirectional
-stream types ({{unidirectional-streams}}).  Registries are established for
-managing these extension points: frame types ({{iana-frames}}), settings
-({{iana-settings}}), error codes ({{iana-error-codes}}), and stream types
-({{iana-stream-types}}).
+扩展允许使用新的帧类型({{frames}})、新的设置({{settings-parameters}})、新的
+错误码({{errors}})或新的单向流类型({{unidirectional-streams}})。建立了用于
+管理这些扩展点的注册表：帧类型({{iana-frames}})、设置({{iana-settings}})、
+错误码({{iana-error-codes}})和流类型({{iana-stream-types}})。
 
-Implementations MUST ignore unknown or unsupported values in all extensible
-protocol elements.  Implementations MUST discard frames and unidirectional
-streams that have unknown or unsupported types.  This means that any of these
-extension points can be safely used by extensions without prior arrangement or
-negotiation.
+实现**必须**忽略所有可扩展协议元素中的未知或不受支持的值。实现**必须**丢弃具有
+未知或不支持类型的帧和单向流。这意味着在没有事先安排或协商的情况下，扩展可以安全
+地使用这些扩展点中的任何一个。
 
-Extensions that could change the semantics of existing protocol components MUST
-be negotiated before being used.  For example, an extension that changes the
-layout of the HEADERS frame cannot be used until the peer has given a positive
-signal that this is acceptable. In this case, it could also be necessary to
-coordinate when the revised layout comes into effect.
+在使用之前，必须协商可以更改现有协议组件语义的扩展。例如，在对端发出可接受的正面
+信号之前，不能使用更改HEADERS帧布局的扩展。在这种情况下，也可能有必要在修改后的布局
+生效时进行协调。
 
-This document doesn't mandate a specific method for negotiating the use of an
-extension but notes that a setting ({{settings-parameters}}) could be used for
-that purpose.  If both peers set a value that indicates willingness to use the
-extension, then the extension can be used.  If a setting is used for extension
-negotiation, the default value MUST be defined in such a fashion that the
-extension is disabled if the setting is omitted.
+本文档并不要求使用特定的方法来协商扩展的使用，但提到可以使用设置({{settings-parameters}})
+来实现此目的。如果两个对端都设置了表示愿意使用扩展的值，则可以使用扩展。如果将设置用于扩展协商
+则**必须**以这样的方式定义默认值：如果省略该设置，则禁用扩展。
 
 
-# Error Handling {#errors}
+# 错误处理（Error Handling） {#errors}
 
-QUIC allows the application to abruptly terminate (reset) individual streams or
-the entire connection when an error is encountered.  These are referred to as
-"stream errors" or "connection errors" and are described in more detail in
-{{QUIC-TRANSPORT}}.  An endpoint MAY choose to treat a stream error as a
-connection error.
+QUIC允许应用程序在遇到错误时突然终止(重置)单个流或整个连接。这些错误称为“流错误”或
+“连接错误”，在{{QUIC-TRANSPORT}}中有详细说明。端点**可以**选择将流错误视为连接错误。
 
-This section describes HTTP/3-specific error codes which can be used to express
-the cause of a connection or stream error.
+本节介绍特定于HTTP/3的错误代码，这些代码可用于表示连接或流错误的原因。
 
-## HTTP/3 Error Codes {#http-error-codes}
+## HTTP/3 错误码 {#http-error-codes}
 
-The following error codes are defined for use in QUIC RESET_STREAM frames,
-STOP_SENDING frames, and CONNECTION_CLOSE frames when using HTTP/3.
+以下错误码被定义用于HTTP/3协议下的
+QUIC RESET_STREAM帧、STOP_SESSING帧和
+CONNECTION_CLOSE帧。
 
 HTTP_NO_ERROR (0x00):
-: No error.  This is used when the connection or stream needs to be closed, but
-  there is no error to signal.
+: 没有错误。当需要关闭连接或者流，
+ 但没有错误要发送的时候使用。
 
 HTTP_WRONG_SETTING_DIRECTION (0x01):
-: A client-only setting was sent by a server, or a server-only setting by a
-  client.
+: 一个客户端限定的设置项由服务端发送，
+ 或者服务端限定的设置项由客户端发送时使用。
 
 HTTP_PUSH_REFUSED (0x02):
-: The server has attempted to push content which the client will not accept
-  on this connection.
+: 服务端尝试在该连接中推送客户端不能接受的内容。
 
 HTTP_INTERNAL_ERROR (0x03):
-: An internal error has occurred in the HTTP stack.
+: 在HTTP栈内部发生错误。
 
 HTTP_PUSH_ALREADY_IN_CACHE (0x04):
-: The server has attempted to push content which the client has cached.
+: 服务端尝试推送的内容已经在客户端缓存。
 
 HTTP_REQUEST_CANCELLED (0x05):
-: The request or its response is cancelled.
+: 请求或者请求的响应被取消
 
 HTTP_INCOMPLETE_REQUEST (0x06):
-: The client's stream terminated without containing a fully-formed request.
+: 客户端流在没有完成完整格式的请求的情况下终止。
 
 HTTP_CONNECT_ERROR (0x07):
-: The connection established in response to a CONNECT request was reset or
-  abnormally closed.
+: 响应CONNECT请求而建立的连接被重置或异常关闭。
 
 HTTP_EXCESSIVE_LOAD (0x08):
-: The endpoint detected that its peer is exhibiting a behavior that might be
-  generating excessive load.
+: 终端检测到其对等端正在表现出可能会产生
+ 过多负载的行为。
 
 HTTP_VERSION_FALLBACK (0x09):
-: The requested operation cannot be served over HTTP/3.  The
-  peer should retry over HTTP/1.1.
+: 请求的操作无法通过HTTP/3提供。对端应通过HTTP/1.1重试。
 
 HTTP_WRONG_STREAM (0x0A):
-: A frame was received on a stream where it is not permitted.
+: 从流中接收到一个帧，而该流不允许发送这个帧。
 
 HTTP_LIMIT_EXCEEDED (0x0B):
-: A Stream ID, Push ID, or Placeholder ID greater than the current maximum for
-  that identifier was referenced.
+: 引用的流ID、推送ID或占位符ID大于该标识符的当前最大值。
 
 HTTP_DUPLICATE_PUSH (0x0C):
-: A Push ID was referenced in two different stream headers.
+: 在两个不同的流头部中引用了相同的推送ID。
 
 HTTP_UNKNOWN_STREAM_TYPE (0x0D):
-: A unidirectional stream header contained an unknown stream type.
+: 单向流标头包含未知的流类型。
 
 HTTP_WRONG_STREAM_COUNT (0x0E):
-: A unidirectional stream type was used more times than is permitted by that
-  type.
+: 单向流类型的使用次数超过了该类型所允许的次数。
 
 HTTP_CLOSED_CRITICAL_STREAM (0x0F):
-: A stream required by the connection was closed or reset.
+: 连接所需的流已关闭或重置。
 
 HTTP_WRONG_STREAM_DIRECTION (0x0010):
 : A unidirectional stream type was used by a peer which is not permitted to do
   so.
+: 对端使用了被禁止的单向流类型。
 
 HTTP_EARLY_RESPONSE (0x0011):
-: The remainder of the client's request is not needed to produce a response.
-  For use in STOP_SENDING only.
+: 客户端请求的其余部分不需要生成响应。仅用于STOP_SENDING。
 
 HTTP_MISSING_SETTINGS (0x0012):
-: No SETTINGS frame was received at the beginning of the control stream.
+: 在控制流的开始处未接收到任何设置帧。
 
 HTTP_UNEXPECTED_FRAME (0x0013):
-: A frame was received which was not permitted in the current state.
+: 接收到当前状态下不允许接收的帧。
 
 HTTP_REQUEST_REJECTED (0x0014):
-: A server rejected a request without performing any application processing.
+: 服务端在未执行任何应用程序处理的情况下拒绝了请求。
 
 HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):
-: Peer violated protocol requirements in a way which doesn't match a more
-  specific error code, or endpoint declines to use the more specific error code.
+: 对端违反了协议要求
+并且未明确定义错误码，
+或者终端拒绝使用更明确的错误码。
 
 HTTP_MALFORMED_FRAME (0x01XX):
-: An error in a specific frame type.  If the frame type is `0xfe` or less, the
-  type is included as the last byte of the error code.  For example, an error in
-  a MAX_PUSH_ID frame would be indicated with the code (0x10D).  The last byte
-  `0xff` is used to indicate any frame type greater than `0xfe`.
+: 特定帧类型中的错误。如果帧类型
+为‘0xfe`或更小，则该类型
+将包含在错误代码的最后一个字节。
+例如，MAX_Push_ID帧中的
+错误将用代码(0x10D)指示。
+最后一个字节`0xff`用于表示
+任何大于`0xfe`的帧类型。
 
 
-# Security Considerations
+# 安全注意事项(Security Considerations)
 
-The security considerations of HTTP/3 should be comparable to those of HTTP/2
-with TLS.  Note that where HTTP/2 employs PADDING frames and Padding fields in
-other frames to make a connection more resistant to traffic analysis, HTTP/3 can
-rely on QUIC PADDING frames or employ the reserved frame and stream types
-discussed in {{frame-grease}} and {{stream-grease}}.
+HTTP/3的安全注意事项应与具有TLS的
+HTTP/2的安全注意事项类似。
+请注意，如果HTTP/2在其他帧
+中使用PADDING帧和填充字段来使连接
+更不受流量分析的影响，则HTTP/3可以
+依赖QUIC PADDING帧或使用在{{frame-grease}}和
+{{stream-grease}}中讨论的保留帧和流类型。
 
-When HTTP Alternative Services is used for discovery for HTTP/3 endpoints, the
-security considerations of {{!ALTSVC}} also apply.
+当HTTP替代服务被用于发现HTTP/3终端时，
+{{!ALTSVC}}的安全注意事项也适用。
 
-Several protocol elements contain nested length elements, typically in the form
-of frames with an explicit length containing variable-length integers.  This
-could pose a security risk to an incautious implementer.  An implementation MUST
-ensure that the length of a frame exactly matches the length of the fields it
-contains.
+几个协议要素包含嵌套的长度要素，
+通常以帧中带有包含可变长度整数
+显式长度形式出现。这可能会给
+一个鲁莽的实现者带来安全风险。
+实现**必须**确保帧的长度与
+其包含的字段的长度完全匹配。
 
-Certain HTTP implementations use the client address for logging or
-access-control purposes.  Since a QUIC client's address might change during a
-connection (and future versions might support simultaneous use of multiple
-addresses), such implementations will need to either actively retrieve the
-client's current address or addresses when they are relevant or explicitly
-accept that the original address might change.
+某些HTTP实现使用客户端地址
+进行日志记录或访问控制。
+由于QUIC客户端的地址可能
+在连接过程中发生更改
+(未来版本可能支持同时使用多个地址)，
+因此此类实现需要主动检索客户端的
+一个或多个与当前地址相关的地址，
+或者明确接受原始地址可能会更改。
 
 
-# IANA Considerations
+# IANA注意事项(IANA Considerations)
 
-## Registration of HTTP/3 Identification String
+## 注册HTTP/3标识字符串(Registration of HTTP/3 Identification String)
 
-This document creates a new registration for the identification of
-HTTP/3 in the "Application Layer Protocol Negotiation (ALPN)
-Protocol IDs" registry established in {{?RFC7301}}.
+本文档在{{?RFC7301}}中
+建立的“应用层协议协商(ALPN)协议ID”注册表
+中新注册了HTTP/3标识
 
-The "h3" string identifies HTTP/3:
+“h3”字符串标识HTTP/3:
 
   Protocol:
   : HTTP/3
@@ -1559,33 +1516,30 @@ Code" 登记表确定了16-bit的空间如何使用.  "HTTP/3 Error Code" 登记
 | HTTP_MALFORMED_FRAME                | 0x01XX     | 帧格式化错误                               | {{http-error-codes}}   |
 | ----------------------------------- | ---------- | ---------------------------------------- | ---------------------- |
 
-## Stream Types {#iana-stream-types}
+## 流类型(Stream Types) {#iana-stream-types}
 
-This document establishes a registry for HTTP/3 unidirectional stream types. The
-"HTTP/3 Stream Type" registry governs a 62-bit space. This space is split into
-three spaces that are governed by different policies. Values between `0x00` and
-0x3f (in hexadecimal) are assigned via the Standards Action or IESG Review
-policies {{!RFC8126}}. Values from `0x40` to `0x3fff` operate on the
-Specification Required policy {{!RFC8126}}. All other values are assigned to
-Private Use {{!RFC8126}}.
+本文档为 HTTP/3 单向流类型建立了注册表。
+"HTTP/3 Stream Type"注册表掌握了62位空间。
+此空间可分为三个由不同策略管理的空间。
+`0x00`和`0x3f`(十六进制)之间的值是通过标准操作或IESG审核策略{{!RFC8126}}分配的。
+从`0x40`到`0x3fff`的值对按照规范要求策略{{!RFC8126}}分配。
+所有其他值都分配给私有使用{{!RFC8126}}。
 
-New entries in this registry require the following information:
+此注册表中的新条目需要以下信息:
 
-Stream Type:
-: A name or label for the stream type.
+流类型(Stream Type):
+: 一个流类型的名字或者标签。
 
-Code:
-: The 62-bit code assigned to the stream type.
+编码号(Code):
+: 赋予给此类型的62位编码值。
 
-Specification:
-: A reference to a specification that includes a description of the stream type,
-  including the layout semantics of its payload.
+规范(Specification):
+: 对规范的引用，该规范包括流类型的描述，以及其载荷的布局语义。
 
-Sender:
-: Which endpoint on a connection may initiate a stream of this type. Values are
-  "Client", "Server", or "Both".
+发送者(Sender):
+: 可能会建立此种类流的连接的端。值可以是"客户端(Client)", "服务端(Server)", "均可(Both)"。
 
-The entries in the following table are registered by this document.
+下表中的条目已注册在这篇文档中。
 
 | ---------------- | ------ | -------------------------- | ------ |
 | Stream Type      |  Code  | Specification              | Sender |
@@ -1594,245 +1548,196 @@ The entries in the following table are registered by this document.
 | Push Stream      |  0x01  | {{server-push}}            | Server |
 | ---------------- | ------ | -------------------------- | ------ |
 
-Additionally, each code of the format `0x1f * N + 0x21` for integer values of N
-(that is, `0x21`, `0x40`, ..., through `0x‭3FFFFFFFFFFFFFFE‬`) MUST NOT be
-assigned by IANA.
+额外的，每一个形如 `0x1f * N + 0x21` 的整数值N
+(意思是`0x21`, `0x40`, ..., 直到 `0x3FFFFFFFFFFFFFFE`)**禁止**被 IANA 赋值。
 
 --- back
 
-# Considerations for Transitioning from HTTP/2
+# 对于HTTP/2中事务的思考(Considerations for Transitioning from HTTP/2)
 
-HTTP/3 is strongly informed by HTTP/2, and bears many similarities.  This
-section describes the approach taken to design HTTP/3, points out important
-differences from HTTP/2, and describes how to map HTTP/2 extensions into HTTP/3.
+HTTP/3 承袭于 HTTP/2，并且有许多相似之处。
+本节描述了设计 HTTP/3 所采用的方法，指出了与 HTTP/2 的重要区别，并描述了如何将 HTTP/2 扩展映射到 HTTP/3。
 
-HTTP/3 begins from the premise that similarity to HTTP/2 is preferable, but not
-a hard requirement.  HTTP/3 departs from HTTP/2 primarily where necessary to
-accommodate the differences in behavior between QUIC and TCP (lack of ordering,
-support for streams).  We intend to avoid gratuitous changes which make it
-difficult or impossible to build extensions with the same semantics applicable
-to both protocols at once.
+HTTP/3 始于这样一个前提，即与 HTTP/2 的相似的设计更可取，但并不是一个硬性的要求。
+HTTP/3 主要在必要时脱离HTTP/2，以适应 QUIC 和 TCP 之间的行为差异(缺乏排序，对流的支持)。
+我们打算避免无端的更改，因为它会使得构建同时适用于两种协议具有相同语义的扩展变得困难或不可能。
 
-These departures are noted in this section.
+本节中指出了这些差异。
 
-## Streams {#h2-streams}
+## 流(Streams) {#h2-streams}
 
-HTTP/3 permits use of a larger number of streams (2^62-1) than HTTP/2.  The
-considerations about exhaustion of stream identifier space apply, though the
-space is significantly larger such that it is likely that other limits in QUIC
-are reached first, such as the limit on the connection flow control window.
+HTTP/3 允许使用比 HTTP/2 更多的流(2^62-1)。
+有关流标识符空间耗尽的注意事项仍适用，尽管空间要大得多，防止可能出现的 QUIC 中的其他限制首先达到，例如连接流控制窗口的限制。
 
-## HTTP Frame Types {#h2-frames}
+## HTTP帧类型(HTTP Frame Types) {#h2-frames}
 
-Many framing concepts from HTTP/2 can be elided on QUIC, because the transport
-deals with them. Because frames are already on a stream, they can omit the
-stream number. Because frames do not block multiplexing (QUIC's multiplexing
-occurs below this layer), the support for variable-maximum-length packets can be
-removed. Because stream termination is handled by QUIC, an END_STREAM flag is
-not required.  This permits the removal of the Flags field from the generic
-frame layout.
+在 QUIC 上可以省略 HTTP/2 中的许多帧概念，因为传输已经处理了这些概念。
+因为帧已经在流上，所以它们可以省略流编号。
+由于帧不会阻塞多路复用(QUIC的多载荷路复用发生在此层以下)，因此可以删除对可变最大长度数据包的支持。
+由于流终止由 QUIC 处理，因此不需要 END_STREAM 标志。
+这允许了我们从通用框架布局中删除“标志”字段。
 
-Frame payloads are largely drawn from {{!RFC7540}}. However, QUIC includes many
-features (e.g., flow control) which are also present in HTTP/2. In these cases,
-the HTTP mapping does not re-implement them. As a result, several HTTP/2 frame
-types are not required in HTTP/3. Where an HTTP/2-defined frame is no longer
-used, the frame ID has been reserved in order to maximize portability between
-HTTP/2 and HTTP/3 implementations. However, even equivalent frames between the
-two mappings are not identical.
+帧载荷主要来自{{!RFC7540}}。然而，QUIC 包含了 HTTP/2 中也存在的许多特性(例如，流控制)。
+在这些情况下，HTTP 映射不会重新实现它们。
+因此，HTTP/3 中不需要几种 HTTP/2 帧类型。
+如果不再使用 HTTP/2 定义的帧，则会保留帧ID，以便最大限度地提高 HTTP/2 和 HTTP/3 实现之间的可移植性。
+然而，即使两个映射之间的等效帧也不完全相同。
 
-Many of the differences arise from the fact that HTTP/2 provides an absolute
-ordering between frames across all streams, while QUIC provides this guarantee
-on each stream only.  As a result, if a frame type makes assumptions that frames
-from different streams will still be received in the order sent, HTTP/3 will
-break them.
+许多差异源于 HTTP/2 跨所有流提供帧之间的绝对排序，而 QUIC 仅在每个流上提供这种保证。
+因此，如果帧类型假设仍将按发送顺序接收来自不同流的帧，HTTP/3 将破坏这些假设。
 
-For example, implicit in the HTTP/2 prioritization scheme is the notion of
-in-order delivery of priority changes (i.e., dependency tree mutations): since
-operations on the dependency tree such as reparenting a subtree are not
-commutative, both sender and receiver must apply them in the same order to
-ensure that both sides have a consistent view of the stream dependency tree.
-HTTP/2 specifies priority assignments in PRIORITY frames and (optionally) in
-HEADERS frames. To achieve in-order delivery of priority changes in HTTP/3,
-PRIORITY frames are sent on the control stream and exclusive prioritization
-has been removed.
+例如，HTTP/2 优先级方案中隐含的是按顺序递送优先级改变(即，依赖关系树突变)的概念：
+由于对依赖关系树的操作(例如，重生子树)不是可交换的，
+因此发送方和接收方必须以相同的顺序应用它们，以确保双方都具有流依赖关系树的一致视图。
+HTTP/2 在优先级帧(PRIORITY)和(可选)报头帧(HEADERS)中指定优先级分配。
+为了在 HTTP/3 中按顺序传递优先级更改，在控制流上发送优先级帧(PRIORITY)，并删除独占优先级排序。
 
-Likewise, HPACK was designed with the assumption of in-order delivery. A
-sequence of encoded header blocks must arrive (and be decoded) at an endpoint in
-the same order in which they were encoded. This ensures that the dynamic state
-at the two endpoints remains in sync.  As a result, HTTP/3 uses a modified
-version of HPACK, described in [QPACK].
+同样，HPACK 的设计假设是按顺序交付。
+编码的报头块序列必须以与它们被编码的顺序相同的顺序到达(并被解码)到对端。
+这可确保两个对端的动态状态保持同步。
+因此，HTTP/3 使用 HPACK 的修改版本，如[QPACK]中所述。
 
-Frame type definitions in HTTP/3 often use the QUIC variable-length integer
-encoding.  In particular, Stream IDs use this encoding, which allow for a larger
-range of possible values than the encoding used in HTTP/2.  Some frames in
-HTTP/3 use an identifier rather than a Stream ID (e.g. Push IDs in PRIORITY
-frames). Redefinition of the encoding of extension frame types might be
-necessary if the encoding includes a Stream ID.
+HTTP/3 中的帧类型定义通常使用 QUIC 可变长度整数编码。
+特别地，流ID使用这种编码，这允许比 HTTP/2 中使用的编码有更大的可能值范围。
+HTTP/3 中的一些帧使用标识符而不是流ID(例如，优先级帧中的推送ID)。
+如果编码包括流ID，则可能需要重新定义扩展帧类型的编码。
 
-Because the Flags field is not present in generic HTTP/3 frames, those frames
-which depend on the presence of flags need to allocate space for flags as part
-of their frame payload.
+由于“标志”字段不存在于通用 HTTP/3 帧中，因此依赖于标志存在的那些帧需要为标志分配空间作为其帧载荷的一部分。
 
-Other than this issue, frame type HTTP/2 extensions are typically portable to
-QUIC simply by replacing Stream 0 in HTTP/2 with a control stream in HTTP/3.
-HTTP/3 extensions will not assume ordering, but would not be harmed by ordering,
-and would be portable to HTTP/2 in the same manner.
+除了此问题之外，帧类型 HTTP/2 扩展通常只需将 HTTP/2 中的流 0
+替换为 HTTP/3 中的控制流即可移植到 QUIC。
+HTTP/3 扩展不会承诺有序，但不会因有序受损，并且将以相同的方式可移植到 HTTP/2。
 
-Below is a listing of how each HTTP/2 frame type is mapped:
+下面列出了每种HTTP/2帧类型的映射方式:
 
 DATA (0x0):
-: Padding is not defined in HTTP/3 frames.  See {{frame-data}}.
+: 占位符在 HTTP/3 帧中未定义。详见{{frame-data}}.
 
 HEADERS (0x1):
-: As described above, the PRIORITY region of HEADERS is not supported. A
-  separate PRIORITY frame MUST be used. Padding is not defined in HTTP/3 frames.
-  See {{frame-headers}}.
+: 如上描述，优先级种类的报头不支持。**必须**使用单独的 PRIORITY 帧。占位符在 HTTP/3 帧中未定义。详见{{frame-headers}}.
 
 PRIORITY (0x2):
-: As described above, the PRIORITY frame is sent on the control stream and can
-  reference a variety of identifiers.  See {{frame-priority}}.
+: 如上描述，PRIORITY 帧在控制流上发送，并且可以引用各种标识。详见{{frame-priority}}.
 
 RST_STREAM (0x3):
-: RST_STREAM frames do not exist, since QUIC provides stream lifecycle
-  management.  The same code point is used for the CANCEL_PUSH frame
-  ({{frame-cancel-push}}).
+: RST_STREAM 帧不再存在，因为 QUIC 提供了流生命周期管理。
+相同码点用于CANCEL_PUSH 帧({{frame-cancel-push}})。
 
 SETTINGS (0x4):
-: SETTINGS frames are sent only at the beginning of the connection.  See
-  {{frame-settings}} and {{h2-settings}}.
+: SETTINGS 帧仅当连接开始的时候发送，详见{{frame-settings}} 和 {{h2-settings}}.
 
 PUSH_PROMISE (0x5):
-: The PUSH_PROMISE does not reference a stream; instead the push stream
-  references the PUSH_PROMISE frame using a Push ID.  See
-  {{frame-push-promise}}.
+: PUSH_PROMISE 不再引用一个流，相反，推送流通过 Push ID 来引用 PUSH_PROMISE 帧。
+详见{{frame-push-promise}}.
 
 PING (0x6):
-: PING frames do not exist, since QUIC provides equivalent functionality.
+: PING 帧不再存在, 因为 QUIC 提供了等同的功能。
 
 GOAWAY (0x7):
-: GOAWAY is sent only from server to client and does not contain an error code.
-  See {{frame-goaway}}.
+: GOAWAY 仅从服务端到客户端发送并且不包含错误码。详见{{frame-goaway}}.
 
 WINDOW_UPDATE (0x8):
-: WINDOW_UPDATE frames do not exist, since QUIC provides flow control.
+: WINDOW_UPDATE 帧不再存在，因为QUIC 提供了流量控制。
 
 CONTINUATION (0x9):
-: CONTINUATION frames do not exist; instead, larger HEADERS/PUSH_PROMISE
-  frames than HTTP/2 are permitted.
+: CONTINUATION 帧不再存在; 相反, 可以拥有相较 HTTP/2 更大的 HEADERS/PUSH_PROMISE 帧.
 
-Frame types defined by extensions to HTTP/2 need to be separately registered for
-HTTP/3 if still applicable.  The IDs of frames defined in {{!RFC7540}} have been
-reserved for simplicity.  Note that the frame type space in HTTP/3 is
-substantially larger (62 bits versus 8 bits), so many HTTP/3 frame types have no
-equivalent HTTP/2 code points.   See {{iana-frames}}.
+HTTP/2 扩展定义的帧类型需要单独注册 HTTP/3(如果仍然适用)。
+为简单起见，已保留在 {{!RFC7540}}中定义的帧的ID。
+请注意，HTTP/3 中的帧类型空间实质上更大(62位对8位)，
+因此许多 HTTP/3 帧类型没有等效的 HTTP/2 代码点。详见 {{iana-frames}}。
 
-## HTTP/2 SETTINGS Parameters {#h2-settings}
+## HTTP/2设置参数(HTTP/2 SETTINGS Parameters) {#h2-settings}
 
-An important difference from HTTP/2 is that settings are sent once, at the
-beginning of the connection, and thereafter cannot change.  This eliminates
-many corner cases around synchronization of changes.
+与 HTTP/2 的一个重要区别是，设置在连接开始时只发送一次，此后不能更改。
+这消除了许多围绕更改同步的边界情况。
 
-Some transport-level options that HTTP/2 specifies via the SETTINGS frame are
-superseded by QUIC transport parameters in HTTP/3. The HTTP-level options that
-are retained in HTTP/3 have the same value as in HTTP/2.
+HTTP/2 通过设置帧指定的某些传输级别选项将被 HTTP/3 中的 QUIC 传输参数取代。
+HTTP/3 中保留的 HTTP 级别选项的值与 HTTP/2 中的相同。
 
-Below is a listing of how each HTTP/2 SETTINGS parameter is mapped:
+下面列出了每个 HTTP/2 设置参数的映射方式:
 
 SETTINGS_HEADER_TABLE_SIZE:
-: See [QPACK].
+: 详见 [QPACK].
 
 SETTINGS_ENABLE_PUSH:
-: This is removed in favor of the MAX_PUSH_ID which provides a more granular
-  control over server push.
+: 已移除，MAX_PUSH_ID 提供了对服务器推送的更细粒度的控制。
 
 SETTINGS_MAX_CONCURRENT_STREAMS:
-: QUIC controls the largest open Stream ID as part of its flow control logic.
-  Specifying SETTINGS_MAX_CONCURRENT_STREAMS in the SETTINGS frame is an error.
+: 作为其流控制逻辑的一部分，QUIC 控制最大的开放流ID。
+在 SETTINGS 帧中指定SETTINGS_MAX_CONCURRENT_STREAMS是错误的。
 
 SETTINGS_INITIAL_WINDOW_SIZE:
-: QUIC requires both stream and connection flow control window sizes to be
-  specified in the initial transport handshake.  Specifying
-  SETTINGS_INITIAL_WINDOW_SIZE in the SETTINGS frame is an error.
+: QUIC要求在初始传输握手中指定流和连接流控制窗口大小。
+在 SETTINGS 帧中指定SETTINGS_INITIAL_WINDOW_SIZE是错误的。
 
 SETTINGS_MAX_FRAME_SIZE:
-: This setting has no equivalent in HTTP/3.  Specifying it in the SETTINGS frame
-  is an error.
+: 此设置在 HTTP/3 中没有等价物。在 SETTINGS 帧中指定它是错误的。
 
 SETTINGS_MAX_HEADER_LIST_SIZE:
-: See {{settings-parameters}}.
+: 详见 {{settings-parameters}}.
 
-In HTTP/3, setting values are variable-length integers (6, 14, 30, or 62 bits
-long) rather than fixed-length 32-bit fields as in HTTP/2.  This will often
-produce a shorter encoding, but can produce a longer encoding for settings which
-use the full 32-bit space.  Settings ported from HTTP/2 might choose to redefine
-the format of their settings to avoid using the 62-bit encoding.
+在 HTTP/3 中，设置值是可变长度整数(6、14、30或62位长)，而不是 HTTP/2 中的固定长度32位字段。
+这通常会产生较短的编码，但可以为使用完整32位空间的设置生成较长的编码。
+从 HTTP/2 移植的设置可能会选择重新定义其设置的格式，以避免使用62位编码。
 
-Settings need to be defined separately for HTTP/2 and HTTP/3. The IDs of
-settings defined in {{!RFC7540}} have been reserved for simplicity.  Note that
-the settings identifier space in HTTP/3 is substantially larger (62 bits versus
-16 bits), so many HTTP/3 settings have no equivalent HTTP/2 code point. See
-{{iana-settings}}.
+需要分别为 HTTP/2 和 HTTP/3 定义设置。
+为简单起见，已保留在{{!RFC7540}}中定义的设置ID。
+请注意，HTTP/3 中的设置标识符空间非常大(62位对16位)，
+因此许多 HTTP/3 设置没有等效的 HTTP/2 代码点。详见{{iana-settings}}。
 
 
-## HTTP/2 Error Codes
+## HTTP/2错误码(HTTP/2 Error Codes)
 
-QUIC has the same concepts of "stream" and "connection" errors that HTTP/2
-provides. However, there is no direct portability of HTTP/2 error codes.
+QUIC 具有 HTTP/2 提供的“流”和“连接”错误的相同概念。
+但是，HTTP/2 错误代码没有直接可移植性。
 
-The HTTP/2 error codes defined in Section 7 of {{!RFC7540}} map to the HTTP/3
-error codes as follows:
+{{!RFC7540}}第7节中定义的 HTTP/2 错误代码映射到 HTTP/3 错误代码，如下所示：
 
 NO_ERROR (0x0):
-: HTTP_NO_ERROR in {{http-error-codes}}.
+: {{http-error-codes}}中的 HTTP_NO_ERROR.
 
 PROTOCOL_ERROR (0x1):
-: No single mapping.  See new HTTP_MALFORMED_FRAME error codes defined in
-  {{http-error-codes}}.
+: 没有单独映射。详见定义在 {{http-error-codes}}中新的 HTTP_MALFORMED_FRAME 错误码。
 
 INTERNAL_ERROR (0x2):
-: HTTP_INTERNAL_ERROR in {{http-error-codes}}.
+: {{http-error-codes}}中的HTTP_INTERNAL_ERROR。
 
 FLOW_CONTROL_ERROR (0x3):
-: Not applicable, since QUIC handles flow control.  Would provoke a
-  QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA from the QUIC layer.
+: 不适用，因为 QUIC 处理了流量控制。会从 QUIC 层触发QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA。
 
 SETTINGS_TIMEOUT (0x4):
-: Not applicable, since no acknowledgement of SETTINGS is defined.
+: 不适用，因为对SETTINGS 的确认未定义。
 
 STREAM_CLOSED (0x5):
-: Not applicable, since QUIC handles stream management.  Would provoke a
-  QUIC_STREAM_DATA_AFTER_TERMINATION from the QUIC layer.
+: 不适用，因为 QUIC 处理了流管理。会从 QUIC 层触发 QUIC_STREAM_DATA_AFTER_TERMINATION。
 
 FRAME_SIZE_ERROR (0x6):
-: HTTP_MALFORMED_FRAME error codes defined in {{http-error-codes}}.
+: HTTP_MALFORMED_FRAME 错误码定义于{{http-error-codes}}.
 
 REFUSED_STREAM (0x7):
-: HTTP_REQUEST_REJECTED (in {{http-error-codes}}) is used to indicate that a
-  request was not processed. Otherwise, not applicable because QUIC handles
-  stream management.  A STREAM_ID_ERROR at the QUIC layer is used for streams
-  that are improperly opened.
+: HTTP_REQUEST_REJECTED (在{{http-error-codes}}中)用于指示未处理请求。
+否则不适用，因为 QUIC 处理了流管理。QUIC 层的 STREAM_ID_ERROR用于不正确打开的流。
 
 CANCEL (0x8):
-: HTTP_REQUEST_CANCELLED in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_REQUEST_CANCELLED。
 
 COMPRESSION_ERROR (0x9):
-: Multiple error codes are defined in [QPACK].
+: 多个错误码定义于[QPACK].
 
 CONNECT_ERROR (0xa):
-: HTTP_CONNECT_ERROR in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_CONNECT_ERROR。
 
 ENHANCE_YOUR_CALM (0xb):
-: HTTP_EXCESSIVE_LOAD in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_EXCESSIVE_LOAD。
 
 INADEQUATE_SECURITY (0xc):
-: Not applicable, since QUIC is assumed to provide sufficient security on all
-  connections.
+: 不适用，因为 QUIC 假设已经为所有连接提供了足够的安全保证。
 
 HTTP_1_1_REQUIRED (0xd):
-: HTTP_VERSION_FALLBACK in {{http-error-codes}}.
+: {{http-error-codes}}中 HTTP_VERSION_FALLBACK。
 
-Error codes need to be defined for HTTP/2 and HTTP/3 separately.  See
-{{iana-error-codes}}.
+需要分别为HTTP/2和HTTP/3定义错误代码。详见{{iana-error-codes}}.
 
 # Change Log
 

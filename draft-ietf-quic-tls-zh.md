@@ -230,269 +230,272 @@ application data until it has received all of the handshake messages sent by the
 server.
 
 
-# Protocol Overview
+# 协议概述
 
-QUIC {{QUIC-TRANSPORT}} assumes responsibility for the confidentiality and
-integrity protection of packets.  For this it uses keys derived from a TLS
-handshake {{!TLS13}}, but instead of carrying TLS records over QUIC (as with
-TCP), TLS Handshake and Alert messages are carried directly over the QUIC
-transport, which takes over the responsibilities of the TLS record layer, as
-shown below.
+QUIC {{QUIC-TRANSPORT}}负责保护数据包的机密性和完整性。为此，它使用从
+TLS握手{{!TLS13}}派生的密钥，而不是通过QUIC(如TCP)携带TLS记录。TLS握手
+和警报消息直接通过QUIC传输，相当于接管了TLS记录层的职责，如下所示。
 
 ~~~~
 
 +--------------+--------------+ +-------------+
 |     TLS      |     TLS      | |    QUIC     |
-|  Handshake   |    Alerts    | | Applications|
-|              |              | |  (h3, etc.) |
+|     握手     |     警报      | | 应用        |
+|              |              | |  (h3等)     |
 +--------------+--------------+-+-------------+
 |                                             |
-|                QUIC Transport               |
-|   (streams, reliability, congestion, etc.)  |
+|                QUIC 传输                    |
+|              (流、可靠性、拥塞等)             |
 |                                             |
 +---------------------------------------------+
 |                                             |
-|            QUIC Packet Protection           |
+|           QUIC数据包保护                     |
 |                                             |
 +---------------------------------------------+
 ~~~~
 
 
-QUIC also relies on TLS for authentication and negotiation of parameters that
-are critical to security and performance.
+QUIC还依赖TLS进行身份验证和参数协商，这些参数对安全性和性能至关重要。
 
-Rather than a strict layering, these two protocols are co-dependent: QUIC uses
-the TLS handshake; TLS uses the reliability, ordered delivery, and record
-layer provided by QUIC.
+这两个协议不是严格的分层，而是相互依赖的：QUIC使用TLS握手；TLS使用QUIC
+提供的可靠性、有序交付和记录层。
 
-At a high level, there are two main interactions between the TLS and QUIC
-components:
+在高层次上，TLS和QUIC组件之间有两种主要的交互作用：
 
-* The TLS component sends and receives messages via the QUIC component, with
-  QUIC providing a reliable stream abstraction to TLS.
+* TLS组件通过QUIC组件发送和接收消息，QUIC为TLS提供可靠的流抽象。
 
-* The TLS component provides a series of updates to the QUIC component,
-  including (a) new packet protection keys to install (b) state changes such as
-  handshake completion, the server certificate, etc.
+* TLS组件向QUIC组件提供一系列更新，包括(a)用于安装的新的数据包保护密钥
+  (b)状态更改，例如握手完成、服务器证书等。
 
-{{schematic}} shows these interactions in more detail, with the QUIC packet
-protection being called out specially.
+{{schematic}}更详细地展示了这些交互，特别调用了QUIC数据包保护。
 
 ~~~
 +------------+                        +------------+
-|            |<- Handshake Messages ->|            |
-|            |<---- 0-RTT Keys -------|            |
-|            |<--- Handshake Keys-----|            |
-|   QUIC     |<---- 1-RTT Keys -------|    TLS     |
-|            |<--- Handshake Done ----|            |
+|            |<-      握手消息      ->|            |
+|            |<---- 0-RTT 密钥 -------|            |
+|            |<--- 握手密钥-----|            |
+|   QUIC     |<---- 1-RTT 密钥 -------|    TLS     |
+|            |<--- 握手完成 ----|            |
 +------------+                        +------------+
  |         ^
- | Protect | Protected
- v         | Packet
+ | Protect | 受保护的包
+ v         |
 +------------+
 |   QUIC     |
-|  Packet    |
-| Protection |
+|  包保护 |
 +------------+
 ~~~
-{: #schematic title="QUIC and TLS Interactions"}
+{: #schematic title="QUIC和TLS交互"}
 
-Unlike TLS over TCP, QUIC applications which want to send data do not send it
-through TLS "application_data" records. Rather, they send it as QUIC STREAM
-frames which are then carried in QUIC packets.
+与TCP上的TLS不同，想要发送数据的QUIC应用程序不会通过TLS“application_data”
+记录发送数据。相反，他们将其作为QUIC数据包中QUIC STREAM帧发送。
 
-# Carrying TLS Messages {#carrying-tls}
+# 携带TLS消息 {#carrying-tls}
 
-QUIC carries TLS handshake data in CRYPTO frames, each of which consists of a
-contiguous block of handshake data identified by an offset and length. Those
-frames are packaged into QUIC packets and encrypted under the current TLS
-encryption level.  As with TLS over TCP, once TLS handshake data has been
-delivered to QUIC, it is QUIC's responsibility to deliver it reliably. Each
-chunk of data that is produced by TLS is associated with the set of keys that
-TLS is currently using.  If QUIC needs to retransmit that data, it MUST use the
-same keys even if TLS has already updated to newer keys.
+QUIC在CRYPTO帧中携带TLS握手数据，每个帧由偏移量和长度标识的连续握手数据块组成。
+这些帧被打包成QUIC数据包，并在当前的TLS加密级别下进行加密。与TCP上的TLS一样，
+一旦TLS握手数据传送到QUIC，QUIC就有责任可靠地传送它。TLS产生的每个数据块都与
+TLS当前使用的一组密钥相关联。如果QUIC需要重新传输该数据，它**必须**使用相同的密钥，
+即使TLS已经更新到更新的密钥。
 
-One important difference between TLS records (used with TCP) and QUIC CRYPTO
-frames is that in QUIC multiple frames may appear in the same QUIC packet as
-long as they are associated with the same encryption level. For instance, an
-implementation might bundle a Handshake message and an ACK for some Handshake
-data into the same packet.
+TLS记录(与TCP一起使用)和QUIC加密帧之间的一个重要区别是，在QUIC中，多个帧可能
+出现在同一个QUIC数据包中，只要它们与相同的加密级别相关联。例如，一个实现可以将
+握手消息和一些握手数据的ACK捆绑到同一个包中。
 
-Each encryption level has a specific list of frames which may appear in it. The
-rules here generalize those of TLS, in that frames associated with establishing
-the connection can usually appear at any encryption level, whereas those
-associated with transferring data can only appear in the 0-RTT and 1-RTT
-encryption levels:
+每个加密级别具有可能出现在其中的帧的特定列表。这里的规则概括了TLS的规则，因为与
+建立连接相关联的帧通常可以出现在任何加密级别，而与传输数据相关联的帧只能出现在
+0-RTT和1-RTT加密级别中：
 
-- CRYPTO frames MAY appear in packets of any encryption level except 0-RTT.
+- CRYPTO帧**可以**出现在除0-RTT之外的任何加密级别的包中。
 
-- CONNECTION_CLOSE MAY appear in packets of any encryption level other than
-  0-RTT.
+- CONNECTION_CLOSE帧**可以**可以出现在0-RTT以外的任何加密级别的数据包中。
 
-- PADDING frames MAY appear in packets of any encryption level.
+- PADDING帧**可以**出现在任何加密级别的包中。
 
-- ACK frames MAY appear in packets of any encryption level other than 0-RTT, but
-  can only acknowledge packets which appeared in that packet number space.
+- ACK帧**可以**出现在除0-RTT之外的任何加密级别的包中，但只能确认出现在该包
+  编号空间中的包。
 
-- STREAM frames MUST ONLY appear in the 0-RTT and 1-RTT levels.
+- STREAM帧**只能**出现在0-RTT和1-RTT级别中。
 
-- All other frame types MUST only appear at the 1-RTT levels.
+- 所有其他帧类型**必须**出现在1-RTT级别。
 
-Because packets could be reordered on the wire, QUIC uses the packet type to
-indicate which level a given packet was encrypted under, as shown in
-{{packet-types-levels}}. When multiple packets of different encryption levels
-need to be sent, endpoints SHOULD use coalesced packets to send them in the same
-UDP datagram.
+因为数据包可以在线路上重新排序，所以QUIC使用数据包类型来指示在哪个级别下对给定
+的数据包进行加密，如{{packet-types-levels}}所示。当需要发送多个不同加密级别的
+数据包时，端点**应该**使用合并的数据包在同一UDP数据报中发送它们。
 
-| Packet Type     | Encryption Level | PN Space  |
+| 包类型     | 加密级别| PN 空间  |
 |:----------------|:-----------------|:----------|
-| Initial         | Initial secrets  | Initial   |
-| 0-RTT Protected | 0-RTT            | 0/1-RTT   |
-| Handshake       | Handshake        | Handshake |
-| Retry           | N/A              | N/A       |
-| Short Header    | 1-RTT            | 0/1-RTT   |
-{: #packet-types-levels title="Encryption Levels by Packet Type"}
+| 初始化         |初始密钥  |初始化   |
+|0-RTT保护 | 0-RTT            | 0/1-RTT   |
+| 握手       | 握手       | 握手 |
+| 重试           | N/A              | N/A       |
+| 短头部    | 1-RTT            | 0/1-RTT   |
+{: #packet-types-levels title="按数据包类型划分的加密级别"}
 
-Section 17 of {{QUIC-TRANSPORT}} shows how packets at the various encryption
-levels fit into the handshake process.
+{{QUIC-TRANSPORT}}的第17节展示了不同加密级别的数据包如何适合握手过程。
 
+## 到TLS的接口
 
-## Interface to TLS
+如{{schematic}}所示，QUIC到TLS的接口由三个主要函数组成：
 
-As shown in {{schematic}}, the interface from QUIC to TLS consists of three
-primary functions:
+- 发送和接收握手消息
+- 更新密钥(发送和接收)
+- 握手状态更新
 
-- Sending and receiving handshake messages
-- Rekeying (both transmit and receive)
-- Handshake state updates
-
-Additional functions might be needed to configure TLS.
+配置TLS可能需要其他功能。
 
 
-### Sending and Receiving Handshake Messages
+### 发送和接收握手信息
 
-In order to drive the handshake, TLS depends on being able to send and receive
-handshake messages. There are two basic functions on this interface: one where
-QUIC requests handshake messages and one where QUIC provides handshake packets.
+为了实现握手，TLS依赖于能够发送和接收握手消息。
+这个接口有两个基本功能：
+一个用于QUIC接收握手消息，
+另一个用于QUIC提供握手数据包。
 
-Before starting the handshake QUIC provides TLS with the transport parameters
-(see {{quic_parameters}}) that it wishes to carry.
+在开始握手之前，QUIC向TLS提供QUIC希望携带的传输参数(参见{{quic_parameters}})。
 
-A QUIC client starts TLS by requesting TLS handshake bytes from TLS.  The client
-acquires handshake bytes before sending its first packet.  A QUIC server starts
-the process by providing TLS with the client's handshake bytes.
+QUIC客户端通过从TLS请求TLS握手字节来启动TLS。
+客户端在发送其第一个数据包之前获取握手字节。
+QUIC服务器通过向TLS提供客户端的握手字节来启动进程。
 
-At any given time, the TLS stack at an endpoint will have a current sending
-encryption level and receiving encryption level. Each encryption level is
-associated with a different flow of bytes, which is reliably transmitted to the
-peer in CRYPTO frames. When TLS provides handshake bytes to be sent, they are
-appended to the current flow and any packet that includes the CRYPTO frame is
-protected using keys from the corresponding encryption level.
+在任何给定的时间，各终端处的TLS堆栈
+将具有当前发送加密级别和接收加密级别信息。
+每个加密级别信息与不同的字节流相关联，
+字节流以CRYPTO帧的形式可靠地传输到对端。
+当TLS提供要发送的握手字节时，
+它们被附加到当前流中，
+并且使用来自相应加密级别的密钥来
+保护包括CRYPTO帧的任何分组。
 
-QUIC takes the unprotected content of TLS handshake records as the content of
-CRYPTO frames. TLS record protection is not used by QUIC. QUIC assembles
-CRYPTO frames into QUIC packets, which are protected using QUIC packet
-protection.
+QUIC将TLS握手记录中未受保护的内容
+作为CRYPTO帧的内容。
+QUIC不使用TLS记录保护。
+QUIC将CRYPTO帧组装成QUIC数据包，
+这些数据包使用QUIC数据包保护进行保护。
 
 When an endpoint receives a QUIC packet containing a CRYPTO frame from the
 network, it proceeds as follows:
+当终端从网络接收到包含CRYPTO帧的
+QUIC数据包时，它将按如下方式进行：
 
-- If the packet was in the TLS receiving encryption level, sequence the data
-  into the input flow as usual. As with STREAM frames, the offset is used to
-  find the proper location in the data sequence.  If the result of this process
-  is that new data is available, then it is delivered to TLS in order.
+- 如果数据包的加密级别在TLS接收加密级别之内，
+  则像往常一样将数据排序到输入流中。
+  与STREAM帧一样，偏移用于在数据序列中找到正确的位置。
+  如果此过程的结果是新数据可用，则按顺序将其交付给TLS。
 
-- If the packet is from a previously installed encryption level, it MUST not
-  contain data which extends past the end of previously received data in that
-  flow. Implementations MUST treat any violations of this requirement as a
-  connection error of type PROTOCOL_VIOLATION.
+- 如果数据包来自以前设置的加密级别，
+  则它**禁止**包含超出该流中先前接收到的数据结尾的数据。
+  协议实现**必须**将任何违反此要求
+  的行为视为PROTOCOL_VIOLATION类型的连接错误。
 
-- If the packet is from a new encryption level, it is saved for later processing
-  by TLS.  Once TLS moves to receiving from this encryption level, saved data
-  can be provided.  When providing data from any new encryption level to TLS, if
-  there is data from a previous encryption level that TLS has not consumed, this
-  MUST be treated as a connection error of type PROTOCOL_VIOLATION.
+- 如果数据包来自新的加密级别，则将其保存以供TLS稍后处理。
+  一旦TLS移动到从这个加密级别接收，就可以提供保存的数据。
+  将任何新加密级别的数据提供给TLS时，
+  如果存在TLS尚未使用的以前加密级别的数据，
+  则必须将其视为PROTOCOL_IVERSION类型的连接错误
 
-Each time that TLS is provided with new data, new handshake bytes are requested
-from TLS.  TLS might not provide any bytes if the handshake messages it has
-received are incomplete or it has no data to send.
+每次向TLS提供新数据时，都会从TLS请求新的握手字节。
+如果TLS接收到的握手消息不完整或没有数据要发送，
+则TLS可能不提供任何字节。
 
-Once the TLS handshake is complete, this is indicated to QUIC along with any
-final handshake bytes that TLS needs to send.  TLS also provides QUIC with the
-transport parameters that the peer advertised during the handshake.
+一旦TLS握手完成，
+这就是说QUIC收到了TLS需要发送的
+任何最终握手字节C。
+TLS还向QUIC提供对端在
+握手期间通告的传输参数。
 
-Once the handshake is complete, TLS becomes passive.  TLS can still receive data
-from its peer and respond in kind, but it will not need to send more data unless
-specifically requested - either by an application or QUIC.  One reason to send
-data is that the server might wish to provide additional or updated session
-tickets to a client.
+一旦握手完成，TLS就变成被动的。
+TLS仍然可以从其对端接收数据并进行响应，
+但它将不需要发送更多的数据，
+除非有特别的请求-无论是由应用程序还是QUIC。
+发送数据的一个原因是服务器
+可能希望向客户端提供额外的或更新的会话凭证。
 
-When the handshake is complete, QUIC only needs to provide TLS with any data
-that arrives in CRYPTO streams.  In the same way that is done during the
-handshake, new data is requested from TLS after providing received data.
+握手完成后，QUIC只需向TLS提供
+任何以加密流形式到达的数据。
+以与握手期间所做的相同的方式，
+在提供接收到的数据之后从TLS请求新数据。
 
-Important:
+重点:
 
-: Until the handshake is reported as complete, the connection and key exchange
-  are not properly authenticated at the server.  Even though 1-RTT keys are
-  available to a server after receiving the first handshake messages from a
-  client, the server cannot consider the client to be authenticated until it
-  receives and validates the client's Finished message.
+: 在将握手报告完成之前，连接和密钥交换
+  不会在服务器上正确进行身份验证。
+  即使在接收到来自客户端的第一次握手消息之后，
+  1-RTT密钥对于服务器是可用的，但服务器在
+  接收并验证客户端的完成消息之前，
+  不能考虑对客户端进行身份验证。
 
-: The requirement for the server to wait for the client Finished message creates
-  a dependency on that message being delivered.  A client can avoid the
-  potential for head-of-line blocking that this implies by sending a copy of the
-  CRYPTO frame that carries the Finished message in multiple packets.  This
-  enables immediate server processing for those packets.
+: 服务器等待客户端完成消息的要求创建了对正在传递的消息的依赖性。
+  客户端可以通过发送在多个分组中
+  携带完成消息的CRYPTO帧的副本来
+  避免潜在的行头阻塞。
+  这使得服务器能够立即对
+  这些数据包进行处理。
 
 
-### Encryption Level Changes
+### 加密级别变更
 
-As keys for new encryption levels become available, TLS provides QUIC with those
-keys.  Separately, as TLS starts using keys at a given encryption level, TLS
-indicates to QUIC that it is now reading or writing with keys at that encryption
-level.  These events are not asynchronous; they always occur immediately after
-TLS is provided with new handshake bytes, or after TLS produces handshake bytes.
+当新加密级别的密钥可用时，
+TLS会为QUIC提供这些密钥。
+另外，当TLS开始使用给
+定加密级别的密钥时，
+TLS向QUIC指示它现在
+正在使用该加密级别的密钥进行读取或写入。
+这些事件不是异步的；
+它们总是在为TLS提供新的
+握手字节之后，
+或者在TLS生成握手字节之后立即发生。
 
 TLS provides QUIC with three items as a new encryption level becomes available:
+当新的加密级别可用时，TLS为QUIC提供了下列三项:
 
-* A secret
+* 一个秘钥
 
-* An Authenticated Encryption with Associated Data (AEAD) function
+* 具有关联数据的认证加密(AEAD)功能
 
-* A Key Derivation Function (KDF)
+* 密钥导出函数(KDF)
 
-These values are based on the values that TLS negotiates and are used by QUIC to
-generate packet and header protection keys (see {{packet-protection}} and
-{{header-protect}}).
+这些值基于TLS协商，
+QUIC使用这些值生成数据包和
+报头保护密钥
+(请参阅{{packet-protection}}和{{header-protect}})。
 
-If 0-RTT is possible, it is ready after the client sends a TLS ClientHello
-message or the server receives that message.  After providing a QUIC client with
-the first handshake bytes, the TLS stack might signal the change to 0-RTT
-keys. On the server, after receiving handshake bytes that contain a ClientHello
-message, a TLS server might signal that 0-RTT keys are available.
+如果0-RTT是可能的，
+则在客户端发送TLS ClientHello消息
+或服务器接收到该消息后，它就准备好了。
+在向QUIC客户端提供第一个握手字节之后，
+TLS堆栈可能用信号通知0-RTT密钥的改变。
+在服务器上，在接收到包含
+ClientHello消息的握手字节后，
+TLS服务器可能会发信号通知0-RTT密钥可用。
 
-Although TLS only uses one encryption level at a time, QUIC may use more than
-one level. For instance, after sending its Finished message (using a CRYPTO
-frame at the Handshake encryption level) an endpoint can send STREAM data (in
-1-RTT encryption). If the Finished message is lost, the endpoint uses the
-Handshake encryption level to retransmit the lost message.  Reordering or loss
-of packets can mean that QUIC will need to handle packets at multiple encryption
-levels.  During the handshake, this means potentially handling packets at higher
-and lower encryption levels than the current encryption level used by TLS.
+尽管TLS一次只使用一个加密级别，
+但QUIC可以使用多个级别。
+例如，在发送其完成的消息
+(使用握手加密级别的CRYPTO帧)后，
+终端可以发送流数据(采用1-RTT加密)。
+如果完成的消息丢失，
+终端使用握手加密级别重新传输丢失的消息。
+重新排序或丢失数据包可能
+意味着QUIC需要在多个加密级别处理数据包。
+在握手期间，这意味着可能
+以高于和低于TLS使用的当前加密级别的
+加密级别处理数据包。
 
-In particular, server implementations need to be able to read packets at the
-Handshake encryption level at the same time as the 0-RTT encryption level.  A
-client could interleave ACK frames that are protected with Handshake keys with
-0-RTT data and the server needs to process those acknowledgments in order to
-detect lost Handshake packets.
+特别是，服务器实现需要能够
+在0-RTT加密级别的同时
+以握手加密级别读取分组。
+客户端可以将用握手密钥
+保护的ACK帧与0-RTT数据
+交织，并且服务器需要
+处理那些确认以便检测丢失的
+握手分组。
 
 
-### TLS Interface Summary
+### TLS接口摘要
 
-{{exchange-summary}} summarizes the exchange between QUIC and TLS for both
-client and server. Each arrow is tagged with the encryption level used for that
-transmission.
+{{exchange-summary}} 总结了客户端和服务器的QUIC和TLS之间的交换。
+每个箭头都标记有用于该传输的加密级别。
 
 ~~~
 Client                                                    Server
@@ -1114,69 +1117,48 @@ In deciding when to update keys, endpoints MUST NOT exceed the limits for use of
 specific keys, as described in Section 5.5 of {{!TLS13}}.
 
 
-# Security of Initial Messages
+# 初始消息的安全性(Security of Initial Messages)
 
-Initial packets are not protected with a secret key, so they are subject to
-potential tampering by an attacker.  QUIC provides protection against attackers
-that cannot read packets, but does not attempt to provide additional protection
-against attacks where the attacker can observe and inject packets.  Some forms
-of tampering -- such as modifying the TLS messages themselves -- are detectable,
-but some -- such as modifying ACKs -- are not.
+初始数据包不受密钥保护，因此它们易受到攻击者的可能的篡改。
+QUIC 提供针对无法读取数据包的攻击者的保护，但不尝试提供此外的保护，如防止攻击者可以观察和注入数据包的情况下攻击。
+某些形式的篡改 -- 例如修改 TLS 消息本身 -- 是可检测的，但有些 -- 例如修改 ACK -- 是不可检测的。
 
-For example, an attacker could inject a packet containing an ACK frame that
-makes it appear that a packet had not been received or to create a false
-impression of the state of the connection (e.g., by modifying the ACK Delay).
-Note that such a packet could cause a legitimate packet to be dropped as a
-duplicate.  Implementations SHOULD use caution in relying on any data which is
-contained in Initial packets that is not otherwise authenticated.
+例如，攻击者可以注入包含 ACK 帧的分组，该 ACK 帧使分组看起来没有被接收到，或者造成连接状态的错误印象(例如，通过修改ACK延迟)。
+值得注意的是，这样的数据包可能会导致合法数据包作为副本被丢弃。
+实现**应该**谨慎依赖包含在未进行身份验证的初始数据包中的任何数据。
 
-It is also possible for the attacker to tamper with data that is carried in
-Handshake packets, but because that tampering requires modifying TLS handshake
-messages, that tampering will cause the TLS handshake to fail.
+攻击者也可能篡改握手数据包中携带的数据，但由于篡改需要修改 TLS 握手消息，因此篡改将导致 TLS 握手失败。
 
 
-# QUIC-Specific Additions to the TLS Handshake
+# QUIC对TLS握手的额外特性(QUIC-Specific Additions to the TLS Handshake)
 
-QUIC uses the TLS handshake for more than just negotiation of cryptographic
-parameters.  The TLS handshake validates protocol version selection, provides
-preliminary values for QUIC transport parameters, and allows a server to perform
-return routeability checks on clients.
+QUIC 使用 TLS 握手不仅仅用于加密参数的协商。
+TLS 握手会验证协议版本选择，提供 QUIC 传输参数的初始值，并允许服务端让客户端执行返回可路由性检查。
 
+## 协议和版本协商(Protocol and Version Negotiation) {#version-negotiation}
 
-## Protocol and Version Negotiation {#version-negotiation}
+QUIC 版本协商机制用于协商完成握手之前使用的 QUIC 版本。
+然而此数据包是未经过身份验证的，这使得主动攻击者能够强制版本降级。
 
-The QUIC version negotiation mechanism is used to negotiate the version of QUIC
-that is used prior to the completion of the handshake.  However, this packet is
-not authenticated, enabling an active attacker to force a version downgrade.
+为了确保 QUIC 版本降级不是被攻击者强行降级的，版本信息被拷贝到 TLS 握手中，为 QUIC 协商提供完整性保护。
+这并不能防止在握手完成之前版本降级，尽管这意味着降级会导致握手失败。
 
-To ensure that a QUIC version downgrade is not forced by an attacker, version
-information is copied into the TLS handshake, which provides integrity
-protection for the QUIC negotiation.  This does not prevent version downgrade
-prior to the completion of the handshake, though it means that a downgrade
-causes a handshake failure.
+QUIC 要求加密握手提供经过身份验证的协议协商。
+TLS 使用应用层协议协商(ALPN){{!RFC7301}}来选择应用协议。
+除非使用另一种机制来商定应用协议，否则终端**必须**为此使用 ALPN。
+使用 ALPN 时，如果未协商应用协议，则终端**必须**中止连接。
 
-QUIC requires that the cryptographic handshake provide authenticated protocol
-negotiation.  TLS uses Application Layer Protocol Negotiation (ALPN)
-{{!RFC7301}} to select an application protocol.  Unless another mechanism is
-used for agreeing on an application protocol, endpoints MUST use ALPN for this
-purpose.  When using ALPN, endpoints MUST abort a connection if an application
-protocol is not negotiated.
+应用层协议**可能**会限制它可以操作的 QUIC 版本。
+服务端**必须**选择与客户端选择的 QUIC 版本兼容的应用程序协议。
+如果服务端无法选择应用程序协议和 QUIC 版本的兼容组合，则**必须**中止连接。
+如果服务器选择 QUIC 版本和 ALPN 标识符的不兼容的组合，则客户端**必须**中止连接。
 
-An application-layer protocol MAY restrict the QUIC versions that it can operate
-over.  Servers MUST select an application protocol compatible with the QUIC
-version that the client has selected.  If the server cannot select a compatible
-combination of application protocol and QUIC version, it MUST abort the
-connection. A client MUST abort a connection if the server picks an incompatible
-combination of QUIC version and ALPN identifier.
+## QUIC传输参数扩展(QUIC Transport Parameters Extension) {#quic_parameters}
 
+QUIC 传输参数携带在 TLS 拓展中。
+不同版本的 QUIC 可能给这个结构定义了不同的格式。
 
-## QUIC Transport Parameters Extension {#quic_parameters}
-
-QUIC transport parameters are carried in a TLS extension. Different versions of
-QUIC might define a different format for this struct.
-
-Including transport parameters in the TLS handshake provides integrity
-protection for these values.
+将传输参数包含在在 TLS 握手中提供了对这些值的完整性保护。
 
 ~~~
    enum {
@@ -1184,61 +1166,45 @@ protection for these values.
    } ExtensionType;
 ~~~
 
-The `extension_data` field of the quic_transport_parameters extension contains a
-value that is defined by the version of QUIC that is in use.  The
-quic_transport_parameters extension carries a TransportParameters struct when
-the version of QUIC defined in {{QUIC-TRANSPORT}} is used.
+`quic_transport_parameters`的扩展`extension_data`字段包含由正在使用的 QUIC 版本定义的值。
+使用{{QUIC-TRANSPORT}}中定义的 QUIC 版本时，
+`quic_transport_parameters`扩展会携带传输参数结构(TransportParameters)。
 
-The quic_transport_parameters extension is carried in the ClientHello and the
-EncryptedExtensions messages during the handshake.
+`quic_transport_parameters`扩展在握手期间在 ClientHello 和 EncryptedExtensions 消息中携带。
 
-While the transport parameters are technically available prior to the completion
-of the handshake, they cannot be fully trusted until the handshake completes,
-and reliance on them should be minimized.  However, any tampering with the
-parameters will cause the handshake to fail.
+虽然在握手完成之前传输参数在技术上是可用的，但在握手完成之前不能完全信任它们，并且应该尽量减少对它们的依赖。
+然而，对参数的任何篡改都会导致握手失败。
 
-Endpoints MUST NOT send this extension in a TLS connection that does not use
-QUIC (such as the use of TLS with TCP defined in {{!TLS13}}).  A fatal
-unsupported_extension alert MUST be sent if this extension is received when the
-transport is not QUIC.
+终端**禁止**在不使用 QUIC 的 TLS 连接(例如使用定义在{{!TLS13}}中的带有 TLS 的 TCP )中发送该拓展。
+如果在传输协议不是 QUIC 时收到此扩展，则**必须**发送不支持拓展警报的致命错误。
 
+## 移除前期数据的末尾消息(Removing the EndOfEarlyData Message) {#remove-eoed}
 
-## Removing the EndOfEarlyData Message {#remove-eoed}
+TLS EndOfEarlyData 消息未与 QUIC 一起使用。
+QUIC 不依赖于此消息来标记 0-RTT 数据的结束，也不依赖于用信号通知对握手密钥的更改。
 
-The TLS EndOfEarlyData message is not used with QUIC.  QUIC does not rely on
-this message to mark the end of 0-RTT data or to signal the change to Handshake
-keys.
+客户端**禁止**发送 EndOfEarlyData 消息。
+服务端**必须**以 PROTOCOL_VIOLATION 类型的连接错误来处理在 0-RTT 包中接收到的 CRYPTO 帧。
 
-Clients MUST NOT send the EndOfEarlyData message.  A server MUST treat receipt
-of a CRYPTO frame in a 0-RTT packet as a connection error of type
-PROTOCOL_VIOLATION.
-
-As a result, EndOfEarlyData does not appear in the TLS handshake transcript.
+因此，EndOfEarlyData 不会出现在 TLS 握手记录中。
 
 
-# Security Considerations
+# 安全相关考虑(Security Considerations)
 
-There are likely to be some real clangers here eventually, but the current set
-of issues is well captured in the relevant sections of the main text.
+这里最终可能会出现一些真正的问题，但当前的一系列问题在正文的相关章节中得到了很好的处理。
 
-Never assume that because it isn't in the security considerations section it
-doesn't affect security.  Most of this document does.
+永远不要假设因为它不在安全注意事项部分，它就不会影响安全性。
+本文档的大部分内容都是如此。
 
+## 包反射攻击缓解(Packet Reflection Attack Mitigation) {#reflection}
 
-## Packet Reflection Attack Mitigation {#reflection}
+来自服务器的大量握手消息的小 ClientHello 可用于包反射攻击，以放大攻击者生成的通信量。
 
-A small ClientHello that results in a large block of handshake messages from a
-server can be used in packet reflection attacks to amplify the traffic generated
-by an attacker.
-
-QUIC includes three defenses against this attack. First, the packet containing a
-ClientHello MUST be padded to a minimum size. Second, if responding to an
-unverified source address, the server is forbidden to send more than three UDP
-datagrams in its first flight (see Section 8.1 of {{QUIC-TRANSPORT}}). Finally,
-because acknowledgements of Handshake packets are authenticated, a blind
-attacker cannot forge them.  Put together, these defenses limit the level of
-amplification.
-
+QUIC 包含三种防御此攻击的方法。
+首先，ClientHello 包**必须**被填充到最小大小。
+其次，如果响应未经验证的源地址，则禁止服务端在第一次交互中发送三个以上的 UDP 数据报(参见{{QUIC-TRANSPORT}}的第8.1节)。
+最后，因为握手数据包的确认是经过身份验证的，所以无信息攻击者(blind attacker)无法伪造它们。
+总而言之，这些防御措施限制了扩增的水平。
 
 ## Peer Denial of Service {#useless}
 

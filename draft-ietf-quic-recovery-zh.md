@@ -88,137 +88,118 @@ code and issues list for this draft can be found at
 
 --- middle
 
-# Introduction
+# 简介
 
-QUIC is a new multiplexed and secure transport atop UDP.  QUIC builds on decades
-of transport and security experience, and implements mechanisms that make it
-attractive as a modern general-purpose transport.  The QUIC protocol is
-described in {{QUIC-TRANSPORT}}.
+QUIC是一种新的基于UDP的多路复用和安全传输。QUIC建立在数十年的运输
+和安全经验的基础上，并实现了使其作为具有吸引力的现代通用运输的机制。
+{{QUIC-TRANSPORT}中介绍了QUIC协议。
 
-QUIC implements the spirit of existing TCP loss recovery mechanisms, described
-in RFCs, various Internet-drafts, and also those prevalent in the Linux TCP
-implementation.  This document describes QUIC congestion control and loss
-recovery, and where applicable, attributes the TCP equivalent in RFCs,
-Internet-drafts, academic papers, and/or TCP implementations.
+QUIC实现了现有TCP丢失恢复机制的精神，在RFC、各种Internet草稿以及
+Linux TCP实现中都有描述。本文档描述了QUIC拥塞控制和丢失恢复，并
+在适用的情况下，其TCP等价属性等同于RFC、Internet草稿、学术论文和
+/或TCP实现。
 
 
-# Conventions and Definitions
+# 约定和定义
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词 **“必须(MUST)”**， **“禁止(MUST NOT)”**， **“必需(REQUIRED)”**，
+**“应当(SHALL)”**， **“应当不(SHALL NOT)”**， **“应该(SHOULD)”**，
+**“不应该(SHOULD NOT)”**， **“推荐(RECOMMENDED)”**，
+**“不推荐(NOT RECOMMENDED)”**， **“可以(MAY)”**， **“可选(OPTIONAL)”**
+在这篇文档中将会如 BCP 14 [`RFC2119`] [`RFC8174`] 中描述的， 当且仅当
+他们如此例子显示的以加粗的形式出现时。 文档中使用的术语在下方描述。
 
-Definitions of terms that are used in this document:
+本文档中使用的术语定义：
 
-ACK-only:
+仅有ACK（ACK-only）:
 
-: Any packet containing only one or more ACK frame(s).
+: 仅包含一个或多个ACK帧的任何数据包。
 
-In-flight:
+传输中（In-flight）:
 
-: Packets are considered in-flight when they have been sent
-  and neither acknowledged nor declared lost, and they are not
-  ACK-only.
+: 如果数据包已发送，且既未确认也未声明丢失，则视为传输中的数据包，
+  并且它们不是仅有ACK的包。
 
-Ack-eliciting Frames:
+ACK引出帧（Ack-eliciting Frames）:
 
-: All frames besides ACK or PADDING are considered ack-eliciting.
+: 除ACK或PADDING之外的所有帧都被认为是ACK引出帧。
 
-Ack-eliciting Packets:
+ACK引出包（Ack-eliciting Packets）:
 
-: Packets that contain ack-eliciting frames elicit an ACK from the receiver
-  within the maximum ack delay and are called ack-eliciting packets.
+: 包含ACK引出帧且在最大ACK延迟内从接收器引出ACK的数据包，称为ACK引出数据包。
 
-Crypto Packets:
+加密数据包（Crypto Packets）:
 
-: Packets containing CRYPTO data sent in Initial or Handshake
-  packets.
+: 包含在初始或握手数据包中发送的加密数据的数据包。
 
-Out-of-order Packets:
+无序数据包（Out-of-order Packets）:
 
-: Packets that do not increase the largest received packet number for its
-  packet number space by exactly one. Packets arrive out of order
-  when earlier packets are lost or delayed.
+: 不会使其包数空间的最大接收包数增加1的包。当早期的数据包丢失或延迟时，
+  数据包将无序到达。
 
-# Design of the QUIC Transmission Machinery
+# QUIC传输机制的设计
 
-All transmissions in QUIC are sent with a packet-level header, which indicates
-the encryption level and includes a packet sequence number (referred to below as
-a packet number).  The encryption level indicates the packet number space, as
-described in {{QUIC-TRANSPORT}}.  Packet numbers never repeat within a packet
-number space for the lifetime of a connection.  Packet numbers monotonically
-increase within a space, preventing ambiguity.
+QUIC中的所有传输都使用数据包级报头发送，该报头指示加密级别，并包括数据
+包序列号(以下称为数据包号)。如{{QUIC-TRANSPORT}}中所述，加密级别表示
+数据包编号空间。在连接的生存期内，数据包号在数据包号空间内永远不会重复。
+包编号在空间内单调增加，防止歧义。
 
-This design obviates the need for disambiguating between transmissions and
-retransmissions and eliminates significant complexity from QUIC's interpretation
-of TCP loss detection mechanisms.
+这种设计避免了在传输和重新传输之间消除歧义的需要，并消除了QUIC对TCP
+丢失检测机制的解释的显著复杂性。
 
-QUIC packets can contain multiple frames of different types. The recovery
-mechanisms ensure that data and frames that need reliable delivery are
-acknowledged or declared lost and sent in new packets as necessary. The types
-of frames contained in a packet affect recovery and congestion control logic:
+QUIC数据包可以包含多个不同类型的帧。恢复机制确保需要可靠传输的数据和
+帧被确认或声明丢失，并在必要时在新的数据包中发送。数据包中包含的帧类型
+会影响恢复和拥塞控制逻辑：
 
-* All packets are acknowledged, though packets that contain no
-  ack-eliciting frames are only acknowledged along with ack-eliciting
-  packets.
+* 所有包都被确认，尽管不包含ACK引出帧的包仅与ACK引出包一起被确认。
 
-* Long header packets that contain CRYPTO frames are critical to the
-  performance of the QUIC handshake and use shorter timers for
-  acknowledgement and retransmission.
+* 包含加密帧的长报头数据包对于QUIC握手的性能至关重要，并使用较短的计时
+  器进行确认和重新传输。
 
-* Packets that contain only ACK frames do not count toward congestion control
-  limits and are not considered in-flight.
+* 仅包含ACK帧的数据包不会计入拥塞控制限制，也不会被视为传输中的数据包。
 
-* PADDING frames cause packets to contribute toward bytes in flight without
-  directly causing an acknowledgment to be sent.
+* PADDING帧会导致数据包对传输中的字节做出贡献，而不会直接导致发送确认。
 
-## Relevant Differences Between QUIC and TCP
+## QUIC和TCP之间的相关差异
 
-Readers familiar with TCP's loss detection and congestion control will find
-algorithms here that parallel well-known TCP ones. Protocol differences between
-QUIC and TCP however contribute to algorithmic differences. We briefly describe
-these protocol differences below.
+熟悉TCP的丢失检测和拥塞控制的读者将在这里找到与众所周知的TCP算法并行的
+算法。然而，QUIC和TCP之间的协议差异会导致算法差异。我们将在下面简要描述
+这些协议差异。
 
-### Separate Packet Number Spaces
+### 单独的数据包号空间
 
-QUIC uses separate packet number spaces for each encryption level, except 0-RTT
-and all generations of 1-RTT keys use the same packet number space.  Separate
-packet number spaces ensures acknowledgement of packets sent with one level of
-encryption will not cause spurious retransmission of packets sent with a
-different encryption level.  Congestion control and round-trip time (RTT)
-measurement are unified across packet number spaces.
+QUIC对每个加密级别使用单独的包号空间，除了0-RTT和所有代的1-RTT密钥使用
+相同的包号空间。单独的包号空间确保用一个加密级别发送的包的确认不会导致用
+不同加密级别发送的分包的虚假重传。拥塞控制和往返时间(RTT)测量是跨包号空
+间统一的。
 
-### Monotonically Increasing Packet Numbers
+### 单调递增数据包数
 
-TCP conflates transmission order at the sender with delivery order at the
-receiver, which results in retransmissions of the same data carrying the same
-sequence number, and consequently leads to "retransmission ambiguity".  QUIC
-separates the two: QUIC uses a packet number to indicate transmission order,
-and any application data is sent in one or more streams, with delivery order
-determined by stream offsets encoded within STREAM frames.
+TCP将发送方的传输顺序与接收方的传递顺序合并在一起，这会导致承载相同序列
+号的相同数据的重传，从而导致“重传歧义”。QUIC将两者分开：QUIC使用数据包号
+来指示传输顺序，并且任何应用程序数据都在一个或多个流中发送，传递顺序由STREAM帧
+中编码的流偏移确定。
 
-QUIC's packet number is strictly increasing within a packet number space,
-and directly encodes transmission order.  A higher packet number signifies
-that the packet was sent later, and a lower packet number signifies that
-the packet was sent earlier.  When a packet containing ack-eliciting
-frames is detected lost, QUIC rebundles necessary frames in a new packet
-with a new packet number, removing ambiguity about which packet is
-acknowledged when an ACK is received.  Consequently, more accurate RTT
-measurements can be made, spurious retransmissions are trivially detected, and
-mechanisms such as Fast Retransmit can be applied universally, based only on
-packet number.
+QUIC的包号在包号空间内严格递增，并直接编码传输顺序。较高的数据包编号表示该
+数据包是较晚发送的，而较低的数据包编号表示该数据包是较早发送的。当检测到包含
+ACK引出帧的数据包丢失时，QUIC会将必要的帧重新绑定到具有新数据包号的新数据包中，
+从而消除接收到ACK时确认哪个数据包的模糊性。因此，可以进行更精确的RTT测量，
+检测到虚假的重发，并且可以仅仅基于分组编号来普遍应用诸如快速重发的机制。
 
-This design point significantly simplifies loss detection mechanisms for QUIC.
-Most TCP mechanisms implicitly attempt to infer transmission ordering based on
-TCP sequence numbers - a non-trivial task, especially when TCP timestamps are
-not available.
+这个设计点大大简化了QUIC的丢失检测机制。大多数TCP机制都会隐式地尝试根据TCP序列
+号推断传输顺序-这是一项非常重要的任务，特别是当TCP时间戳不可用时。
 
-### No Reneging
+### 更清晰的丢失时期
 
-QUIC ACKs contain information that is similar to TCP SACK, but QUIC does not
-allow any acked packet to be reneged, greatly simplifying implementations on
-both sides and reducing memory pressure on the sender.
+当声明丢失后发送的数据包被确认时，QUIC结束丢失时期。TCP等待序列号空间中的间隙被填满，
+因此，如果一个段在一行中丢失多次，丢失的时间可能不会在几个往返过程中结束。因为这两种
+方法都应该每一个时期只减少一次拥塞窗口，所以对于每一个遭受损失的往返行程，QUIC将正确
+地进行一次，而TCP可能只在多个往返行程中进行一次。
+
+### 不准食言
+
+QUIC ACK包含类似于TCP SACK的信息，但QUIC不允许确认数据包后再拒绝，
+从而极大地简化了双方的实现，并降低了发送方的内存压力。
 
 ### More ACK Ranges
 
@@ -226,119 +207,169 @@ QUIC supports many ACK ranges, opposed to TCP's 3 SACK ranges.  In high loss
 environments, this speeds recovery, reduces spurious retransmits, and ensures
 forward progress without relying on timeouts.
 
-### Explicit Correction For Delayed ACKs
+### 延迟ACK的显式修正
 
-QUIC ACKs explicitly encode the delay incurred at the receiver between when a
-packet is received and when the corresponding ACK is sent.  This allows the
-receiver of the ACK to adjust for receiver delays, specifically the delayed ack
-timer, when estimating the path RTT.  This mechanism also allows a receiver to
-measure and report the delay from when a packet was received by the OS kernel,
-which is useful in receivers which may incur delays such as context-switch
-latency before a userspace QUIC receiver processes a received packet.
+QUIC ACK 显式编码了发送和接收时刻间的
+延迟。这允许ACK的接收器针对
+接收方延迟进行调节，
+特别指当估测路径RTT时的延迟ack计时器。
+该机制还允许接收器测量和报告OS内核接收包时的
+延迟，这对于在用户空间中处理接收的分组之前
+存在有可能引起诸如上下文切换等待时间之类的
+延迟的接收器相当有用。
+
+# 生成确认
+
+QUIC**应该**延迟发送
+响应数据包的确认，但**禁止**
+过于延迟确认需要ack的数据包。
+特别的，
+实现**必须**强制执行最大确认延迟，
+以避免导致对端虚假超时。
+最大ACK延迟在`max_ack_delay`传输参数
+中传递，默认值为25ms。
+
+**应该**在接收到第二个
+ACK引出分组后立即发送确认。
+QUIC恢复算法不假设对端在
+接收到第二个ack引出分组时
+立即发送ACK。
+
+为了加快丢失恢复并减少超时，
+接收方**应该**在收到无序数据包
+后立即发送ACK。
+它在收到乱序分组后到
+发送立即ACK的时间**禁止**超过1/8 RTT，
+除非更多乱序分组到达。
+如果每个数据包都无序到达，
+则应为每个接收到的数据包发送立即ACK。
+
+同样，在IP报头中标记有ECN拥塞经历(CE)
+代码点的数据包**应该**立即得到确认，
+以减少对端对拥塞事件的响应时间。
+
+作为优化，接收器**可以**在发送
+任何ACK帧作为响应之前处理多个分组。
+在这种情况下，接收器可以确定在
+处理传入分组之后应该生成立即确认
+还是延迟确认。
+
+## 加密握手数据
+
+为了快速完成握手并避免
+由于密码重传超时而导致的
+虚假重传，密码分组的发送**应该**
+使用非常短的ACK延迟，
+例如本地计时器粒度。
+当密码栈指示已经接收到
+该分组编号空间的所有数据时，
+**可以**立即发送ACK帧。
+
+## ACK范围
+
+当发送ACK帧时，
+可以包括一个或多个数据包的确认。
+包括较旧的分组的确认，
+这降低了由于丢失先前发送的
+ACK帧而导致的虚假重传的机会，
+但代价是较大的ACK帧。
+
+ACK帧**应该**始终
+确认最近接收到的数据包，
+并且数据包越乱序，就越需要
+快速发送更新的ACK帧，
+以防止对端宣布数据包丢失
+并突发地重新传输它包含的帧。
+
+以下是一种用于确定ACK帧中
+包含哪些数据包的推荐方法。
+
+## 接受者追踪ACK帧
+
+当发送包含ACK帧的数据包时，
+可以保存在该帧中确认的最大值。
+当确认包含ACK帧的数据包时，
+接收方可以停止确认小于或
+等于发送的ACK帧中已确认的
+最大值的数据包。
+
+在没有ACK帧丢失的情况下，
+此算法允许最小1RTT的重新排序。
+在ACK帧丢失和重新排序的情况下，
+此方法不能保证发送方在确认
+不再包含在ACK帧中前看到
+每个确认。分组可能被无序接收，
+并且包含它们的所有后续ACK帧都
+可能丢失。
+在这种情况下，
+丢失恢复算法可能会
+导致虚假重传，但发送方将
+继续向前处理。
+
+# 计算RTT估计值
+
+当ACK帧到达时计算
+往返时间(RTT)。
+计算当前时间和发送
+最大确认数据包的
+时间之间的差值。
+**禁止**对未被新确认
+或未进行ACK-LEICING的
+数据包采取RTT样本。
+
+计算RTT时，来自ACK帧的
+ACK延迟范围**应该**限制
+为对端指定的max_ack_delay。
+将ack_delay限制为max_ack_delay
+可确保指定极小的max_ack_delay的
+对端不会比正确指定max_ack_delay的
+对端造成更多虚假超时。
+只要结果大于min_RTT，
+就**应该**从RTT中减去它。
+如果结果小于MIN_RTT，
+则应使用RTT，但应忽略ACK
+延迟范围。
+
+发送方计算平滑RTT(SRTT)和
+RTT方差(RTTVAR)的方法与
+{{?RFC6298}}中指定的类似，
+参见{{on-ack-received}}。
+
+当接收到确认比之前更大的
+数据包编号的ACK帧时，
+发送方获取RTT样本
+(参见{{on-ack-received}})。
+当在RTT内接收到多个这样的ACK帧时，
+发送方将在每个RTT中获取多个RTT样本。
+当在一个RTT内生成多个样本时，
+平滑的RTT和RTT方差可能会
+保留不充分的历史记录，
+如{{?RFC6298}}中所建议的。
+改变这些计算目前是一个开放的
+研究问题。
+
+MIN_RTT是在按ACK延迟
+进行调整之前通过连接测量的
+最小RTT。
+忽略MIN RTT的
+ACK延迟可防止有意或
+无意低估MIN RTT，
+进而防止低估平滑的RTT。
 
 
-# Generating Acknowledgements
+# 丢包检测 {#loss-detection}
 
-QUIC SHOULD delay sending acknowledgements in response to packets, but MUST NOT
-excessively delay acknowledgements of ack-eliciting packets. Specifically,
-implementations MUST attempt to enforce a maximum ack delay to avoid causing
-the peer spurious timeouts.  The maximum ack delay is communicated in the
-`max_ack_delay` transport parameter and the default value is 25ms.
+QUIC发送器使用ACK信息和
+超时来检测丢失的数据包，
+本节介绍了这些算法。
 
-An acknowledgement SHOULD be sent immediately upon receipt of a second
-ack-eliciting packet. QUIC recovery algorithms do not assume the peer sends
-an ACK immediately when receiving a second ack-eliciting packet.
-
-In order to accelerate loss recovery and reduce timeouts, the receiver SHOULD
-send an immediate ACK after it receives an out-of-order packet. It could send
-immediate ACKs for in-order packets for a period of time that SHOULD NOT exceed
-1/8 RTT unless more out-of-order packets arrive. If every packet arrives out-of-
-order, then an immediate ACK SHOULD be sent for every received packet.
-
-Similarly, packets marked with the ECN Congestion Experienced (CE) codepoint in
-the IP header SHOULD be acknowledged immediately, to reduce the peer's response
-time to congestion events.
-
-As an optimization, a receiver MAY process multiple packets before sending any
-ACK frames in response.  In this case the receiver can determine whether an
-immediate or delayed acknowledgement should be generated after processing
-incoming packets.
-
-## Crypto Handshake Data
-
-In order to quickly complete the handshake and avoid spurious retransmissions
-due to crypto retransmission timeouts, crypto packets SHOULD use a very short
-ack delay, such as the local timer granularity.  ACK frames MAY be sent
-immediately when the crypto stack indicates all data for that packet number
-space has been received.
-
-## ACK Ranges
-
-When an ACK frame is sent, one or more ranges of acknowledged packets are
-included.  Including older packets reduces the chance of spurious retransmits
-caused by losing previously sent ACK frames, at the cost of larger ACK frames.
-
-ACK frames SHOULD always acknowledge the most recently received packets, and the
-more out-of-order the packets are, the more important it is to send an updated
-ACK frame quickly, to prevent the peer from declaring a packet as lost and
-spuriously retransmitting the frames it contains.
-
-Below is one recommended approach for determining what packets to include in an
-ACK frame.
-
-## Receiver Tracking of ACK Frames
-
-When a packet containing an ACK frame is sent, the largest acknowledged in that
-frame may be saved.  When a packet containing an ACK frame is acknowledged, the
-receiver can stop acknowledging packets less than or equal to the largest
-acknowledged in the sent ACK frame.
-
-In cases without ACK frame loss, this algorithm allows for a minimum of 1 RTT
-of reordering. In cases with ACK frame loss and reordering, this approach does
-not guarantee that every acknowledgement is seen by the sender before it is no
-longer included in the ACK frame. Packets could be received out of order and
-all subsequent ACK frames containing them could be lost. In this case, the
-loss recovery algorithm may cause spurious retransmits, but the sender will
-continue making forward progress.
-
-# Computing the RTT estimate
-
-Round-trip time (RTT) is calculated when an ACK frame arrives by
-computing the difference between the current time and the time the largest
-acked packet was sent.  An RTT sample MUST NOT be taken for a packet that
-is not newly acknowledged or not ack-eliciting.
-
-When RTT is calculated, the ack delay field from the ACK frame SHOULD be limited
-to the max_ack_delay specified by the peer.  Limiting ack_delay to max_ack_delay
-ensures a peer specifying an extremely small max_ack_delay doesn't cause more
-spurious timeouts than a peer that correctly specifies max_ack_delay. It SHOULD
-be subtracted from the RTT as long as the result is larger than the min_rtt.
-If the result is smaller than the min_rtt, the RTT should be used, but the
-ack delay field should be ignored.
-
-A sender calculates both smoothed RTT (SRTT) and RTT variance (RTTVAR) similar
-to those specified in {{?RFC6298}}, see {{on-ack-received}}.
-
-A sender takes an RTT sample when an ACK frame is received that acknowledges a
-larger packet number than before (see {{on-ack-received}}).  A sender will take
-multiple RTT samples per RTT when multiple such ACK frames are received within
-an RTT.  When multiple samples are generated within an RTT, the smoothed RTT and
-RTT variance could retain inadequate history, as suggested in {{?RFC6298}}.
-Changing these computations is currently an open research question.
-
-min_rtt is the minimum RTT measured over the connection, prior to adjusting by
-ack delay.  Ignoring ack delay for min RTT prevents intentional or unintentional
-underestimation of min RTT, which in turn prevents underestimating smoothed RTT.
-
-
-# Loss Detection {#loss-detection}
-
-QUIC senders use both ack information and timeouts to detect lost packets, and
-this section provides a description of these algorithms.
-
-If a packet is lost, the QUIC transport needs to recover from that loss, such
-as by retransmitting the data, sending an updated frame, or abandoning the
-frame.  For more information, see Section 13.2 of {{QUIC-TRANSPORT}}.
+如果数据包丢失，
+QUIC传输需要从该丢失中恢复，
+例如通过重新传输数据、
+发送更新的帧或丢弃该帧。
+有关更多信息，
+请参见{{QUIC-TRANSPORT}}的
+第13.2节。
 
 
 ## Acknowledgement-based Detection {#ack-loss-detection}
@@ -815,7 +846,7 @@ time_of_last_sent_ack_eliciting_packet:
 time_of_last_sent_crypto_packet:
 : The time the most recent crypto packet was sent.
 
-largest_acked_packet[kPacketNumberSpace]:
+largest_acked_packet[`kPacketNumberSpace`]:
 : The largest packet number acknowledged in the packet number space so far.
 
 latest_rtt:
@@ -838,11 +869,11 @@ max_ack_delay:
   received ACK frame may be larger due to late timers, reordering,
   or lost ACKs.
 
-loss_time[kPacketNumberSpace]:
+loss_time[`kPacketNumberSpace`]:
 : The time at which the next packet in that packet number space will be
   considered lost based on exceeding the reordering window in time.
 
-sent_packets[kPacketNumberSpace]:
+sent_packets[`kPacketNumberSpace`]:
 : An association of packet numbers in a packet number space to information
   about them.  Described in detail above in {{tracking-sent-packets}}.
 

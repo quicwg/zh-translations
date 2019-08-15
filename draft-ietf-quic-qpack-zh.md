@@ -80,87 +80,78 @@ code and issues list for this draft can be found at
 
 --- middle
 
-# Introduction
+# 简介(Introduction)
 
-The QUIC transport protocol was designed from the outset to support HTTP
-semantics, and its design subsumes many of the features of HTTP/2.  HTTP/2 uses
-HPACK ({{!RFC7541}}) for header compression, but QUIC's stream multiplexing
-comes into some conflict with HPACK.  A key goal of the design of QUIC is to
-improve stream multiplexing relative to HTTP/2 by reducing head-of-line
-blocking.  If HPACK were used for HTTP/3, it would induce head-of-line
-blocking due to built-in assumptions of a total ordering across frames on all
-streams.
+QUIC 传输协议从一开始就设计为支持 HTTP 语义，其设计包含了 HTTP/2 的许多特性。
+HTTP/2使用 HPACK({{!RFC7541}})进行报头压缩，但 QUIC 的流复用与 HPACK 发生了一些冲突。
+QUIC设计的一个关键目标是通过减少队头阻塞来改进相对于 HTTP/2 的流的多路复用。
+如果 HPACK 用于 HTTP/3，由于它内建的所有流上的帧之间的总排序的假设，会导致队头阻塞。
 
-QUIC is described in {{QUIC-TRANSPORT}}.  The HTTP/3 mapping is described in
-{{HTTP3}}. For a full description of HTTP/2, see {{?RFC7540}}. The
-description of HPACK is {{!RFC7541}}.
+QUIC 描述在{{QUIC-TRANSPORT}}中。
+HTTP/3 映射描述于{{HTTP3}}。
+对于 HTTP/2 的详细描述，参见{{?RFC7540}}。
+HPACK 的描述详见{{!RFC7541}}。
 
-QPACK reuses core concepts from HPACK, but is redesigned to allow correctness in
-the presence of out-of-order delivery, with flexibility for implementations to
-balance between resilience against head-of-line blocking and optimal compression
-ratio.  The design goals are to closely approach the compression ratio of HPACK
-with substantially less head-of-line blocking under the same loss conditions.
+QPACK 重新使用了 HPACK 的核心概念，但经过重新设计，
+在针对队头阻塞的恢复能力和最佳压缩比做平衡，允许在出现无序交付的情况下保持正确性，具有实现的灵活性。
+设计目标是在相同的损耗条件下，以实质上较少的队头阻塞达到接近 HPACK 的压缩比。
 
-## Conventions and Definitions
+## 惯例与定义(Conventions and Definitions)
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
+"应当(SHALL)"， "应当不(SHALL NOT)"， "应该(SHOULD)"，
+"不应该(SHOULD NOT)"， "推荐(RECOMMENDED)"，
+"不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
+在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
+当且仅当他们如此例子显示的以加粗的形式出现时。
+文档中使用的术语在下方描述。
 
-Definitions of terms that are used in this document:
+头字段(Header field):
 
-Header field:
+: 作为 HTTP 消息的一部分发送的键值对。
 
-: A name-value pair sent as part of an HTTP message.
+头列表(Header list):
 
-Header list:
+: 和一个 HTTP 消息关联的有序的头字段的集合。一个头列表可以包含多个同键名的头字段。也可以包含重复的头字段。
 
-: An ordered collection of header fields associated with an HTTP message.  A
-  header list can contain multiple header fields with the same name.  It can
-  also contain duplicate header fields.
+头区块(Header block):
 
-Header block:
+: 头列表的压缩表示。
 
-: The compressed representation of a header list.
+编码器(Encoder):
 
-Encoder:
+: 将头列表转化成头区块的实现。
 
-: An implementation which transforms a header list into a header block.
+解码器(Decoder):
 
-Decoder:
+: 将头区块转化成头列表的实现。
 
-: An implementation which transforms a header block into a header list.
+完全索引(Absolute Index):
 
-Absolute Index:
+: 动态表中每一记录的唯一索引。
 
-: A unique index for each entry in the dynamic table.
+基准(Base):
 
-Base:
+: 指向关联索引的引用。动态引用用于关联到头取款中的某个基准。
 
-: A reference point for relative indicies.  Dynamic references are made relative
-  to a Base in header blocks.
+插入数(Insert Count):
 
-Insert Count:
+: 动态表中插入的记录总的数量。
 
-: The total number of entries inserted in the dynamic table.
+QPACK 是一个名字，不是一个缩写。
 
-QPACK is a name, not an acronym.
+## 全局惯例(Notational Conventions)
 
-## Notational Conventions
-
-Diagrams use the format described in Section 3.1 of {{?RFC2360}}, with the
-following additional conventions:
+示意图使用了描述在 {{?RFC2360}}中3.1章的格式，包含以下额外的惯例:
 
 x (A)
-: Indicates that x is A bits long
+: 表示 X 是 A 位长
 
 x (A+)
-: Indicates that x uses the prefixed integer encoding defined in Section 5.1 of
-  [RFC7541], beginning with an A-bit prefix.
+: 表示 X 使用了定义于[RFC7541]中5.1章的，以A位的前缀开始。
 
 x ...
-: Indicates that x is variable-length and extends to the end of the region.
+: 表示 x 是变长的，并延展到区域末端。
 
 # Compression Process Overview
 
@@ -344,185 +335,151 @@ Acknowledgements (see {{header-acknowledgement}}). However, delaying too long
 may lead to compression inefficiencies if the encoder waits for an entry to be
 acknowledged before using it.
 
-### Blocked Decoding
+### 阻塞解码(Blocked Decoding)
 
-To track blocked streams, the Required Insert Count value for each stream can be
-used.  Whenever the decoder processes a table update, it can begin decoding any
-blocked streams that now have their dependencies satisfied.
-
-
-# Header Tables
-
-Unlike in HPACK, entries in the QPACK static and dynamic tables are addressed
-separately.  The following sections describe how entries in each table are
-addressed.
-
-## Static Table {#table-static}
-
-The static table consists of a predefined static list of header fields, each of
-which has a fixed index over time.  Its entries are defined in {{static-table}}.
-
-Note the QPACK static table is indexed from 0, whereas the HPACK static table
-is indexed from 1.
-
-When the decoder encounters an invalid static table index in a header block
-instruction it MUST treat this as a stream error of type
-`HTTP_QPACK_DECOMPRESSION_FAILED`.  If this index is received on the encoder
-stream, this MUST be treated as a connection error of type
-`HTTP_QPACK_ENCODER_STREAM_ERROR`.
-
-## Dynamic Table {#table-dynamic}
-
-The dynamic table consists of a list of header fields maintained in first-in,
-first-out order. Each HTTP/3 endpoint holds a dynamic table that is initially
-empty.  Entries are added by encoder instructions received on the encoder stream
-(see {{encoder-instructions}}).
-
-The dynamic table can contain duplicate entries (i.e., entries with the same
-name and same value).  Therefore, duplicate entries MUST NOT be treated as an
-error by the decoder.
+每个流中要求插入的计数值可以用于跟踪阻塞的流。每当解码器处理表更新时，它就
+可以开始解码任何现在满足其相关性的阻塞流。
 
 
-### Dynamic Table Size
+# 头部表(Header Tables)
 
-The size of the dynamic table is the sum of the size of its entries.
+与HPACK不同，QPACK静态表和动态表中的条目分别寻址。以下各节介绍如何对每个表中
+的条目进行寻址。
 
-The size of an entry is the sum of its name's length in bytes (as defined in
-{{string-literals}}), its value's length in bytes, and 32.
+## 静态表（Static Table） {#table-static}
 
-The size of an entry is calculated using the length of its name and value
-without Huffman encoding applied.
+静态表由预定义的报头字段的静态列表组成，每个字段随时间的推移都具有固定的索引。
+其条目在{{static-table}}中定义。
 
+注意，QPACK静态表是从0索引的，而HPACK静态表是从1索引的。
 
-### Dynamic Table Capacity and Eviction {#eviction}
+当解码器在报头块指令中遇到无效的静态表索引时，它**必须**将其视为类型为
+`HTTP_QPACK_DECOMPRESSION_FAILED`的流错误。如果在编码器流上收到此索引，
+则必须将其视为`HTTP_QPACK_ENCODER_STREAM_ERROR`类型的连接错误。
 
-The encoder sets the capacity of the dynamic table, which serves as the upper
-limit on its size.  The initial capcity of the dynamic table is zero.
+## 动态表（Dynamic Table） {#table-dynamic}
 
-Before a new entry is added to the dynamic table, entries are evicted from the
-end of the dynamic table until the size of the dynamic table is less than or
-equal to (table capacity - size of new entry) or until the table is empty. The
-encoder MUST NOT evict a dynamic table entry unless it has first been
-acknowledged by the decoder.
+动态表由按先进先出顺序维护的标题字段列表组成。每个HTTP/3端点都保存一个最初
+为空的动态表。条目是由在编码器流上接收的编码器指令添加的
+(请参阅{{encoder-instructions}})。
 
-If the size of the new entry is less than or equal to the dynamic table
-capacity, then that entry is added to the table.  It is an error if the encoder
-attempts to add an entry that is larger than the dynamic table capacity; the
-decoder MUST treat this as a connection error of type
-`HTTP_QPACK_ENCODER_STREAM_ERROR`.
-
-A new entry can reference an entry in the dynamic table that will be evicted
-when adding this new entry into the dynamic table.  Implementations are
-cautioned to avoid deleting the referenced name or value if the referenced entry
-is evicted from the dynamic table prior to inserting the new entry.
-
-Whenever the dynamic table capacity is reduced by the encoder, entries are
-evicted from the end of the dynamic table until the size of the dynamic table is
-less than or equal to the new table capacity.  This mechanism can be used to
-completely clear entries from the dynamic table by setting a capacity of 0,
-which can subsequently be restored.
+动态表可以包含重复的条目(即具有相同名称和相同值的条目)。因此，解码器
+**禁止**将重复条目视为错误。
 
 
-### Maximum Dynamic Table Capacity
+### 动态表大小（Dynamic Table Size）
 
-To bound the memory requirements of the decoder, the decoder limits the maximum
-value the encoder is permitted to set for the dynamic table capacity.  In
-HTTP/3, this limit is determined by the value of
-SETTINGS_QPACK_MAX_TABLE_CAPACITY sent by the decoder (see {{configuration}}).
-The encoder MUST not set a dynamic table capacity that exceeds this maximum, but
-it can choose to use a lower dynamic table capacity (see
-{{set-dynamic-capacity}}).
+动态表的大小是其条目大小的总和。
 
-For clients using 0-RTT data in HTTP/3, the server's maximum table capacity is
-the remembered value of the setting, or zero if the value was not previously
-sent.  When the client's 0-RTT value of the SETTING is 0, the server MAY set it
-to a non-zero value in its SETTINGS frame. If the remembered value is non-zero,
-the server MUST send the same non-zero value in its SETTINGS frame.  If it
-specifies any other value, or omits SETTINGS_QPACK_MAX_TABLE_CAPACITY from
-SETTINGS, the encoder must treat this as a connection error of type
-`HTTP_QPACK_DECODER_STREAM_ERROR`.
+条目的大小是其名称的长度(以字节为单位)(在{{string-literals}}中定义)、
+其值的长度(以字节为单位)和32的总和。
 
-For HTTP/3 servers and HTTP/3 clients when 0-RTT is not attempted or is
-rejected, the maximum table capacity is 0 until the encoder processes a SETTINGS
-frame with a non-zero value of SETTINGS_QPACK_MAX_TABLE_CAPACITY.
-
-When the maximum table capacity is 0, the encoder MUST NOT insert entries into
-the dynamic table, and MUST NOT send any encoder instructions on the encoder
-stream.
+条目的大小由不经Huffman编码的条目名称和值的长度算出。
 
 
-### Absolute Indexing {#indexing}
+### 动态表容量和驱逐（Dynamic Table Capacity and Eviction） {#eviction}
 
-Each entry possesses both an absolute index which is fixed for the lifetime of
-that entry and a relative index which changes based on the context of the
-reference. The first entry inserted has an absolute index of "0"; indices
-increase by one with each insertion.
+编码器设置动态表的容量，作为其大小的上限。动态表的初始容量为零。
 
+在将新条目添加到动态表之前，将从动态表的末尾逐出条目，直到动态表的大小于
+或等于(表容量-新条目的大小)或直到表为空。除非解码器首先确认了动态表条目，
+否则编码器**禁止**将其逐出。
 
-### Relative Indexing
+如果新条目的大小小于或等于动态表容量，则该条目将添加到表中。如果编码器
+试图添加大于动态表容量的条目，则视为错误；解码器必须将此视为
+`HTTP_QPACK_ENCODER_STREAM_ERROR`类型的连接错误。
 
-The relative index begins at zero and increases in the opposite direction from
-the absolute index.  Determining which entry has a relative index of "0" depends
-on the context of the reference.
+新条目可以引用动态表中的条目，在将此新条目添加到动态表中时，该条目将被逐出。
+如果在插入新条目之前将引用的条目从动态表中逐出，则应注意实现以避免删除引用
+的名称或值。
 
-In encoder instructions, a relative index of "0" always refers to the most
-recently inserted value in the dynamic table.  Note that this means the entry
-referenced by a given relative index will change while interpreting instructions
-on the encoder stream.
+每当动态表容量被编码器减小时，条目从动态表的末尾被逐出，直到动态表的大小于
+或等于新的表容量。通过将容量设置为0，可以使用此机制完全清除动态表中的条目，
+随后可以恢复该容量。
+
+### 最大动态表容量（Maximum Dynamic Table Capacity）
+
+为了限制解码器的内存要求，解码器限制了允许编码器为动态表容量设置的最大值。在
+HTTP/3中，此限制由解码器发送的SETTINGS_QPACK_MAX_TABLE_CAPACITY的值确定
+(请参阅{{configuration}})。编码器不能设置超过此最大值的动态表容量，但它可以
+选择使用较低的动态表容量(请参见{{set-dynamic-capacity}})。
+
+对于使用HTTP/3中的0-RTT数据的客户端，服务器的最大表容量是设置的记忆值，如果该值
+以前未发送，则为零。当客户端的设置的0-RTT值为0时，服务器可以在其SETTINGS帧中将
+其设置为非零值。如果记住的值为非零，则服务器必须在其SETTINGS帧中发送相同的非零值。
+如果它指定了任何其他值，或者在SETTINGS帧中忽略了SETTINGS_QPACK_MAX_TABLE_CAPACITY，
+编码器必须将其视为`HTTP_QPACK_DECODER_STREAM_ERROR`类型的连接错误。
+
+当0-RTT未到达或被拒绝时，对于HTTP/3服务器和HTTP/3客户端，最大表容量为0，直到
+编码器处理具有非零值SETTINGS_QPACK_MAX_TABLE_CAPACITY的SETTINGS帧。
+
+当最大表容量为0时，编码器不能向动态表中插入条目，也**禁止**在编码器流上发送任何
+编码器指令。
+
+### 绝对索引（Absolute Indexing） {#indexing}
+
+每个条目都具有为该条目的生存期固定的绝对索引和根据引用的上下文而改变的相对索引。
+插入的第一个条目具有绝对索引“0”；索引随着每次插入而增加1。
+
+### 相对索引（Relative Indexing）
+
+相对索引从零开始，在与绝对索引相反的方向上增加。确定哪个条目具有相对索引“0”取决于
+引用的上下文。
+
+在编码器指令中，相对索引“0”总是指动态表中最近插入的值。请注意，这意味着在解释编码
+器流上的指令时，给定相对索引引用的条目将发生更改。
 
 ~~~~~ drawing
       +-----+---------------+-------+
-      | n-1 |      ...      |   d   |  Absolute Index
+      | n-1 |      ...      |   d   |  绝对索引
       + - - +---------------+ - - - +
-      |  0  |      ...      | n-d-1 |  Relative Index
+      |  0  |      ...      | n-d-1 |  相对索引
       +-----+---------------+-------+
       ^                             |
       |                             V
-Insertion Point               Dropping Point
+    插入点                        丢弃点
 
-n = count of entries inserted
-d = count of entries dropped
+n = 插入的条目计数
+d = 已删除的条目计数
 ~~~~~
-{: title="Example Dynamic Table Indexing - Control Stream"}
+{: title="动态表索引-控制流示例"}
 
-Unlike encoder instructions, relative indices in header block instructions are
-relative to the Base at the beginning of the header block (see
-{{header-prefix}}). This ensures that references are stable even if the dynamic
-table is updated while decoding a header block.
+与编码器指令不同，标头块指令中的相对索引相对于标头块开始处的基索引
+(请参见{{header-prefix}})。这确保了即使在解码报头块时更新了动态表，引用也是
+稳定的。
 
-The Base is encoded as a value relative to the Required Insert Count. The Base
-identifies which dynamic table entries can be referenced using relative
-indexing, starting with 0 at the last entry added.
+基被编码为相对于所需插入计数的值。基标识了可以使用相对索引引用从添加的最后一个条目
+的0开始的哪些动态表条目。
 
-Post-Base references are used for entries inserted after base, starting at 0 for
-the first entry added after the Base, see {{post-base}}.
+后基引用用于在基之后插入的条目，从0开始，对于在基之后添加的第一个条目，
+请参见{{post-base}}。
 
 ~~~~~ drawing
- Required
-  Insert
-  Count        Base
+ 规定的
+  插入
+  计数        基
     |           |
     V           V
     +-----+-----+-----+-----+-------+
-    | n-1 | n-2 | n-3 | ... |   d   |  Absolute Index
+    | n-1 | n-2 | n-3 | ... |   d   |  绝对索引
     +-----+-----+  -  +-----+   -   +
-                |  0  | ... | n-d-3 |  Relative Index
+                |  0  | ... | n-d-3 |  相对索引
                 +-----+-----+-------+
 
-n = count of entries inserted
-d = count of entries dropped
+n = 插入的条目计数
+d = 已删除的条目计数
 ~~~~~
-{: title="Example Dynamic Table Indexing - Relative Index in Header Block"}
+{: title="表头块中的动态表索引-相对索引示例"}
 
 
-### Post-Base Indexing {#post-base}
+### Post-Base索引 {#post-base}
 
-A header block can reference entries added after the entry identified by the
-Base. This allows an encoder to process a header block in a single pass and
-include references to entries added while processing this (or other) header
-blocks. Newly added entries are referenced using Post-Base instructions. Indices
-for Post-Base instructions increase in the same direction as absolute indices,
-with the zero value being the first entry inserted after the Base.
+报头块可以引用在Base标识的条目之后添加的条目。
+这允许编码器在一次传输中处理报头块，
+并包含对在处理此(或其他)报头块时添加的条目的引用。
+使用Post-Base指令引用新添加的条目。
+Post-base指令的指数与绝对指数的增长方向相同，
+零值是在Base之后插入的第一个条目。
 
 ~~~~~ drawing
                Base
@@ -540,103 +497,115 @@ d = count of entries dropped
 {: title="Example Dynamic Table Indexing - Post-Base Index in Header Block"}
 
 
-### Invalid References
+### 无效引用 {#invalid-references}
 
-If the decoder encounters a reference in a header block instruction to a dynamic
-table entry which has already been evicted or which has an absolute index
-greater than or equal to the declared Required Insert Count (see
-{{header-prefix}}), it MUST treat this as a stream error of type
-`HTTP_QPACK_DECOMPRESSION_FAILED`.
+如果解码器在报头块指令中遇到对
+已被驱逐的动态表条目的引用，
+或者其绝对索引大于或等于声明
+所需的插入数(请参见{{header-prefix}})，
+则**必须**将其视为`HTTP_QPACK_DURSPAMPAGE_FAILED‘类型的
+流错误。
 
-If the decoder encounters a reference in an encoder instruction to a dynamic
-table entry which has already been dropped, it MUST treat this as a connection
-error of type `HTTP_QPACK_ENCODER_STREAM_ERROR`.
+如果解码器在编码器指令中遇到
+对已删除的动态表条目的引用，
+则**必须**将其视为`HTTP_QPACK_CONTORDER_STREAM_ERROR`类型的
+连接错误。
 
-# Wire Format
+# 线路格式 {#wire-format}
 
-## Primitives
+## 原语 {#primitives}
 
-### Prefixed Integers
+### 前缀整数 {#string-literals}
 
-The prefixed integer from Section 5.1 of [RFC7541] is used heavily throughout
-this document.  The format from [RFC7541] is used unmodified.  QPACK
-implementations MUST be able to decode integers up to 62 bits long.
+本文档中大量使用了在[RFC7541]5.1节中提到的前缀整数。
+前缀整数的格式和[RFC7541]中的一致。
+QPACK实现**必须**能够解码长达62位的整数。
 
-### String Literals
+### 字符常量
 
-The string literal defined by Section 5.2 of [RFC7541] is also used throughout.
-This string format includes optional Huffman encoding.
+在[RFC7541]第5.2节定义的字符常量
+也在本文档中大量使用，该字符串格式包括
+可选的Huffman编码。
 
-HPACK defines string literals to begin on a byte boundary.  They begin with a
-single flag (indicating whether the string is Huffman-coded), followed by the
-Length encoded as a 7-bit prefix integer, and finally Length bytes of data.
-When Huffman encoding is enabled, the Huffman table from Appendix B of [RFC7541]
-is used without modification.
+HPACK定义了从字节边界开始的字符常量。
+它们以单个标志开头(指示字符串是否由Huffman编码)，
+然后是编码为7位长度的前缀整数，
+最后是数据的长度，字节为单位。
+启用Huffman编码后，
+无需修改即可使用[RFC7541]附录B中的Huffman表。
 
-This document expands the definition of string literals and permits them to
-begin other than on a byte boundary.  An "N-bit prefix string literal" begins
-with the same Huffman flag, followed by the length encoded as an (N-1)-bit
-prefix integer.  The remainder of the string literal is unmodified.
+本文档扩展了字符常量的定义，
+并允许它们从字节边界以外的地方开始。
+“N位的前缀字符常量”以相同的
+Huffman标志开头，后跟编码为(N-1)位长度的
+前缀整数。字符常量的其余部分没有修改。
 
-A string literal without a prefix length noted is an 8-bit prefix string literal
-and follows the definitions in [RFC7541] without modification.
+不带前缀长度的字符常量是一个8位的
+前缀字符常量，遵循[RFC7541]中的
+定义未作修改。
 
-## Instructions
+## 指令
 
-There are three separate QPACK instruction spaces. Encoder instructions
-({{encoder-instructions}}) carry table updates, decoder instructions
-({{decoder-instructions}}) carry acknowledgments of table modifications and
-header processing, and header block instructions ({{header-block-instructions}})
-convey an encoded representation of a header list by referring to the QPACK
-table state.
+有三个独立的QPACK指令空间。
+编码器指令({{encoder-instructions}})携带表更新，
+解码器指令({{decoder-instructions}})携带对表修改和
+报头处理的确认，而报头块指令({{header-block-instructions}})
+通过引用QPACK表状态来传送报头列表的编码表示。
 
-Encoder and decoder instructions appear on the unidirectional stream types
-described in this section. Header block instructions are contained in HEADERS
-and PUSH_PROMISE frames, which are conveyed on request or push streams as
-described in {{HTTP3}}.
+编码器和解码器指令用于
+在本节所述的单向流类型上。
+报头块指令包含在HEADERS和PUSH_PROMISE帧中，
+如{{HTTP3}}所述，这些帧是根据请求或
+推送流传送的。
 
-### Encoder and Decoder Streams
+### 编码和解码流
 
-QPACK defines two unidirectional stream types:
+QPACK定义了两种单向流类型:
 
- - An encoder stream is a unidirectional stream of type `0x02`.
-   It carries an unframed sequence of encoder instructions from encoder
-   to decoder.
+ - 编码流是类型为“0x02”的单向流。
+   它携带了来自编码器的未成帧的编码器指令序列给
+   解码器。
 
- - A decoder stream is a unidirectional stream of type `0x03`.
-   It carries an unframed sequence of decoder instructions from decoder
-   to encoder.
+ - 解码器流是类型为“0x03`”的单向流。
+   它将解码器指令的未成帧序列从解码器传送到编码器。
 
 <!-- s/exactly/no more than/  ? -->
-HTTP/3 endpoints contain a QPACK encoder and decoder. Each endpoint MUST
-initiate a single encoder stream and decoder stream. Receipt of a second
-instance of either stream type be MUST treated as a connection error of type
-HTTP_WRONG_STREAM_COUNT. These streams MUST NOT be closed. Closure of either
-unidirectional stream type MUST be treated as a connection error of type
-HTTP_CLOSED_CRITICAL_STREAM.
+HTTP/3终端包含QPACK编码器和解码器。
+每个终端**必须**启动单个编码器流和解码器流。
+接收第二个任意流类型的实例时，**必须**将
+其视为类型为HTTP_OWRY_STREAM_COUNT的连接错误。
+这些流**必须**关闭。
+任何一个单向流类型的关闭都**必须**
+被视为HTTP_CLOSED_CRIMARY_STREAM类型的连接错误。
 
-## Encoder Instructions {#encoder-instructions}
+## 编码器指令 {#encoder-instructions}
 
-Table updates can add a table entry, possibly using existing entries to avoid
-transmitting redundant information.  The name can be transmitted as a reference
-to an existing entry in the static or the dynamic table or as a string literal.
-For entries which already exist in the dynamic table, the full entry can also be
-used by reference, creating a duplicate entry.
+表更新可以添加表条目，可以使用
+现有条目来避免传输冗余信息。
+名称可以作为对静态或动态表中
+现有条目的引用传输，也可以作为字符常量
+传输。对于动态表中已存在的条目，
+也可以通过引用使用完整条目，
+从而创建重复条目。
 
-This section specifies the following encoder instructions.
+本节指定以下编码器说明。
 
-### Insert With Name Reference
+### 插入名称引用
 
-An addition to the header table where the header field name matches the header
-field name of an entry stored in the static table or the dynamic table starts
-with the '1' one-bit pattern.  The `S` bit indicates whether the reference is to
-the static (S=1) or dynamic (S=0) table. The 6-bit prefix integer (see Section
-5.1 of [RFC7541]) that follows is used to locate the table entry for the header
-name.  When S=1, the number represents the static table index; when S=0, the
-number is the relative index of the entry in the dynamic table.
+标题字段名称与存储在静态表或动态表
+中的条目的标题字段名称相匹配的标题表
+中的一个附加项，以“1”位模式开始。
+“S”位指示引用是指向静态(S=1)表
+还是动态(S=0)表。
+下面的6位前缀整数
+(参见[RFC7541]第5.1节)用于
+定位报头名称的表项。
+当S=1时，数字表示静态表索引；
+当S=0时，数字是动态表中条目的
+相对索引。
 
-The header name reference is followed by the header field value represented as a
-string literal (see Section 5.2 of [RFC7541]).
+报头名称引用后面跟着表示为字符常量的
+报头字段值(参见[RFC7541]第5.2节)。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -651,14 +620,14 @@ string literal (see Section 5.2 of [RFC7541]).
 {: title="Insert Header Field -- Indexed Name"}
 
 
-### Insert Without Name Reference
+### 没有名称引用的情况下插入
 
-An addition to the header table where both the header field name and the header
-field value are represented as string literals (see {{primitives}}) starts with
-the '01' two-bit pattern.
+在报头表中，报头字段名称和
+报头字段值都表示为字符常量(请参见{{primitives}})，
+以“01”两位模式开头。
 
-The name is represented as a 6-bit prefix string literal, while the value is
-represented as an 8-bit prefix string literal.
+名称表示为6位前缀字符常量，
+而值表示为8位前缀字符常量。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -826,6 +795,7 @@ The Base 被编码为有符号的取模整数，利用一个符号位和
    else:
       EncInsertCount = (ReqInsertCount mod (2 * MaxEntries)) + 1
 ~~~
+
 这里MaxEntries是动态表可以拥有的最大条目数。
 最小的条目具有空名称和值字符串，大小为32.因此MaxEntries计算为
 
@@ -936,26 +906,18 @@ Base用于解析动态表中的引用，见
 {: title="带有后基索引的头部索引字段"}
 
 
-### Literal Header Field With Name Reference
+### 具有名称引用的文本标头字段(Literal Header Field With Name Reference)
 
-A literal header field with a name reference represents a header where the
-header field name matches the header field name of an entry stored in the static
-table or the dynamic table.
+具有名称引用的文本标头字段表示标头字段名称与存储在静态表或动态表中的条目的标头字段名称
+相匹配的标头。
 
-If the entry is in the static table, or in the dynamic table with an absolute
-index less than the Base, this representation starts with the '01' two-bit
-pattern.  If the entry is in the dynamic table with an absolute index greater
-than or equal to the Base, the representation starts with the '0000' four-bit
-pattern.
+如果条目位于静态表或动态表中，且绝对索引小于Base，则此表示以‘01’两位模式开始。如果该条
+目位于动态表中，且绝对索引大于或等于Base，则表示将以“0000”四位模式开始。
 
-The following bit, 'N', indicates whether an intermediary is permitted to add
-this header to the dynamic header table on subsequent hops. When the 'N' bit is
-set, the encoded header MUST always be encoded with a literal representation. In
-particular, when a peer sends a header field that it received represented as a
-literal header field with the 'N' bit set, it MUST use a literal representation
-to forward this header field.  This bit is intended for protecting header field
-values that are not to be put at risk by compressing them (see Section 7.1 of
-[RFC7541] for more details).
+下一位‘N’表示是否允许中间件在后续跃点上将此标头添加到动态标头表。 当'N'位置位时，编码头
+必须始终用文字表示法编码。 特别是，当对等体发送它接收的头字段表示为带有'N'位设置的文字
+头字段时，它必须使用文字表示来转发该头字段。 该位用于通过压缩来保护不存在风险的头字段值
+（更多详细信息，请参见[RFC7541]的第7.1节）。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -967,19 +929,16 @@ values that are not to be put at risk by compressing them (see Section 7.1 of
    |  Value String (Length bytes)  |
    +-------------------------------+
 ~~~~~~~~~~
-{: title="Literal Header Field With Name Reference"}
+{: title="具有名称引用的文本标头字段"}
 
-For entries in the static table or in the dynamic table with an absolute index
-less than the Base, the header field name is represented using the relative
-index of that entry, which is represented as an integer with a 4-bit prefix (see
-Section 5.1 of [RFC7541]). The `S` bit indicates whether the reference is to the
-static (S=1) or dynamic (S=0) table.
+对于静态表或动态表中绝对索引小于Base的条目，标头字段名称使用该条目的相对索引表示，该索
+引表示为具有4位前缀的整数(参见[RFC7541]的5.1节)。S位指示引用是静态(S=1)还是动态(S=0)表。
 
-### Literal Header Field With Post-Base Name Reference
+### 具有后基名称引用的文本标头字段(Literal Header Field With Post-Base Name Reference)
 
-For entries in the dynamic table with an absolute index greater than or equal to
-the Base, the header field name is represented using the post-base index of that
-entry (see {{post-base}}) encoded as an integer with a 3-bit prefix.
+
+对于动态表中绝对索引大于或等于Base的条目，标头字段名称使用该条目的后基索引
+(参见{{post-base}})表示，该索引被编码为具有3位前缀的整数。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -991,26 +950,19 @@ entry (see {{post-base}}) encoded as an integer with a 3-bit prefix.
    |  Value String (Length bytes)  |
    +-------------------------------+
 ~~~~~~~~~~
-{: title="Literal Header Field With Post-Base Name Reference"}
+{: title="具有后基名称引用的文本标头字段"}
 
 
-### Literal Header Field Without Name Reference
+### 无名称引用的文字标题字段(Literal Header Field Without Name Reference)
 
-An addition to the header table where both the header field name and the header
-field value are represented as string literals (see {{primitives}}) starts with
-the '001' three-bit pattern.
+对头表的添加，其中标头字段名称和标头字段值均表示为字符串文字(参见4.1节)，以‘001’三位模式开始。
 
-The fourth bit, 'N', indicates whether an intermediary is permitted to add this
-header to the dynamic header table on subsequent hops. When the 'N' bit is set,
-the encoded header MUST always be encoded with a literal representation. In
-particular, when a peer sends a header field that it received represented as a
-literal header field with the 'N' bit set, it MUST use a literal representation
-to forward this header field.  This bit is intended for protecting header field
-values that are not to be put at risk by compressing them (see Section 7.1 of
-[RFC7541] for more details).
+第四位‘N’指示是否允许中间件在后续跃点上将该报头添加到动态报头表中。设置“N”位时，编码的标头**必须**
+始终使用文字表示进行编码。特别地，当对等发送其接收到的表示为设置了“N”位的文字报头字段的报头
+字段时，它必须使用文字表示来转发该报头字段。此位用于通过压缩来保护不会被置于风险中的标头字段值
+(有关更多详细信息，请参见[RFC7541]的7.1节)。
 
-The name is represented as a 4-bit prefix string literal, while the value is
-represented as an 8-bit prefix string literal.
+名称表示为4位前缀字符串文字，而值表示为8位前缀字符串文字。
 
 ~~~~~~~~~~ drawing
      0   1   2   3   4   5   6   7
@@ -1024,43 +976,36 @@ represented as an 8-bit prefix string literal.
    |  Value String (Length bytes)  |
    +-------------------------------+
 ~~~~~~~~~~
-{: title="Literal Header Field Without Name Reference"}
+{: title="无名称引用的文字标题字段"}
 
 
-#  Configuration
+#  配置(Configuration)
 
-QPACK defines two settings which are included in the HTTP/3 SETTINGS frame.
+QPACK定义了HTTP/3设置帧中包含的两个设置。
 
   SETTINGS_QPACK_MAX_TABLE_CAPACITY (0x1):
-  : An integer with a maximum value of 2^30 - 1.  The default value is zero
-    bytes.  See {{table-dynamic}} for usage.  This is the equivalent of the
-    SETTINGS_HEADER_TABLE_SIZE from HTTP/2.
+  : 最大值为2^30-1的整数。默认值为零字节。有关用法，请参阅{{table-dynamic}}。这相当于HTTP/2中
+    的SETINGS_HEADER_TABLE_SIZE。
 
   SETTINGS_QPACK_BLOCKED_STREAMS (0x7):
-  : An integer with a maximum value of 2^16 - 1.  The default value is zero.
-    See {{overview-hol-avoidance}}.
+  : 最大值为2^16-1的整数。默认值为零。参见{{overview-hol-avoidance}}。
 
 
-# Error Handling {#error-handling}
+# 错误处理(Error Handling) {#error-handling}
 
-The following error codes are defined for HTTP/3 to indicate failures of
-QPACK which prevent the stream or connection from continuing:
+HTTP/3中QPACK里的中止流与连接的故障可以通过如下错误代码表示：
 
 HTTP_QPACK_DECOMPRESSION_FAILED (TBD):
-: The decoder failed to interpret a header block instruction and is not
-  able to continue decoding that header block.
+: 解码器无法解释报头块指令，且不能继续解码该报头块。
 
 HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):
-: The decoder failed to interpret an encoder instruction received on the
-  encoder stream.
+: 解码器无法解释在编码器流上接收的编码器指令。
 
 HTTP_QPACK_DECODER_STREAM_ERROR (TBD):
-: The encoder failed to interpret a decoder instruction received on the
-  decoder stream.
+: 编码器无法解释在解码器流上接收的解码器指令。
 
-Upon encountering an error, an implementation MAY elect to treat it as a
-connection error even if this document prescribes that it MUST be treated as a
-stream error.
+
+在遇到错误时，实现**可以**选择将其视为连接错误，即使该文档规定**必须**将其视为流错误。
 
 
 # Security Considerations
