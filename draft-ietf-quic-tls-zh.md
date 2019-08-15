@@ -532,125 +532,99 @@ Handshake Received
 {: #exchange-summary title="Interaction Summary between QUIC and TLS"}
 
 
-## TLS Version {#tls-version}
+## TLS版本(TLS Version) {#tls-version}
 
-This document describes how TLS 1.3 {{!TLS13}} is used with QUIC.
+本文档描述TLS 1.3 {{!TLS13}}如何与QUIC一起使用。
 
-In practice, the TLS handshake will negotiate a version of TLS to use.  This
-could result in a newer version of TLS than 1.3 being negotiated if both
-endpoints support that version.  This is acceptable provided that the features
-of TLS 1.3 that are used by QUIC are supported by the newer version.
+实际上，TLS握手将协商要使用的TLS版本。
+如果收发终端均支持新版本，这可能导致终端间协商的TLS版本比1.3更高。
+这是可以接受的，前提是新版本支持QUIC使用的TLS 1.3的功能。
 
-A badly configured TLS implementation could negotiate TLS 1.2 or another older
-version of TLS.  An endpoint MUST terminate the connection if a version of TLS
-older than 1.3 is negotiated.
+配置错误的TLS实施会导致协商TLS 1.2或其他旧版本的TLS。
+端点**必须**终止协商旧于1.3的TLS版本连接。
 
 
-## ClientHello Size {#clienthello-size}
+## ClientHello大小(ClientHello Size) {#clienthello-size}
 
-QUIC requires that the first Initial packet from a client contain an entire
-cryptographic handshake message, which for TLS is the ClientHello.  Though a
-packet larger than 1200 bytes might be supported by the path, a client improves
-the likelihood that a packet is accepted if it ensures that the first
-ClientHello message is small enough to stay within this limit.
+QUIC要求来自客户端的第一个初始数据包包含整个加密握手消息，对于TLS，它是ClientHello。
+虽然路径可能支持大于1200字节的数据包，但如果确保第一个ClientHello消息足够小以保持在此限制内，则客户端数据包被接受的可能性会提高。
 
-QUIC packet and framing add at least 36 bytes of overhead to the ClientHello
-message.  That overhead increases if the client chooses a connection ID without
-zero length.  Overheads also do not include the token or a connection ID longer
-than 8 bytes, both of which might be required if a server sends a Retry packet.
+QUIC数据包和成帧中，ClientHello消息至少需要增加36个字节的开销。
+如果客户端选择非零长度的连接ID，则开销会增加。
+开销也不包括令牌或长度超过8个字节的连接ID（如果服务器发送重试数据包时可能需要令牌和连接id这两项）。
 
-A typical TLS ClientHello can easily fit into a 1200 byte packet.  However, in
-addition to the overheads added by QUIC, there are several variables that could
-cause this limit to be exceeded.  Large session tickets, multiple or large key
-shares, and long lists of supported ciphers, signature algorithms, versions,
-QUIC transport parameters, and other negotiable parameters and extensions could
-cause this message to grow.
+典型的TLS ClientHello可以很容易地装入1200字节的数据包。
+但是，除了QUIC添加的开销之外，还有一些变量可能导致大小超出此限制。
+大型会话票证，多个或大型密钥共享以及支持的加密算法，签名算法，版本列表，QUIC传输参数以及其他可协商参数和扩展的长列表均可能会导致此消息增大。
 
-For servers, in addition to connection IDs and tokens, the size of TLS session
-tickets can have an effect on a client's ability to connect.  Minimizing the
-size of these values increases the probability that they can be successfully
-used by a client.
+对于服务器来说，除了连接ID和令牌之外，TLS会话票证的大小可能会影响客户端的连接能力。
+最小化这些值增加了客户端成功使用它们的可能性。
 
-A client is not required to fit the ClientHello that it sends in response to a
-HelloRetryRequest message into a single UDP datagram.
+客户端不需要将响应HelloRetryRequest消息而发送的ClientHello放入单个UDP数据报中。
 
-The TLS implementation does not need to ensure that the ClientHello is
-sufficiently large.  QUIC PADDING frames are added to increase the size of the
-packet as necessary.
+TLS实现不需要确保ClientHello足够大。
+可以根据需要
+添加QUIC PADDING帧增加数据包的大小。
 
 
-## Peer Authentication
+## 对等身份验证(Peer Authentication)
 
-The requirements for authentication depend on the application protocol that is
-in use.  TLS provides server authentication and permits the server to request
-client authentication.
+身份验证的要求取决于正在使用的应用程序协议。
+TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
-A client MUST authenticate the identity of the server.  This typically involves
-verification that the identity of the server is included in a certificate and
-that the certificate is issued by a trusted entity (see for example
-{{?RFC2818}}).
+客户端**必须**验证服务器的身份。
+这通常涉及验证服务器的身份是否包含在证书中以及证书是否由可信实体颁发(例如{{?RFC2818}})。
 
-A server MAY request that the client authenticate during the handshake. A server
-MAY refuse a connection if the client is unable to authenticate when requested.
-The requirements for client authentication vary based on application protocol
-and deployment.
+服务器**可能**请求客户端在握手期间进行身份验证。
+如果客户端在请求时无法进行身份验证，则服务器**可能**拒绝连接。
+客户端身份验证的要求因应用程序协议和部署而异。
 
-A server MUST NOT use post-handshake client authentication (see Section 4.6.2 of
-{{!TLS13}}).
+服务器**禁止**使用后握手客户端身份验证 (参见{{!TLS13}}的4.6.2节).
 
 
-## Enabling 0-RTT {#enable-0rtt}
+## 启用0-RTT(Enabling 0-RTT) {#enable-0rtt}
 
-In order to be usable for 0-RTT, TLS MUST provide a NewSessionTicket message
-that contains the "early_data" extension with a max_early_data_size of
-0xffffffff; the amount of data which the client can send in 0-RTT is controlled
-by the "initial_max_data" transport parameter supplied by the server.  A client
-MUST treat receipt of a NewSessionTicket that contains an "early_data" extension
-with any other value as a connection error of type PROTOCOL_VIOLATION.
+为了可用于0-RTT，TLS必须提供一个NewSessionTicket消息，
+其中包含max_early_data_size为0xffffffff的“early_data”扩展;
+客户端可以在0-RTT中发送的数据量由服务器提供的“initial_max_data”传输参数控制。
 
-Early data within the TLS connection MUST NOT be used.  As it is for other TLS
-application data, a server MUST treat receiving early data on the TLS connection
-as a connection error of type PROTOCOL_VIOLATION.
+当其中包含任何其他值时，客户端**必须**将包含“early_data”扩展名的
+NewSessionTicket的接收视为PROTOCOL_VIOLATION类型的连接错误。
+
+**禁止**使用TLS连接中的早期数据。
+与其他TLS应用程序数据一样，服务器**必须**将接收TLS连接上的早期数据视为PROTOCOL_VIOLATION类型的连接错误。
 
 
-## Rejecting 0-RTT
+## 拒绝0-RTT(Rejecting 0-RTT)
 
-A server rejects 0-RTT by rejecting 0-RTT at the TLS layer.  This also prevents
-QUIC from sending 0-RTT data. A server will always reject 0-RTT if it sends a
-TLS HelloRetryRequest.
+服务器通过拒绝TLS层的0-RTT来0-RTT。
+这也会阻止QUIC发送0-RTT数据。
+如果服务器发送TLS HelloRetryRequest，它将始终拒绝0-RTT。
 
-When 0-RTT is rejected, all connection characteristics that the client assumed
-might be incorrect.  This includes the choice of application protocol, transport
-parameters, and any application configuration.  The client therefore MUST reset
-the state of all streams, including application state bound to those streams.
+当拒绝0-RTT时，客户端假定的所有连接特性可能都不正确。
+这包括应用程序协议，传输参数和任何应用程序配置的选择。
+因此，客户端必须重置所有流的状态，包括绑定到这些流的应用程序状态。
 
-A client MAY attempt to send 0-RTT again if it receives a Retry or Version
-Negotiation packet.  These packets do not signify rejection of 0-RTT.
-
+如果客户端收到重试或版本协商数据包，则**可能**尝试再次发送0-RTT。
+这些数据包并不表示拒绝0-RTT。
 
 ## HelloRetryRequest
 
-In TLS over TCP, the HelloRetryRequest feature (see Section 4.1.4 of {{!TLS13}})
-can be used to correct a client's incorrect KeyShare extension as well as for a
-stateless round-trip check. From the perspective of QUIC, this just looks like
-additional messages carried in the Initial encryption level. Although it is in
-principle possible to use this feature for address verification in QUIC, QUIC
-implementations SHOULD instead use the Retry feature (see Section 8.1 of
-{{QUIC-TRANSPORT}}).  HelloRetryRequest is still used to request key shares.
+在TLS over TCP中，HelloRetryRequest功能（参见{{!TLS13}}的4.1.4节）
+可用于纠正客户端错误的KeyShare扩展以及无状态往返检查。
+从QUIC的角度来看，这看起来就像初始加密级别中携带的其他消息。
+虽然原则上可以在QUIC中使用此功能进行地址验证，但QUIC实现**应该**使用重试功能(参见{{QUIC-TRANSPORT}}的8.1节).
+HelloRetryRequest仍用于请求密钥共享。
 
+## TLS错误(TLS Errors) {#tls-errors}
 
-## TLS Errors
+如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当alert。
 
-If TLS experiences an error, it generates an appropriate alert as defined in
-Section 6 of {{!TLS13}}.
+通过将单字节alert描述转换为QUIC错误代码，TLS警报将变为QUIC连接错误。
+警报描述被添加到0x100以生成QUIC错误代码（从为CRYPTO_ERROR保留的范围中）。
+结果值在QUIC CONNECTION_CLOSE帧中发送。
 
-A TLS alert is turned into a QUIC connection error by converting the one-byte
-alert description into a QUIC error code.  The alert description is added to
-0x100 to produce a QUIC error code from the range reserved for CRYPTO_ERROR.
-The resulting value is sent in a QUIC CONNECTION_CLOSE frame.
-
-The alert level of all TLS alerts is "fatal"; a TLS stack MUST NOT generate
-alerts at the "warning" level.
+所有TLS alert的警报级别都是“fatal”;TLS堆栈**禁止**在“warn”级别生成alerts。
 
 
 ## Discarding Unused Keys
