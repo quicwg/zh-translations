@@ -608,7 +608,7 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 虽然原则上可以在QUIC中使用此功能进行地址验证，但QUIC实现**应该**使用重试功能(参见{{QUIC-TRANSPORT}}的8.1节). 
 HelloRetryRequest仍用于请求密钥共享。
 
-## TLS错误(TLS Errors)
+## TLS错误(TLS Errors){#tls-errors}
 
 如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当警报。
 
