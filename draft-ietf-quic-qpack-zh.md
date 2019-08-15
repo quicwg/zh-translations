@@ -677,7 +677,7 @@ represented as an 8-bit prefix string literal.
 
 ### 复制(Duplicate) {#duplicate}
 
-动态表中现有条目的复制以'000'三位字头开始。 
+动态表中现有条目的复制以'000'三位字头开始。
 现有条目的相对索引表示为具有5位前缀的整数。
 
 ~~~~~~~~~~ drawing
@@ -705,7 +705,8 @@ represented as an 8-bit prefix string literal.
 {:#fig-set-capacity title="Set Dynamic Table Capacity"}
 
 新容量**必须**低于或等于{{maximum-dynamic-table-capacity}}中描述的限制。
-在HTTP / 3中，此限制是从解码器中受到的SETTINGS_QPACK_MAX_TABLE_CAPACITY参数(参考 {{configuration}})的值。
+在HTTP / 3中，此限制是从解码器中受到的
+SETTINGS_QPACK_MAX_TABLE_CAPACITY参数(参考 {{configuration}})的值。
 解码器**必须**将超过此限制的新动态表容量值视为类型`HTTP_QPACK_ENCODER_STREAM_ERROR`的连接错误。
 
 减少动态表容量可能导致条目被逐出(参考{{eviction}})。
@@ -736,7 +737,8 @@ Increment字段编码为6位前缀整数。
 ~~~~~~~~~~
 {:#fig-size-sync title="Insert Count Increment"}
 
-接收增量字段等于零的编码器或一个增加已知接收计数超出它发送的数量的编码器**必须**被视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
+接收增量字段等于零的编码器或一个增加已知接收计数超出
+它发送的数量的编码器**必须**被视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
 
 ### 头确认(Header Acknowledgement)
 
@@ -755,9 +757,10 @@ Increment字段编码为6位前缀整数。
 可以多次识别相同的流ID，因为在中间响应，预告和推送请求的情况下，可以在单个流上发送多个头块。
 由于每个流上的HEADERS和PUSH_PROMISE帧会被接收并按顺序处理，因此这给编码器提供了关于流中的哪些报头块已被完全处理的精确反馈。
 
-如果编码器接收到一个头确认指令，该指令指的是已经确认了具有非零必需插入计数的每个头块的流，则**必须**将其视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
+如果编码器接收到一个头确认指令，该指令指的是已经确认了具有非零必需插入计数的每个头块的流，
+则**必须**将其视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
 
-当允许阻塞引用时，编码器使用标头块确认来更新已知接收计数。 
+当允许阻塞引用时，编码器使用标头块确认来更新已知接收计数。
 如果标头块可能阻塞，则确认意味着解码器已经接收到处理标头块所需的所有动态表状态。
 如果确认的标头块的必需插入计数大于编码器的当前已知接收计数，则块的必需插入计数将成为新的已知接收计数。
 
@@ -775,7 +778,7 @@ Increment字段编码为6位前缀整数。
 {:#fig-stream-cancel title="Stream Cancellation"}
 
 重置的流可能具有多个具有动态表引用的未完成标头块。
-当端点在流结束之前接收到流重置时，它在解码器流上生成流取消指令。 
+当端点在流结束之前接收到流重置时，它在解码器流上生成流取消指令。
 类似地，当端点放弃读取流时，它需要使用流取消指令来发信号通知。
 这向编码器发出信号，表明对该流上的动态表的所有引用都不再是未完成的。
 最大动态表容量等于零的解码器（参见{{maximum-dynamic-table-capacity}}）可以省略发送流取消，因为编码器不能有任何动态表引用。

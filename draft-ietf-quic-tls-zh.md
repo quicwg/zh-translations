@@ -554,7 +554,7 @@ QUIC数据包和成帧中，ClientHello消息至少需要增加36个字节的开
 但是，除了QUIC添加的开销之外，还有一些变量可能导致大小超出此限制。
 大型会话票证，多个或大型密钥共享以及支持的密码，签名算法，版本，QUIC传输参数以及其他可协商参数和扩展的长列表均可能会导致此消息增大。
 
-对于服务器来说，除了连接ID和令牌之外，TLS会话票证的大小可能会影响客户端的连接能力。 
+对于服务器来说，除了连接ID和令牌之外，TLS会话票证的大小可能会影响客户端的连接能力。
 最小化这些值增加了客户端成功使用它们的可能性。
 
 客户端不需要将响应HelloRetryRequest消息而发送的ClientHello放入单个UDP数据报中。
@@ -568,7 +568,7 @@ TLS实现不需要确保ClientHello足够大。
 身份验证的要求取决于正在使用的应用程序协议。
 TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
-客户端**必须**验证服务器的身份。 
+客户端**必须**验证服务器的身份。
 这通常涉及验证服务器的身份是否包含在证书中以及证书是否由可信实体颁发(例如{{?RFC2818}})。
 
 服务器**可能**请求客户端在握手期间进行身份验证。
@@ -580,9 +580,12 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
 ## 启用0-RTT(Enabling 0-RTT) {#enable-0rtt}
 
-为了可用于0-RTT，TLS必须提供一个NewSessionTicket消息，其中包含max_early_data_size为0xffffffff的“early_data”扩展;客户端可以在0-RTT中发送的数据量由服务器提供的“initial_max_data”传输参数控制。
+为了可用于0-RTT，TLS必须提供一个NewSessionTicket消息，
+其中包含max_early_data_size为0xffffffff的“early_data”扩展;
+客户端可以在0-RTT中发送的数据量由服务器提供的“initial_max_data”传输参数控制。
 
-当其中包含任何其他值时，客户端**必须**将包含“early_data”扩展名的NewSessionTicket的接收视为PROTOCOL_VIOLATION类型的连接错误。
+当其中包含任何其他值时，客户端**必须**将包含“early_data”扩展名的
+NewSessionTicket的接收视为PROTOCOL_VIOLATION类型的连接错误。
 
 **禁止**使用TLS连接中的早期数据。
 与其他TLS应用程序数据一样，服务器**必须**将接收TLS连接上的早期数据视为PROTOCOL_VIOLATION类型的连接错误。
@@ -590,7 +593,7 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
 ## 拒绝0-RTT(Rejecting 0-RTT)
 
-服务器通过拒绝TLS层的0-RTT来0-RTT。 
+服务器通过拒绝TLS层的0-RTT来0-RTT。
 这也会阻止QUIC发送0-RTT数据。
 如果服务器发送TLS HelloRetryRequest，它将始终拒绝0-RTT。
 
@@ -603,12 +606,13 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
 ## HelloRetryRequest
 
-在TLS over TCP中，HelloRetryRequest功能（参见{{!TLS13}}的4.1.4节）可用于纠正客户端错误的KeyShare扩展以及无状态往返检查。
+在TLS over TCP中，HelloRetryRequest功能（参见{{!TLS13}}的4.1.4节）
+可用于纠正客户端错误的KeyShare扩展以及无状态往返检查。
 从QUIC的角度来看，这看起来就像初始加密级别中携带的其他消息。
-虽然原则上可以在QUIC中使用此功能进行地址验证，但QUIC实现**应该**使用重试功能(参见{{QUIC-TRANSPORT}}的8.1节). 
+虽然原则上可以在QUIC中使用此功能进行地址验证，但QUIC实现**应该**使用重试功能(参见{{QUIC-TRANSPORT}}的8.1节).
 HelloRetryRequest仍用于请求密钥共享。
 
-## TLS错误(TLS Errors)
+## TLS错误(TLS Errors) {#tls-errors}
 
 如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当警报。
 
