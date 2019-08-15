@@ -447,7 +447,7 @@ CRYPTO帧中的数据对于QUIC传输和加密协商至关重要，因此要使�
 
 探测超时（PTO）在ack引出数据处于传输状态但在预期的时间段内未收到确认时触发探测数据包。
 PTO使连接能够从丢失尾包或确认中恢复。
-QUIC中使用的PTO算法实现了尾部丢失探测{{?TLP = ID.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}，RTO {{?RFC5681}}和F-RTO的可靠性功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重传超时时间{{?RFC6298}}。
+QUIC中使用的PTO算法实现了尾部丢失探测{{?TLP=I-D.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}，RTO {{?RFC5681}}和F-RTO的可靠性功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重传超时时间{{?RFC6298}}。
 
 ### Computing PTO
 
