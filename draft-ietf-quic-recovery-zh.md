@@ -480,136 +480,146 @@ CRYPTO帧中的数据对于QUIC传输和加密协商至关重要，因此要使�
 PTO使连接能够从丢失尾包或确认中恢复。
 QUIC中使用的PTO算法实现了尾部丢失探测{{?TLP = ID.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}，RTO {{?RFC5681}}和F-RTO的可靠性功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重传超时时间{{?RFC6298}}。
 
-### Computing PTO
+### 计算PTO{#Computing PTO}
 
-When an ack-eliciting packet is transmitted, the sender schedules a timer for
-the PTO period as follows:
+当发送ack-eiting数据包时，发送方为PTO周期安排计时器，如下所示:
 
 ~~~
 PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 ~~~
 
-kGranularity, smoothed_rtt, rttvar, and max_ack_delay are defined in
-{{ld-consts-of-interest}} and {{ld-vars-of-interest}}.
+kGranularity, smoothed_rtt, rttvar, and max_ack_delay
+在附录{{ld-consts-of-interest}} 和附录 {{ld-vars-of-interest}}
+中定义.
 
-The PTO period is the amount of time that a sender ought to wait for an
-acknowledgement of a sent packet.  This time period includes the estimated
-network roundtrip-time (smoothed_rtt), the variance in the estimate (4*rttvar),
-and max_ack_delay, to account for the maximum time by which a receiver might
-delay sending an acknowledgement.
+PTO周期是发送方应该等待发送
+数据包的确认的时长。该时长包括估计的
+网络往返时间（smoothed_rtt），估计
+的方差（4 * rttvar）和max_ack_delay，
+以考虑接收方可能延迟发送确认的最大时间。
 
-The PTO value MUST be set to at least kGranularity, to avoid the timer expiring
-immediately.
+PTO值**必须**至少设置为kGranularity，
+以避免计时器立即到期。
 
-When a PTO timer expires, the sender probes the network as described in the next
-section. The PTO period MUST be set to twice its current value. This exponential
-reduction in the sender's rate is important because the PTOs might be caused by
-loss of packets or acknowledgements due to severe congestion.
+当PTO计时器到期时，发送方将按照下一节
+中的说明探测网络。 PTO周期**必须**设置
+为其当前值的两倍。发送方速率的这种指数
+降低非常重要，因为PTO可能是由于严重拥塞
+导致的数据包丢失或确认造成的。
 
-A sender computes its PTO timer every time an ack-eliciting packet is sent. A
-sender might choose to optimize this by setting the timer fewer times if it
-knows that more ack-eliciting packets will be sent within a short period of
-time.
+每次发送ack-eliciting包时，发送方计算
+其PTO定时器。如果发送方知道在短时间内
+将发送更多的ack-eliciting数据包，则发
+送方可以选择通过将定时器设置为更少次来进行优化
 
-### Sending Probe Packets
+### 发送探测包
 
-When a PTO timer expires, the sender MUST send one ack-eliciting packet as a
-probe. A sender MAY send up to two ack-eliciting packets, to avoid an expensive
-consecutive PTO expiration due to a single packet loss.
+当PTO计时器到期时，发送方必须发送一个
+ack-eliciting包作为探测。发送方可以发
+送最多两个ack-eliciting数据包，以避免
+由于单个数据包丢失而导致昂贵的连续PTO到期。
 
-Consecutive PTO periods increase exponentially, and as a result, connection
-recovery latency increases exponentially as packets continue to be dropped in
-the network.  Sending two packets on PTO expiration increases resilience to
-packet drops, thus reducing the probability of consecutive PTO events.
+连续的PTO周期呈指数级增长，因此，随着数据
+包继续在网络中丢弃，连接恢复延迟呈指数级增
+长。在PTO到期时发送两个包增加了对包丢弃
+的弹性，从而降低了连续PTO事件的概率。
 
-Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry
-new data when possible.  A probe packet MAY carry retransmitted unacknowledged
-data when new data is unavailable, when flow control does not permit new data to
-be sent, or to opportunistically reduce loss recovery delay.  Implementations
-MAY use alternate strategies for determining the content of probe packets,
-including sending new or retransmitted data based on the application's
-priorities.
+在PTO上发送的探测包必须是ack-eliciting。
+探测包**应该**尽可能携带新数据。当新数据
+不可用时，当流控制不允许发送新数据时，探测
+包**可以**携带重传的未确认数据，或者机会
+性地减少丢失恢复延迟。实现**可以**使用
+备用策略来确定探测数据包的内容，包括根据应用程
+序的优先级发送新数据或重新传输数据。
 
-When the PTO timer expires multiple times and new data cannot be sent,
-implementations must choose between sending the same payload every time
-or sending different payloads.  Sending the same payload may be simpler
-and ensures the highest priority frames arrive first.  Sending different
-payloads each time reduces the chances of spurious retransmission.
+当PTO计时器多次到期并且无法发送新数据时，
+实现必须在每次发送相同的有效载荷或发送
+不同的有效载荷之间进行选择。发送相同的
+有效载荷可能更简单，并确保优先级最高的帧
+首先到达。每次发送不同的有效载荷减少了虚
+假重传的可能性。
 
-When a PTO timer expires, new or previously-sent data may not be available to
-send and packets may still be in flight.  A sender can be blocked from sending
-new data in the future if packets are left in flight.  Under these conditions, a
-sender SHOULD mark any packets still in flight as lost.  If a sender wishes to
-establish delivery of packets still in flight, it MAY send an ack-eliciting
-packet and re-arm the PTO timer instead.
+当PTO计时器到期时，新的或先前发送的数据
+可能无法发送，并且数据包可能仍在发送中。
+如果数据包在发送中，可以阻止发送方未来发
+送新数据。在这些条件下，发件方**应该**
+将仍在发送中的任何数据包标记为丢失。
+如果发送方希望保证仍在运行中的数据包送达，
+它可以发送一个ack-eliciting数据包并
+重新设置PTO定时器。
 
+### 丢失检测Detection {#pto-loss}
 
-### Loss Detection {#pto-loss}
+当接收到新确认一个或多个分组的ACK帧时，
+就可以确认传输中的分组的已经送达或丢失。	
 
-Delivery or loss of packets in flight is established when an ACK frame is
-received that newly acknowledges one or more packets.
+PTO计时器到期事件不表示数据包丢失，
+并且**禁止**将先前未确认的数据包标
+记为丢失。当收到新确认数据包的确认时，
+丢包检测按数据包和时间阈值机制的规定
+进行，请参阅 {{ack-loss-detection}}。
 
-A PTO timer expiration event does not indicate packet loss and MUST NOT cause
-prior unacknowledged packets to be marked as lost. When an acknowledgement
-is received that newly acknowledges packets, loss detection proceeds as
-dictated by packet and time threshold mechanisms, see {{ack-loss-detection}}.
+## 讨论{#Discussion}
+大多数常量源自互联网上广泛部署
+的TCP实现中的最佳常见实践。例外
+情况如下。
 
+选择25ms的较短延迟ack时间是因为
+较长的延迟ack可以延迟丢失恢复，
+并且对于发包频率低于每25ms一个包
+的少量连接，对每个包进行ack有利
+于拥塞控制和丢失恢复。
 
-## Discussion
+选择默认的初始RTT为100ms，因为
+它略高于通常在公网上观察
+到的中位数和平均min_rtt。
 
-The majority of constants were derived from best common practices among widely
-deployed TCP implementations on the internet.  Exceptions follow.
+# 拥塞控制 {#congestion-control}
 
-A shorter delayed ack time of 25ms was chosen because longer delayed acks can
-delay loss recovery and for the small number of connections where less than
-packet per 25ms is delivered, acking every packet is beneficial to congestion
-control and loss recovery.
+QUIC的拥塞控制基于TCP NewReno {{?RFC6582}}。
+ NewReno是基于拥塞窗口的拥塞控制。由于
+更精细的控制和适当的字节计数的简易性，QUIC
+以字节而不是数据包指定拥塞窗口
+{{?RFC3465}}。
 
-The default initial RTT of 100ms was chosen because it is slightly higher than
-both the median and mean min_rtt typically observed on the public internet.
+QUIC主机**禁止**发送数据包，如果它们会增加
+可用拥塞窗口之外的bytes_in_flight（在
+附录B.2中定义），除非该数据包是在PTO定
+时器到期后发送的探测数据包，如
+第6.3节所述{{pto}}。
 
+实现可以使用其他拥塞控制算法，例如Cubic
+ {{?RFC8312}}，终端**可以**使用彼此不
+同的算法。 QUIC提供的用于拥塞控制的设计
+是通用的，并且被设计为支持不同的算法。
 
-# Congestion Control {#congestion-control}
+## 显式拥塞通知{#congestion-ecn}
 
-QUIC's congestion control is based on TCP NewReno {{?RFC6582}}.  NewReno is a
-congestion window based congestion control.  QUIC specifies the congestion
-window in bytes rather than packets due to finer control and the ease of
-appropriate byte counting {{?RFC3465}}.
+如果已验证路径支持ECN，则QUIC会把
+IP报头中的Congestion Experienced
+码点作为拥塞信号。本文规定了一个
+当终端收到带有Congestion
+ Experienced码点的数据包时，终端
+的响应，正如{{！RFC8311}}中所讨论的那样，
+允许终端尝试其他响应函数。
 
-QUIC hosts MUST NOT send packets if they would increase bytes_in_flight (defined
-in {{vars-of-interest}}) beyond the available congestion window, unless the
-packet is a probe packet sent after a PTO timer expires, as described in
-{{pto}}.
+## 慢启动 {#Slow Start}
 
-Implementations MAY use other congestion control algorithms, such as
-Cubic {{?RFC8312}}, and endpoints MAY use different algorithms from one another.
-The signals QUIC provides for congestion control are generic and are designed
-to support different algorithms.
+QUIC在开始每个连接时慢启动,在丢失
+或增加ECN-CE计数器时退出慢启动。
+当拥塞窗口小于ssthresh时
+QUIC都会重新进入慢启动，通常只
+发生在ssthresh之后PTO。在慢启动
+时，QUIC会将拥塞窗口的大小增加
+处理每个确认时确认的字节数。
 
-## Explicit Congestion Notification {#congestion-ecn}
-
-If a path has been verified to support ECN, QUIC treats a Congestion Experienced
-codepoint in the IP header as a signal of congestion. This document specifies an
-endpoint's response when its peer receives packets with the Congestion
-Experienced codepoint.  As discussed in {{!RFC8311}}, endpoints are permitted to
-experiment with other response functions.
-
-## Slow Start
-
-QUIC begins every connection in slow start and exits slow start upon loss or
-upon increase in the ECN-CE counter. QUIC re-enters slow start anytime the
-congestion window is less than ssthresh, which typically only occurs after an
-PTO. While in slow start, QUIC increases the congestion window by the number of
-bytes acknowledged when each acknowledgment is processed.
-
-## Congestion Avoidance
-
-Slow start exits to congestion avoidance.  Congestion avoidance in NewReno
-uses an additive increase multiplicative decrease (AIMD) approach that
-increases the congestion window by one maximum packet size per
-congestion window acknowledged.  When a loss is detected, NewReno halves
-the congestion window and sets the slow start threshold to the new
-congestion window.
+## 拥塞避免{#Congestion Avoidance}
+慢启动结束为拥塞避免。 NewReno中的
+拥塞避免使用加法增加乘法减少（AIMD）
+的方法将每个确认的拥塞窗口增加一个
+最大数据包大小.当检测到丢失时，
+NewReno减半拥塞窗口并将慢启动阈值
+设置为新的拥堵窗口。
 
 ## Recovery Period
 
