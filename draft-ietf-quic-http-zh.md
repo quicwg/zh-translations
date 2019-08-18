@@ -256,119 +256,99 @@ of {{!RFC7540}}).
 The considerations discussed in Section 9.1 of {{?RFC7540}} also apply to the
 management of HTTP/3 connections.
 
-# Stream Mapping and Usage {#stream-mapping}
+# 流映射与使用(Stream Mapping and Usage) {#stream-mapping}
 
-A QUIC stream provides reliable in-order delivery of bytes, but makes no
-guarantees about order of delivery with regard to bytes on other streams. On the
-wire, data is framed into QUIC STREAM frames, but this framing is invisible to
-the HTTP framing layer. The transport layer buffers and orders received QUIC
-STREAM frames, exposing the data contained within as a reliable byte stream to
-the application. Although QUIC permits out-of-order delivery within a stream
-HTTP/3 does not make use of this feature.
+QUIC流提供了可靠的按顺序的字节交付，但不能保证其他流上的字节的交付顺序。
+在网络上，数据被框入QUIC STREAM帧，但是这个帧对HTTP帧层是不可见的。
+传输层缓冲区和接收到QUIC流帧的订单，将其中包含的数据作为可靠的字节流公开给应用程序。
+尽管QUIC允许在流HTTP/3中无序交付，但它没有使用这个特性。
 
-QUIC streams can be either unidirectional, carrying data only from initiator to
-receiver, or bidirectional.  Streams can be initiated by either the client or
-the server.  For more detail on QUIC streams, see Section 2 of
-{{QUIC-TRANSPORT}}.
+QUIC流可以是单向的，只携带数据从发起者到接收者，也可以是双向的。
+流可以由客户机或服务器发起。有关QUIC流的更多细节，请参见{{QUIC-TRANSPORT}}。
 
-When HTTP headers and data are sent over QUIC, the QUIC layer handles most of
-the stream management.  HTTP does not need to do any separate multiplexing when
-using QUIC - data sent over a QUIC stream always maps to a particular HTTP
-transaction or connection context.
-
-## Bidirectional Streams
-
-All client-initiated bidirectional streams are used for HTTP requests and
-responses.  A bidirectional stream ensures that the response can be readily
-correlated with the request. This means that the client's first request occurs
-on QUIC stream 0, with subsequent requests on stream 4, 8, and so on. In order
-to permit these streams to open, an HTTP/3 client SHOULD send non-zero values
-for the QUIC transport parameters `initial_max_stream_data_bidi_local`. An
-HTTP/3 server SHOULD send non-zero values for the QUIC transport parameters
-`initial_max_stream_data_bidi_remote` and `initial_max_bidi_streams`. It is
-recommended that `initial_max_bidi_streams` be no smaller than 100, so as to not
-unnecessarily limit parallelism.
-
-These streams carry frames related to the request/response (see
-{{request-response}}). When a stream terminates cleanly, if the last frame on
-the stream was truncated, this MUST be treated as a connection error (see
-HTTP_MALFORMED_FRAME in {{http-error-codes}}).  Streams which terminate abruptly
-may be reset at any point in the frame.
-
-HTTP/3 does not use server-initiated bidirectional streams; clients MUST omit or
-specify a value of zero for the QUIC transport parameter
-`initial_max_bidi_streams`.
+当HTTP头和数据通过QUIC发送时，QUIC层处理大部分流管理。
+使用QUIC时，HTTP不需要进行任何单独的多路
+复用——通过QUIC流发送的数据总是映射到特定的HTTP事务或连接上下文。
 
 
-## Unidirectional Streams
+## 双向流 (Bidirectional Streams)
 
-Unidirectional streams, in either direction, are used for a range of purposes.
-The purpose is indicated by a stream type, which is sent as a variable-length
-integer at the start of the stream. The format and structure of data that
-follows this integer is determined by the stream type.
+所有客户端发起的双向流都用于HTTP请求和响应。
+双向流确保响应可以很容易地与请求关联。
+这意味着客户机的第一个请求发生在QUIC流0上，随后的请求发生在流4、8上，依此类推。
+为了允许这些流打开，HTTP/3客户机应该为QUIC传输参数
+`initial_max_stream_data_bidi_local`发送非零值。
+HTTP/3服务器应该为QUIC传输参数`initial_max_stream_data_bidi_remote`和
+`initial_max_bidi_streams`发送非零值。
+建议`initial_max_bidi_streams`不小于100，以避免不必要地并行性限制。
+
+这些流携带与请求/响应相关的帧(参见{{request-response}})。
+当流干净地终止时，如果流上的最后一帧被截断，则**必须**将此视为连接错误
+(请参阅 {{http-error-codes}}中的HTTP_MALFORMED_FRAME)。
+突然终止的流可以在帧中的任何位置重置。
+
+HTTP/3不使用服务器发起的双向流;客户端**必须**省略
+或为QUIC传输参数`initial_max_bidi_streams`指定一个零值。
+
+
+## 单向流 (Unidirectional Streams)
+
+单向流，无论在哪个方向，都用于一系列的目的。
+目的由流类型表示，该类型在流开始时作为可变长度整数发送。
+遵循该整数的数据的格式和结构由流类型决定。
+
 
 ~~~~~~~~~~ drawing
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream Type (i)                      ...
+|                        流类型(Stream Type) (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
-{: #fig-stream-header title="Unidirectional Stream Header"}
+{: #fig-stream-header title="单向流头(Unidirectional Stream Header)"}
 
-Some stream types are reserved ({{stream-grease}}).  Two stream types are
-defined in this document: control streams ({{control-streams}}) and push streams
-({{push-streams}}).  Other stream types can be defined by extensions to HTTP/3;
-see {{extensions}} for more details.
+一些流类型被保留了({{stream-grease}})。
+本文档定义了两种流类型:控制流({{control-streams}})和推送流({{push-streams}})。
+其他流类型可以通过扩展到HTTP/3来定义;有关详细信息，请参见{{extensions}}。
 
-Both clients and servers SHOULD send a value of three or greater for the QUIC
-transport parameter `initial_max_uni_streams`.
+客户机和服务器都**应该**为QUIC传输参数`initial_max_uni_streams`发送三个或更多的值。
 
-If the stream header indicates a stream type which is not supported by the
-recipient, the remainder of the stream cannot be consumed as the semantics are
-unknown. Recipients of unknown stream types MAY trigger a QUIC STOP_SENDING
-frame with an error code of HTTP_UNKNOWN_STREAM_TYPE, but MUST NOT consider such
-streams to be an error of any kind.
+如果流标头指示接收方不支持的流类型，则不能使用流的其余部分，因为语义未知。
+未知流类型的接收方**可以**使用HTTP_UNKNOWN_STREAM_TYPE错误代码触发
+QUIC STOP_SENDING帧，但**不能**将此类流视为任何类型的错误。
 
-Implementations MAY send stream types before knowing whether the peer supports
-them.  However, stream types which could modify the state or semantics of
-existing protocol components, including QPACK or other extensions, MUST NOT be
-sent until the peer is known to support them.
+实现**可能**在不知道对等方是否支持流类型之前发送流类型。
+但是，在知道对等方支持流类型之前，
+**不能**发送可以修改现有协议组件(包括QPACK或其他扩展)的状态或语义的流类型。
 
-A sender can close or reset a unidirectional stream unless otherwise specified.
-A receiver MUST tolerate unidirectional streams being closed or reset prior to
-the reception of the unidirectional stream header.
 
-###  Control Streams
+除非另有说明，否则发送方可以关闭或重置单向流。
+接收器**必须**容忍单向流在接收单向流标头之前被关闭或重置。
 
-A control stream is indicated by a stream type of `0x00`.  Data on this stream
-consists of HTTP/3 frames, as defined in {{frames}}.
+###  控制流(Control Streams)
 
-Each side MUST initiate a single control stream at the beginning of the
-connection and send its SETTINGS frame as the first frame on this stream.  If
-the first frame of the control stream is any other frame type, this MUST be
-treated as a connection error of type HTTP_MISSING_SETTINGS. Only one control
-stream per peer is permitted; receipt of a second stream which claims to be a
-control stream MUST be treated as a connection error of type
-HTTP_WRONG_STREAM_COUNT.  The sender MUST NOT close the control stream.  If the
-control stream is closed at any point, this MUST be treated as a connection
-error of type HTTP_CLOSED_CRITICAL_STREAM.
+控制流由`0x00`的流类型表示。这个流上的数据由HTTP/3帧组成，如{{frames}}所定义。
 
-A pair of unidirectional streams is used rather than a single bidirectional
-stream.  This allows either peer to send data as soon they are able.  Depending
-on whether 0-RTT is enabled on the connection, either client or server might be
-able to send stream data first after the cryptographic handshake completes.
+每一方**必须**在连接开始时启动一个控制流，并将其SETTINGS帧作为该流上的第一个帧发送。
+如果控制流的第一帧是任何其他帧类型，
+则**必须**将其视为HTTP_MISSING_SETTINGS类型的连接错误。
+每个对端只允许一个控制流;接收声称是控制流的第二个流时，
+**必须**将其视为类型为HTTP_WRONG_STREAM_COUNT的连接错误。发送方**不能**关闭控制流。
+如果控制流在任何时刻关闭，则**必须**将其视为HTTP_CLOSED_CRITICAL_STREAM类型的连接错误。
 
-### Push Streams
+使用一对单向流而不是单个双向流。这使得任何一方都可以尽快发送数据。
+根据是否在连接上启用0-RTT，客户机或服务器都可以在加密握手完成后首先发送流数据。
 
-A push stream is indicated by a stream type of `0x01`, followed by the Push ID
-of the promise that it fulfills, encoded as a variable-length integer. The
-remaining data on this stream consists of HTTP/3 frames, as defined in
-{{frames}}, and fulfills a promised server push.  Server push and Push IDs are
-described in {{server-push}}.
+### 推送流(Push Streams)
 
-Only servers can push; if a server receives a client-initiated push stream, this
-MUST be treated as a stream error of type HTTP_WRONG_STREAM_DIRECTION.
+push流由`0x01`类型的流表示，后面跟着它所实现的承诺的Push ID，
+该ID被编码为一个可变长度整数。
+此流上的其余数据由HTTP/3帧组成，如{{frames}}中定义的那样，并完成一个承诺的服务器推送。
+{{server-push}}描述了服务器推送和Push IDs。
+
+只有服务器可以推送;如果服务器接收到客户机发起的推送流，
+则**必须**将其视为类型为HTTP_WRONG_STREAM_DIRECTI的流错误
+
 
 ~~~~~~~~~~ drawing
  0                   1                   2                   3
@@ -379,24 +359,20 @@ MUST be treated as a stream error of type HTTP_WRONG_STREAM_DIRECTION.
 |                          Push ID (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~~~~~~
-{: #fig-push-stream-header title="Push Stream Header"}
+{: #fig-push-stream-header title="推送流头(Push Stream Header)"}
 
-Each Push ID MUST only be used once in a push stream header. If a push stream
-header includes a Push ID that was used in another push stream header, the
-client MUST treat this as a connection error of type HTTP_DUPLICATE_PUSH.
+每个Push ID**必须**只能在Push流头中使用一次。
+如果一个push流报头包含一个在另一个push流报头中使用的push ID，
+客户端**必须**将其视为HTTP_DUPLICATE_PUSH类型的连接错误。
 
-### Reserved Stream Types {#stream-grease}
+### 保留流类型(Reserved Stream Types) {#stream-grease}
 
-Stream types of the format `0x1f * N + 0x21` for integer values of N are
-reserved to exercise the requirement that unknown types be ignored. These
-streams have no semantics, and can be sent when application-layer padding is
-desired. They MAY also be sent on connections where no data is currently being
-transferred. Endpoints MUST NOT consider these streams to have any meaning upon
-receipt.
+保留格式为`0x1f * N + 0x21`的N的整数值的流类型，以执行忽略未知类型的要求。
+这些流没有语义，可以在需要应用程序层填充时发送。
+它们也**可以**在当前没有传输数据的连接上发送。
+终端在接收时**不能**认为这些流有任何意义。
 
-The payload and length of the stream are selected in any manner the
-implementation chooses.
-
+流的有效负载和长度可以由实现选择的任何方式来选择。
 
 # HTTP帧层(HTTP Framing Layer) {#http-framing-layer}
 
@@ -1032,23 +1008,20 @@ HTTP/3 使用的优先级规则与{{!RFC7540}}章节5.3 中描述的方案类似
 和流一样，占位符也有与其关联的优先级。
 
 
-### Priority Tree Maintenance
+### 优先级树的维护(Priority Tree Maintenance)
 
-Because placeholders will be used to "root" any persistent structure of the tree
-which the client cares about retaining, servers can aggressively prune inactive
-regions from the priority tree. For prioritization purposes, a node in the tree
-is considered "inactive" when the corresponding stream has been closed for at
-least two round-trip times (using any reasonable estimate available on the
-server).  This delay helps mitigate race conditions where the server has pruned
-a node the client believed was still active and used as a Stream Dependency.
+因为占位符将用于作为客户机所关心的用于保持任何树的持久性结构的根，
+服务器可以从优先级树中积极地删除不活动的区域。
+出于优先级的目的，当相应的流被关闭至少两次(使用服务器上可用的任何合理估计)时，
+树中的节点被认为是“非活动的”。
+这种延迟有助于缓解竞争条件，即服务器修剪了客户端认为的仍处于活动状态的节点，
+并将其用作流依赖项。
 
-Specifically, the server MAY at any time:
+具体而言，服务器**可以**在任何时候:
 
-- Identify and discard branches of the tree containing only inactive nodes
-  (i.e. a node with only other inactive nodes as descendants, along with those
-  descendants)
-- Identify and condense interior regions of the tree containing only inactive
-  nodes, allocating weight appropriately
+- 识别并丢弃只包含非活动节点的树的分支(即只包含其他非活动节点的节点及其后代)
+
+- 识别并压缩只包含不活动节点的树的内部区域，并适当地分配权重
 
 ~~~~~~~~~~  drawing
     x                x                 x
@@ -1061,90 +1034,75 @@ Specifically, the server MAY at any time:
     |                |
     A                A
 ~~~~~~~~~~
-{: #fig-pruning title="Example of Priority Tree Pruning"}
+{: #fig-pruning title="优先级树修剪的例子"}
 
-In the example in {{fig-pruning}}, `P` represents a Placeholder, `A` represents
-an active node, and `I` represents an inactive node.  In the first step, the
-server discards two inactive branches (each a single node).  In the second step,
-the server condenses an interior inactive node.  Note that these transformations
-will result in no change in the resources allocated to a particular active
-stream.
+在{{fig-pruning}}中的示例中，`P` 表示占位符，`A` 表示活动节点，`I`表示非活动节点。
+在第一步中，服务器丢弃两个不活动的分支(每个分支都是一个节点)。
+在第二步中，服务器将压缩一个内部非活动节点。
+注意，这些转换不会导致分配给特定活动流的资源发生变化。
+
+客户端**应该**假设服务器正在积极地执行这样的修剪，并且**不应该**声明对它知道已关闭的流的依赖关系。
 
 Clients SHOULD assume the server is actively performing such pruning and SHOULD
 NOT declare a dependency on a stream it knows to have been closed.
 
-## Server Push
+## 服务器推送 (Server Push)
 
-HTTP/3 server push is similar to what is described in HTTP/2 {{!RFC7540}}, but
-uses different mechanisms.
+HTTP/3服务器推送与HTTP/2{{!RFC7540}}中描述的类似，但是使用不同的机制。
 
-Each server push is identified by a unique Push ID. This Push ID is used in a
-single PUSH_PROMISE frame (see {{frame-push-promise}}) which carries the request
-headers, possibly included in one or more DUPLICATE_PUSH frames (see
-{{frame-duplicate-push}}), then included with the push stream which ultimately
-fulfills those promises.
+每个服务器推送由一个唯一的Push ID确认。
+这个Push ID用于单个含有请求头的PUSH_PROMISE帧(参见{{frame-push-promise}}),
+它可能包含在一个或多个DUPLICATE_PUSH帧(见{{frame-duplicate-push}}),
+然后包含在最终实现这些承诺的推送流中。
 
-Server push is only enabled on a connection when a client sends a MAX_PUSH_ID
-frame (see {{frame-max-push-id}}). A server cannot use server push until it
-receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to
-control the number of pushes that a server can promise. A server SHOULD use Push
-IDs sequentially, starting at 0. A client MUST treat receipt of a push stream
-with a Push ID that is greater than the maximum Push ID as a connection error of
-type HTTP_LIMIT_EXCEEDED.
+只有当客户机发送MAX_PUSH_ID帧(参见{{frame-max-push-id}})时，
+服务器推送才会在连接上启用。
+服务器在接收MAX_PUSH_ID帧之前不能使用服务器推送。
+客户机发送额外的MAX_PUSH_ID帧来控制服务器可以承诺的推送数量。
+服务器**应该**顺序使用Push ID，从0开始。
+客户机**必须**将带有大于最大推送ID的推送流的接收视为HTTP_LIMIT_EXCEEDED类型的连接错误。
 
-The header of the request message is carried by a PUSH_PROMISE frame (see
-{{frame-push-promise}}) on the request stream which generated the push. This
-allows the server push to be associated with a client request. Ordering of a
-PUSH_PROMISE in relation to certain parts of the response is important (see
-Section 8.2.1 of {{!RFC7540}}).  Promised requests MUST conform to the
-requirements in Section 8.2 of {{!RFC7540}}.
+请求消息的头由PUSH_PROMISE帧(参见{{frame-push-promise}})在生成推送的请求流上携带。
+这允许服务器推送与客户机请求相关联。PUSH_PROMISE相对于响应的某些部分的排序很重要
+(参见{{!RFC7540}}的8.2.1节)。
+承诺的请求**必须**符合{{!RFC7540}}第8.2节中的要求。
 
-The same server push can be associated with additional client requests using a
-DUPLICATE_PUSH frame (see {{frame-duplicate-push}}).  Ordering of a
-DUPLICATE_PUSH in relation to certain parts of the response is similarly
-important.  Due to reordering, DUPLICATE_PUSH frames can arrive before the
-corresponding PUSH_PROMISE frame, in which case the request headers of the push
-would not be immediately available.  Clients which receive a DUPLICATE_PUSH
-frame for an as-yet-unknown Push ID can either delay generating new requests for
-content referenced following the DUPLICATE_PUSH frame until the request headers
-become available, or can initiate requests for discovered resources and cancel
-the requests if the requested resource is already being pushed.
+同一个服务器推送可以使用一个DUPLICATE_PUSH帧与其他客户机的请求
+关联(参见{{frame-duplicate-push}})。
+与响应的某些部分相关的DUPLICATE_PUSH的排序也同样重要。
+由于重新排序，DUPLICATE_PUSH帧可以在相应的PUSH_PROMISE帧之前到达，
+在这种情况下，push的请求头不会立即可用。
+客户端收取到DUPLICATE_PUSH帧到Push ID可以延迟产生新的要求内容引用DUPLICATE_PUSH帧后,
+直到请求头可用,或者可以启动发现资源的请求和取消请求如果所请求的资源已经被推送。
 
-When a server later fulfills a promise, the server push response is conveyed on
-a push stream (see {{push-streams}}). The push stream identifies the Push ID of
-the promise that it fulfills, then contains a response to the promised request
-using the same format described for responses in {{request-response}}.
+当服务器稍后实现一个承诺时，服务器的推送响应将在一个推送流中传递(参见{{push-streams}})。
+推送流标识它所实现的承诺的Push ID，然后包含对承诺请求的响应，
+使用与{{request-response}}中描述的响应相同的格式。
 
-If a promised server push is not needed by the client, the client SHOULD send a
-CANCEL_PUSH frame. If the push stream is already open or opens after sending the
-CANCEL_PUSH frame, a QUIC STOP_SENDING frame with an appropriate error code can
-also be used (e.g., HTTP_PUSH_REFUSED, HTTP_PUSH_ALREADY_IN_CACHE; see
-{{errors}}). This asks the server not to transfer additional data and indicates
-that it will be discarded upon receipt.
+如果客户端不需要承诺的服务器推送，客户端**应该**发送CANCEL_PUSH帧。
+如果推送流已经打开或者在发送CANCEL_PUSH帧之后打开，
+也可以使用一个带有适当错误代码的QUIC STOP_SENDING帧
+(例如HTTP_PUSH_REFUSED, HTTP_PUSH_ALREADY_IN_CACHE;详情见{{errors}});
+这要求服务器不要传输额外的数据，并表明它将在接收时被丢弃。
 
-# Connection Closure
+# 连接关闭 (Connection Closure)
 
-Once established, an HTTP/3 connection can be used for many requests and
-responses over time until the connection is closed.  Connection closure can
-happen in any of several different ways.
+一旦建立了HTTP/3连接，就可以随着时间的推移对许多请求和响应使用HTTP/3连接，
+直到连接关闭为止。连接关闭可以以几种不同的方式做到。
 
-## Idle Connections
+## 空闲连接 (Idle Connections)
 
-Each QUIC endpoint declares an idle timeout during the handshake.  If the
-connection remains idle (no packets received) for longer than this duration, the
-peer will assume that the connection has been closed.  HTTP/3 implementations
-will need to open a new connection for new requests if the existing connection
-has been idle for longer than the server's advertised idle timeout, and SHOULD
-do so if approaching the idle timeout.
+每个QUIC终端在握手期间声明一个空闲超时。
+如果连接保持空闲(没有接收到数据包)的时间超过此时间，对端将假定连接已关闭。
+HTTP/3的实现将需要为新请求打开一个新连接，
+如果现有连接的空闲时间超过了服务器所声明的空闲超时时间，
+并且在接近空闲超时时**应该**这样做。
 
-HTTP clients are expected to request that the transport keep connections open
-while there are responses outstanding for requests or server pushes, as
-described in Section 19.2 of {{QUIC-TRANSPORT}}. If the client is not expecting
-a response from the server, allowing an idle connection to time out is preferred
-over expending effort maintaining a connection that might not be needed.  A
-gateway MAY maintain connections in anticipation of need rather than incur the
-latency cost of connection establishment to servers. Servers SHOULD NOT actively
-keep connections open.
+如{{QUIC-TRANSPORT}}的第19.2节所述，
+当请求或服务器推送有未完成的响应时，HTTP客户端需要请求传输保持连接打开。
+如果客户机不期望服务器响应，那么允许空闲连接超时比花费精力维护可能不需要的连接更可取。
+网关**可以**在预期需要时保持连接，而不是承担到服务器建立连接的延迟成本。
+服务器**不应**主动保持连接打开。.
 
 ## 连接关闭（Connection Shutdown）
 
