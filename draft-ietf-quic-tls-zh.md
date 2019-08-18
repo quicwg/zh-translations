@@ -805,91 +805,70 @@ Note:
   that included the Retry packet for that property.
 
 
-## AEAD Usage {#aead}
+## AEAD用法(AEAD Usage) {#aead}
 
-The Authentication Encryption with Associated Data (AEAD) {{!AEAD}} function
-used for QUIC packet protection is the AEAD that is negotiated for use with the
-TLS connection.  For example, if TLS is using the TLS_AES_128_GCM_SHA256, the
-AEAD_AES_128_GCM function is used.
+用于QUIC数据包保护的具有关联数据的身份验证加密(AEAD)
+{{!AEAD}}功能是协商以与TLS连接一起使用的AEAD。例如，
+如果TLS使用TLS_AES_128_GCM_SHA256，则使用aead_AES_128_GCM函数。
 
-Packets are protected prior to applying header protection ({{header-protect}}).
-The unprotected packet header is part of the associated data (A).  When removing
-packet protection, an endpoint first removes the header protection.
+在应用报头保护之前对数据包进行保护({{header-protect}})。未受保护的
+数据包报头是关联数据(A)的一部分。当移除数据包保护时，端点首先移除报头保护。
 
-All QUIC packets other than Version Negotiation and Retry packets are protected
-with an AEAD algorithm {{!AEAD}}. Prior to establishing a shared secret, packets
-are protected with AEAD_AES_128_GCM and a key derived from the Destination
-Connection ID in the client's first Initial packet (see {{initial-secrets}}).
-This provides protection against off-path attackers and robustness against QUIC
-version unaware middleboxes, but not against on-path attackers.
+除版本协商和重试分组之外的所有QUIC分组都使用AEAD算法{{!AEAD}}进行保护。
+在建立共享密钥之前，使用aead_aes_128_gcm和从客户端的第一个初始数据包中
+的目标连接ID派生的密钥来保护数据包(参见{{initial-secrets}})。这提供了针对路
+径外攻击者的保护，以及针对QUIC版本无意识中间件的鲁棒性，但不能抵御路径上的攻击者。
 
-QUIC can use any of the ciphersuites defined in {{!TLS13}} with the exception of
-TLS_AES_128_CCM_8_SHA256.  The AEAD for that ciphersuite, AEAD_AES_128_CCM_8
-{{?CCM=RFC6655}}, does not produce a large enough authentication tag for use
-with the header protection designs provided (see {{header-protect}}).  All other
-ciphersuites defined in {{!TLS13}} have a 16-byte authentication tag and produce
-an output 16 bytes larger than their input.
+QUIC可以使用{{!TLS13}}中定义的任何密码套件，但TLS_AES_128_CCM_8_SHA256除外。
+该密码套件的AEAD AEAD_AES_128_CCM_8{{?CCM=RFC6655}}不会产生足够大的认证标签，
+可用于所提供的标头保护设计（参见{{header-protect}}）。{{!TLS13}}中定义的所有其他密码
+套件都有一个16字节的认证标签，产生的输出比输入大16个字节。
 
-The key and IV for the packet are computed as described in {{protection-keys}}.
-The nonce, N, is formed by combining the packet protection IV with the packet
-number.  The 62 bits of the reconstructed QUIC packet number in network byte
-order are left-padded with zeros to the size of the IV.  The exclusive OR of the
-padded packet number and the IV forms the AEAD nonce.
+数据包的密钥和IV按{{protection-keys}}中的描述计算。通过将数据包保护IV与数据包号组合
+来形成随机数N。以网络字节顺序重构的QUIC分组编号的62位用零填充到IV的大小。填充分
+组编号和IV的异或形成AEAD随机数。
 
-The associated data, A, for the AEAD is the contents of the QUIC header,
-starting from the flags byte in either the short or long header, up to and
-including the unprotected packet number.
+AEAD的相关数据A是QUIC报头的内容，从短报头或长报头中的标志字节开始，直到并包括
+不受保护的数据包号。
 
-The input plaintext, P, for the AEAD is the payload of the QUIC packet, as
-described in {{QUIC-TRANSPORT}}.
+AEAD的输入明文P是QUIC包的有效载荷，如{{QUIC-TRANSPORT}}中所述。
 
-The output ciphertext, C, of the AEAD is transmitted in place of P.
+AEAD的输出密文C代替P发送。
 
-Some AEAD functions have limits for how many packets can be encrypted under the
-same key and IV (see for example {{AEBounds}}).  This might be lower than the
-packet number limit.  An endpoint MUST initiate a key update ({{key-update}})
-prior to exceeding any limit set for the AEAD that is in use.
+一些AEAD功能限制了在相同的密钥和IV下可以加密多少个数据包（例如参见{{AEBounds}}）。
+这可能低于数据包数量限制。在超过为正在使用的AEAD设置的任何限制之前，端点**必须**
+启动密钥更新({{key-update}})。
 
 
-## Header Protection {#header-protect}
+## 报头保护(Header Protection) {#header-protect}
 
-Parts of QUIC packet headers, in particular the Packet Number field, are
-protected using a key that is derived separate to the packet protection key and
-IV.  The key derived using the "quic hp" label is used to provide
-confidentiality protection for those fields that are not exposed to on-path
-elements.
+QUIC数据包报头的一部分，特别是数据包编号字段，使用与数据包保护密钥和IV分开导出
+的密钥来保护。使用“quic hp”标签导出的密钥用于为那些不暴露于路径上元素的字段提供
+机密性保护。
 
-This protection applies to the least-significant bits of the first byte, plus
-the Packet Number field.  The four least-significant bits of the first byte are
-protected for packets with long headers; the five least significant bits of the
-first byte are protected for packets with short headers.  For both header forms,
-this covers the reserved bits and the Packet Number Length field; the Key Phase
-bit is also protected for packets with a short header.
+此保护适用于第一个字节的最低有效位以及数据包编号字段。对于具有长报头的数据包，
+第一字节的四个最低有效位受到保护;第一个字节的五个最低有效位受到短标头数据包
+的保护。对于两种报头形式，这包括保留位和分组号长度字段;对于具有短报头的数据
+包，密钥相位位也受到保护。
 
-The same header protection key is used for the duration of the connection, with
-the value not changing after a key update (see {{key-update}}).  This allows
-header protection to be used to protect the key phase.
+在连接期间使用相同的报头保护密钥，密钥更新后值不会改变(参见{{key-update}})。
+这允许使用报头保护来保护密钥阶段。
 
-This process does not apply to Retry or Version Negotiation packets, which do
-not contain a protected payload or any of the fields that are protected by this
-process.
+此过程不适用于重试或版本协商数据包，这些数据包不包含受保护的有效负载或此
+过程保护的任何字段。
 
 
-### Header Protection Application
+### 报头保护应用(Header Protection Application)
 
-Header protection is applied after packet protection is applied (see {{aead}}).
-The ciphertext of the packet is sampled and used as input to an encryption
-algorithm.  The algorithm used depends on the negotiated AEAD.
+报头保护是在应用了数据包保护之后应用的(参见{{aead}})。分组的密文被采样并用作
+加密算法的输入。所使用的算法取决于协商的AEAD。
 
-The output of this algorithm is a 5 byte mask which is applied to the protected
-header fields using exclusive OR.  The least significant bits of the first byte
-of the packet are masked by the least significant bits of the first mask byte,
-and the packet number is masked with the remaining bytes.  Any unused bytes of
-mask that might result from a shorter packet number encoding are unused.
+此算法的输出是5字节掩码，该掩码使用异或应用于受保护的报头字段。分组的第一
+字节的最低有效位被第一掩码字节的最低有效位屏蔽，并且分组编号用剩余字节屏蔽。
+可能由较短的分组号编码产生的任何未使用的掩码字节都是未使用的。
 
-{{pseudo-hp}} shows a sample algorithm for applying header protection. Removing
-header protection only differs in the order in which the packet number length
-(pn_length) is determined.
+{{pseudo-hp}} 显示了应用报头保护的示例算法。移除报头保护仅在确定分组编号长度
+(Pn_Length)的顺序上不同。
 
 ~~~
 mask = header_protection(hp_key, sample)
@@ -905,10 +884,10 @@ else:
 # pn_offset is the start of the Packet Number field.
 packet[pn_offset:pn_offset+pn_length] ^= mask[1:1+pn_length]
 ~~~
-{: #pseudo-hp title="Header Protection Pseudocode"}
+{: #pseudo-hp title="报头保护伪码"}
 
-{{fig-sample}} shows the protected fields of long and short headers marked with
-an E.  {{fig-sample}} also shows the sampled fields.
+{{fig-sample}} 显示了标有E的长标题和短标题的受保护字段。  {{fig-sample}} 还
+显示了采样字段。
 
 ~~~
 Long Header:
@@ -936,16 +915,13 @@ Common Fields:
 |                 Protected Payload Remainder (*)             ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #fig-sample title="Header Protection and Ciphertext Sample"}
+{: #fig-sample title="报头保护和密文样本"}
 
-Before a TLS ciphersuite can be used with QUIC, a header protection algorithm
-MUST be specified for the AEAD used with that ciphersuite.  This document
-defines algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM,
-AEAD_AES_256_CCM (all AES AEADs are defined in {{!AEAD=RFC5116}}), and
-AEAD_CHACHA20_POLY1305 {{!CHACHA=RFC8439}}.  Prior to TLS selecting a
-ciphersuite, AES header protection is used ({{hp-aes}}), matching the
-AEAD_AES_128_GCM packet protection.
-
+在TLS密码组可以与QUIC一起使用之前，必须为与该密码组一起使用的AEAD指定
+报头保护算法。本文档定义了AEAD_AES_128_GCM, AEAD_AES_128_CCM, 
+AEAD_AES_256_GCM,AEAD_AES_256_CCM (所有AES AEAD在{{!AEAD=RFC5116}}中定义)
+和AEAD_CHACHA20_POLY1305 {{!CHACHA=RFC8439}}的算法。在TLS选择密码组之前，
+使用AES报头保护(({{hp-aes}})，匹配AEAD_AES_128_GCM数据包保护。
 
 ### Header Protection Sample {#hp-sample}
 
