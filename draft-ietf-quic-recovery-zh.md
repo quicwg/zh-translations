@@ -480,7 +480,7 @@ CRYPTO帧中的数据对于QUIC传输和加密协商至关重要，因此要使�
 时间段内未收到确认时触发探测数据包。
 PTO使连接能够从丢失尾包或确认中恢复。
 QUIC中使用的PTO算法实现了尾部丢
-失探测{{?TLP = ID.dukkipati-tcpm-tcp-loss-probe}}
+失探测[ID.dukkipati-tcpm-tcp-loss-probe]
  {{?RACK}}，RTO {{?RFC5681}}和F-RTO的可靠性
  功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重
  传超时时间{{?RFC6298}}。
@@ -605,7 +605,7 @@ IP报头中的Congestion Experienced
 码点作为拥塞信号。本文规定了一个
 当终端收到带有Congestion
  Experienced码点的数据包时，终端
-的响应，正如{{！RFC8311}}中所讨论的那样，
+的响应，正如[RFC8311]中所讨论的那样，
 允许终端尝试其他响应函数。
 
 ## 慢启动 {#Slow Start}
@@ -1186,7 +1186,7 @@ kPersistentCongestionThreshold:
 : Number of consecutive PTOs required for persistent congestion to be
   established.  The rationale for this threshold is to enable a sender to use
   initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP)
-  {{TLP}} {{RACK}}, before establishing persistent congestion, as TCP does with
+  [TLP] {{RACK}}, before establishing persistent congestion, as TCP does with
   a Retransmission Timeout (RTO) {{?RFC5681}}.  The RECOMMENDED value for
   kPersistentCongestionThreshold is 2, which is equivalent to having two TLPs
   before an RTO in TCP.

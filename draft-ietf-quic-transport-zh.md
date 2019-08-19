@@ -1271,110 +1271,85 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 {: #tls-0rtt-handshake title="Example 0-RTT Handshake"}
 
 
-## Negotiating Connection IDs {#negotiating-connection-ids}
+## 协商连接IDs （Negotiating Connection IDs） {#negotiating-connection-ids}
 
-A connection ID is used to ensure consistent routing of packets, as described in
-{{connection-id}}.  The long header contains two connection IDs: the Destination
-Connection ID is chosen by the recipient of the packet and is used to provide
-consistent routing; the Source Connection ID is used to set the Destination
-Connection ID used by the peer.
+连接ID用来确保数据包的路由一致性，如 {{connection-id}} 所述。
+长标题包含两种连接ID：目标连接ID是由接收包选中的，用于提供一致的路由;
+源连接ID用于设置对端使用的目标连接ID。
 
-During the handshake, packets with the long header ({{long-header}}) are used to
-establish the connection ID that each endpoint uses.  Each endpoint uses the
-Source Connection ID field to specify the connection ID that is used in the
-Destination Connection ID field of packets being sent to them.  Upon receiving a
-packet, each endpoint sets the Destination Connection ID it sends to match the
-value of the Source Connection ID that they receive.
+在握手过程中，使用长报头({{long-header}})的数据包来建立每个终端使用的连接ID。
+每个终端使用源连接ID字段指定发送给它们的数据包中目标连接ID字段中使用的连接ID。
+在接收到数据包时，每个终端设置它发送的目标连接ID，
+以匹配它们接收到的源连接ID的值。
 
-When an Initial packet is sent by a client which has not previously received a
-Retry packet from the server, it populates the Destination Connection ID field
-with an unpredictable value.  This MUST be at least 8 bytes in length. Until a
-packet is received from the server, the client MUST use the same value unless it
-abandons the connection attempt and starts a new one. The initial Destination
-Connection ID is used to determine packet protection keys for Initial packets.
+当一个初始数据包由之前没有从服务器接收重试数据包的客户机发送时，
+它将用一个不可预知的值填充目标连接ID字段。
+它的长度**必须**至少为8字节。
+在从服务器接收到数据包之前，客户端**必须**使用相同的值，
+除非它放弃连接尝试并启动新的连接。
+初始目标连接ID用于确定初始数据包的包保护密钥。
 
-The client populates the Source Connection ID field with a value of its choosing
-and sets the SCIL field to indicate the length.
+客户端使用其选择的值填充源连接ID字段，并设置SCIL字段来指示长度。
 
-The first flight of 0-RTT packets use the same Destination and Source Connection
-ID values as the client's first Initial.
+0-RTT数据包的第一次传输使用与客户端第一次初始化相同的目标和源连接ID值。
 
-The Destination Connection ID field in the server's Initial packet contains a
-connection ID that is chosen by the recipient of the packet (i.e., the client);
-the Source Connection ID includes the connection ID that the sender of the
-packet wishes to use (see {{connection-id}}). The server MUST use consistent
-Source Connection IDs during the handshake.
+服务器初始数据包中的目标连接ID字段包含由数据包的接收者(比如客户端)选择的连接ID;
+源连接ID包括数据包的发送方希望使用的连接ID(参见 {{connection-id}})。
+服务器在握手期间**必须**使用一致的源连接id。
 
-On first receiving an Initial or Retry packet from the server, the client uses
-the Source Connection ID supplied by the server as the Destination Connection ID
-for subsequent packets, including any subsequent 0-RTT packets.  That means that
-a client might change the Destination Connection ID twice during connection
-establishment, once in response to a Retry and once in response to the first
-Initial packet from the server. Once a client has received an Initial packet
-from the server, it MUST discard any packet it receives with a different Source
-Connection ID.
+在首次从服务器接收初始或重试数据包时，
+客户端使用服务器提供的源连接ID作为后续数据包(包括任何后续0-RTT数据包)的目标连接ID。
+这意味着客户端可能在连接建立期间两次更改目标连接ID，一次是响应重试，
+一次是响应来自服务器的第一个初始数据包。
+一旦客户端从服务器接收到一个初始数据包，
+它**必须**丢弃它接收到的任何具有不同源连接ID的数据包。
 
-A client MUST only change the value it sends in the Destination Connection ID in
-response to the first packet of each type it receives from the server (Retry or
-Initial); a server MUST set its value based on the Initial packet.  Any
-additional changes are not permitted; if subsequent packets of those types
-include a different Source Connection ID, they MUST be discarded.  This avoids
-problems that might arise from stateless processing of multiple Initial packets
-producing different connection IDs.
+客户端**必须**只更改它在目标连接ID中发送的值，
+以响应它从服务器接收到的每种类型的第一个数据包(重试或初始);
+服务器**必须**根据初始数据包设置其值。不允许有任何其他变更;
+如果这些类型的后续数据包包含不同的源连接ID，则它们**必须**被丢弃。
+这避免了对产生不同连接ID的多个初始数据包进行无状态处理时可能出现的问题的发生。
 
-The connection ID can change over the lifetime of a connection, especially in
-response to connection migration ({{migration}}), see {{issue-cid}} for details.
+连接ID可以在连接的生命周期中更改，
+特别是在响应连接迁移时({{migration}})，请参阅{{issue-cid}}了解详细信息。
 
+## 传输参数（Transport Parameters） {#transport-parameters}
 
-## Transport Parameters {#transport-parameters}
+在连接建立期间，两个终端对其传输参数进行身份验证声明。
+这些声明是由每个终端单方面作出的。
+终端必须遵守这些参数隐含的限制;每个参数的描述包括它的处理规则。
 
-During connection establishment, both endpoints make authenticated declarations
-of their transport parameters.  These declarations are made unilaterally by each
-endpoint.  Endpoints are required to comply with the restrictions implied by
-these parameters; the description of each parameter includes rules for its
-handling.
+传输参数的编码详见{{transport-parameter-encoding}}。
 
-The encoding of the transport parameters is detailed in
-{{transport-parameter-encoding}}.
+QUIC包含加密握手中的已编码传输参数。一旦握手完成，对端声明的传输参数就可用了。
+每个终端验证其对端提供的值。
 
-QUIC includes the encoded transport parameters in the cryptographic handshake.
-Once the handshake completes, the transport parameters declared by the peer are
-available.  Each endpoint validates the value provided by its peer.
+每个定义的传输参数的定义都包含在{{transport-parameter-definitions}}中。
+终端**必须**将接收到的具有无效值的传输参数视为
+类型为TRANSPORT_PARAMETER_ERROR的连接错误。
+在给定的传输参数扩展中，任何给定的参数最多只能出现一次。
+终端**必须**将接收到的重复传输参数视为
+类型为TRANSPORT_PARAMETER_ERROR的连接错误。
 
-Definitions for each of the defined transport parameters are included in
-{{transport-parameter-definitions}}.  An endpoint MUST treat receipt of a
-transport parameter with an invalid value as a connection error of type
-TRANSPORT_PARAMETER_ERROR.  Any given parameter MUST appear at most once in a
-given transport parameters extension.  An endpoint MUST treat receipt of
-duplicate transport parameters as a connection error of type
-TRANSPORT_PARAMETER_ERROR.
+如果服务器发送了一个重试包来启用重试的验证，
+如{{packet-retry}}所述，那么它**必须**包含original_connection_id传输参数
+({{transport-parameter-definitions}})，
 
-A server MUST include the original_connection_id transport parameter
-({{transport-parameter-definitions}}) if it sent a Retry packet to enable
-validation of the Retry, as described in {{packet-retry}}.
+### 0-RTT的传输参数值（Values of Transport Parameters for 0-RTT） {#zerortt-parameters}
 
+尝试发送0-RTT数据的客户端**必须**记住服务器使用的传输参数。
+服务器在建立连接期间声明的传输参数适用于由握手期间建立的密钥内容恢复的所有连接。
+已记忆的传输参数将应用于新连接，直至握手完成，并且可以提供来自服务器的新传输参数的时候。
 
-### Values of Transport Parameters for 0-RTT {#zerortt-parameters}
+服务器可以记住它所声明的传输参数，
+或者存储在票据中受完整性保护的值的副本，并在接受0-RTT数据时恢复信息。
+服务器使用传输参数来决定是否接受0-RTT数据。
 
-A client that attempts to send 0-RTT data MUST remember the transport parameters
-used by the server.  The transport parameters that the server advertises during
-connection establishment apply to all connections that are resumed using the
-keying material established during that handshake.  Remembered transport
-parameters apply to the new connection until the handshake completes and new
-transport parameters from the server can be provided.
-
-A server can remember the transport parameters that it advertised, or store an
-integrity-protected copy of the values in the ticket and recover the information
-when accepting 0-RTT data.  A server uses the transport parameters in
-determining whether to accept 0-RTT data.
-
-A server MAY accept 0-RTT and subsequently provide different values for
-transport parameters for use in the new connection.  If 0-RTT data is accepted
-by the server, the server MUST NOT reduce any limits or alter any values that
-might be violated by the client with its 0-RTT data.  In particular, a server
-that accepts 0-RTT data MUST NOT set values for the following parameters
-({{transport-parameter-definitions}}) that are smaller
-than the remembered value of those parameters.
+服务器**可以**接受0-RTT，然后为新连接中使用的传输参数提供不同的值。
+如果服务器接受0-RTT数据，则服务器**不能**减少任何限制，
+也不能更改携带0-RTT数据的客户端可能违反的任何值。
+特别是，接受0-RTT数据的服务器**不能**
+为以下参数({{transport-parameter-definitions}}) 设置小于这些参数已存储的值。
 
 * initial_max_data
 * initial_max_stream_data_bidi_local
@@ -1383,30 +1358,23 @@ than the remembered value of those parameters.
 * initial_max_streams_bidi
 * initial_max_streams_uni
 
-Omitting or setting a zero value for certain transport parameters can result in
-0-RTT data being enabled, but not usable.  The applicable subset of transport
-parameters that permit sending of application data SHOULD be set to non-zero
-values for 0-RTT.  This includes initial_max_data and either
-initial_max_streams_bidi and initial_max_stream_data_bidi_remote, or
-initial_max_streams_uni and initial_max_stream_data_uni.
+省略或设置某些传输参数的零值可能导致启用0-RTT数据，但不可用。
+对于0-RTT，允许发送应用程序数据的传输参数的适用子集**应该**设置为非零值。
+这包括initial_max_data和initial_max_streams_bidi和
+initial_max_stream_data_bidi_remote，或者initial_max_streams_uni
+和initial_max_stream_data_uni。
 
-The value of the server's previous preferred_address MUST NOT be used when
-establishing a new connection; rather, the client should wait to observe the
-server's new preferred_address value in the handshake.
+在建立新连接时，**不能**使用服务器上一个的preferred_address的值;
+相反，客户机应该等待观察在握手时服务器的preferred_address新值。
 
-A server MUST either reject 0-RTT data or abort a handshake if the implied
-values for transport parameters cannot be supported.
+如果传输参数的隐含值不受支持，服务器**必须**要么拒绝0-RTT数据，要么中止握手。
 
+### 新的传输参数（New Transport Parameters）
 
-### New Transport Parameters
+新的传输参数可以用来协商新的协议行为。终端**必须**忽略它不支持的传输参数。
+因此，传输参数的缺少将禁用使用该参数协商的任何可选协议的特性。
 
-New transport parameters can be used to negotiate new protocol behavior.  An
-endpoint MUST ignore transport parameters that it does not support.  Absence of
-a transport parameter therefore disables any optional protocol feature that is
-negotiated using the parameter.
-
-New transport parameters can be registered according to the rules in
-{{iana-transport-parameters}}.
+可以根据{{iana-transport-parameters}}中的规则注册新的传输参数。
 
 
 #地址验证(Address Validation) {#address-validation}
@@ -2252,159 +2220,134 @@ frames in an Initial packet.  If multiple packets are sent, they can be
 coalesced (see {{packet-coalesce}}) to facilitate retransmission.
 
 
-## Stateless Reset {#stateless-reset}
+## 无状态重置(Stateless Reset) {#stateless-reset}
 
-A stateless reset is provided as an option of last resort for an endpoint that
-does not have access to the state of a connection.  A crash or outage might
-result in peers continuing to send data to an endpoint that is unable to
-properly continue the connection.  A stateless reset is not appropriate for
-signaling error conditions.  An endpoint that wishes to communicate a fatal
-connection error MUST use a CONNECTION_CLOSE frame if it has sufficient state
-to do so.
+无状态重置是提供给无法访问连接状态的终端的最后选择。
+崩溃或中断可能导致对端继续向无法继续正常连接的终端发送数据。
+无状态重置不适用于发出错误条件的信号。
+如果终端有足够的状态，则希望通信致命连接错误的终端**必须**使用CONNECTION_CLOSE帧来通信。
 
-To support this process, a token is sent by endpoints.  The token is carried in
-the NEW_CONNECTION_ID frame sent by either peer, and servers can specify the
-stateless_reset_token transport parameter during the handshake (clients cannot
-because their transport parameters don't have confidentiality protection).  This
-value is protected by encryption, so only client and server know this value.
-Tokens are invalidated when their associated connection ID is retired via a
-RETIRE_CONNECTION_ID frame ({{frame-retire-connection-id}}).
 
-An endpoint that receives packets that it cannot process sends a packet in the
-following layout:
+为了支持这个过程，终端发送一个令牌。
+令牌在任一对端发送的NEW_CONNECTION_ID帧中携带，服务器可以在握手期间
+指定stateless_reset_token传输参数(客户机不能，因为它们的传输参数没有机密性保护)。
+此值受加密保护，因此只有客户机和服务器知道此值。
+当令牌的关联连接ID通过RETIRE_CONNECTION_ID帧
+({{frame-retire-connection-id}})停用时，令牌将失效。
+
+
+接收到无法处理的数据包的终端发送数据包的布局如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|0|1|               Unpredictable Bits (182..)                ...
+|0|1|               不可预知的位数  (182..)                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                                                               +
 |                                                               |
-+                   Stateless Reset Token (128)                 +
++       无状态重置令牌(Stateless Reset Token) (128)                 +
 |                                                               |
 +                                                               +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #fig-stateless-reset title="Stateless Reset Packet"}
-
-This design ensures that a stateless reset packet is - to the extent possible -
-indistinguishable from a regular packet with a short header.
-
-A stateless reset uses an entire UDP datagram, starting with the first two bits
-of the packet header.  The remainder of the first byte and an arbitrary number
-of bytes following it that are set to unpredictable values.  The last 16 bytes
-of the datagram contain a Stateless Reset Token.
-
-A stateless reset will be interpreted by a recipient as a packet with a short
-header.  For the packet to appear as valid, the Unpredictable Bits field needs
-to include at least 182 bits of data (or 23 bytes, less the two fixed bits).
-This is intended to allow for a Destination Connection ID of the maximum length
-permitted, with a minimal packet number, and payload.  The Stateless Reset Token
-corresponds to the minimum expansion of the packet protection AEAD.  More
-unpredictable bytes might be necessary if the endpoint could have negotiated a
-packet protection scheme with a larger minimum AEAD expansion.
-
-An endpoint SHOULD NOT send a stateless reset that is significantly larger than
-the packet it receives.  Endpoints MUST discard packets that are too small to be
-valid QUIC packets.  With the set of AEAD functions defined in {{QUIC-TLS}},
-packets that are smaller than 21 bytes are never valid.
-
-An endpoint MAY send a stateless reset in response to a packet with a long
-header.  This would not be effective if the stateless reset token was not yet
-available to a peer.  In this QUIC version, packets with a long header are only
-used during connection establishment.   Because the stateless reset token is not
-available until connection establishment is complete or near completion,
-ignoring an unknown packet with a long header might be more effective.
-
-An endpoint cannot determine the Source Connection ID from a packet with a short
-header, therefore it cannot set the Destination Connection ID in the stateless
-reset packet.  The Destination Connection ID will therefore differ from the
-value used in previous packets.  A random Destination Connection ID makes the
-connection ID appear to be the result of moving to a new connection ID that was
-provided using a NEW_CONNECTION_ID frame ({{frame-new-connection-id}}).
-
-Using a randomized connection ID results in two problems:
-
-* The packet might not reach the peer.  If the Destination Connection ID is
-  critical for routing toward the peer, then this packet could be incorrectly
-  routed.  This might also trigger another Stateless Reset in response, see
-  {{reset-looping}}.  A Stateless Reset that is not correctly routed is
-  an ineffective error detection and recovery mechanism.  In this
-  case, endpoints will need to rely on other methods - such as timers - to
-  detect that the connection has failed.
-
-* The randomly generated connection ID can be used by entities other than the
-  peer to identify this as a potential stateless reset.  An endpoint that
-  occasionally uses different connection IDs might introduce some uncertainty
-  about this.
-
-Finally, the last 16 bytes of the packet are set to the value of the Stateless
-Reset Token.
-
-This stateless reset design is specific to QUIC version 1.  An endpoint that
-supports multiple versions of QUIC needs to generate a stateless reset that will
-be accepted by peers that support any version that the endpoint might support
-(or might have supported prior to losing state).  Designers of new versions of
-QUIC need to be aware of this and either reuse this design, or use a portion of
-the packet other than the last 16 bytes for carrying data.
+{: #fig-stateless-reset title="无状态重置令牌(Stateless Reset Packet)"}
 
 
-### Detecting a Stateless Reset
-
-An endpoint detects a potential stateless reset when a incoming packet
-with a short header either cannot be associated with a connection,
-cannot be decrypted, or is marked as a duplicate packet.  The endpoint
-then compares the last 16 bytes of the packet with the Stateless Reset
-Token provided by its peer, either in a NEW_CONNECTION_ID frame or
-the server's transport parameters.  If these values are identical,
-the endpoint MUST enter the draining period and not send any further
-packets on this connection.  If the comparison fails, the packet can be
-discarded.
+这种设计确保无状态重置包尽可能与具有短报头的常规包没有区别。
 
 
-### Calculating a Stateless Reset Token {#reset-token}
+无状态重置使用整个UDP数据报，从数据包头的前两位开始。
+第一个字节的剩余部分及其后的任意数量的字节被设置为不可预测的值。
+数据报的最后16个字节包含一个无状态重置令牌。
 
-The stateless reset token MUST be difficult to guess.  In order to create a
-Stateless Reset Token, an endpoint could randomly generate {{!RFC4086}} a secret
-for every connection that it creates.  However, this presents a coordination
-problem when there are multiple instances in a cluster or a storage problem for
-an endpoint that might lose state.  Stateless reset specifically exists to
-handle the case where state is lost, so this approach is suboptimal.
 
-A single static key can be used across all connections to the same endpoint by
-generating the proof using a second iteration of a preimage-resistant function
-that takes a static key and the connection ID chosen by the endpoint (see
-{{connection-id}}) as input.  An endpoint could use HMAC {{?RFC2104}} (for
-example, HMAC(static_key, connection_id)) or HKDF {{?RFC5869}} (for example,
-using the static key as input keying material, with the connection ID as salt).
-The output of this function is truncated to 16 bytes to produce the Stateless
-Reset Token for that connection.
+无状态重置将被接收者解释为具有短报头的包。
+要使数据包显示为有效的，不可预测位字段至少需要包含182位数据
+(或23个字节，减去两个固定位)。
+这是为了允许目标连接ID具有最大允许长度、最小包号和有效负载。
+无状态重置令牌对应于包保护AEAD的最小扩展。
+如果终端可以协商使用更大的最小AEAD扩展的包保护方案，则可能需要更多不可预测字节。
 
-An endpoint that loses state can use the same method to generate a valid
-Stateless Reset Token.  The connection ID comes from the packet that the
-endpoint receives.
 
-This design relies on the peer always sending a connection ID in its packets so
-that the endpoint can use the connection ID from a packet to reset the
-connection.  An endpoint that uses this design MUST either use the same
-connection ID length for all connections or encode the length of the connection
-ID such that it can be recovered without state.  In addition, it cannot
-provide a zero-length connection ID.
+终端**不应**发送比其接收的包大得多的无状态重置。
+终端**必须**丢弃太小而不能作为有效的QUIC包的包。
+使用{{QUIC-TLS}}中定义的一组AEAD函数，小于21字节的包永远无效。
 
-Revealing the Stateless Reset Token allows any entity to terminate the
-connection, so a value can only be used once.  This method for choosing the
-Stateless Reset Token means that the combination of connection ID and static key
-cannot occur for another connection.  A denial of service attack is possible if
-the same connection ID is used by instances that share a static key, or if an
-attacker can cause a packet to be routed to an instance that has no state but
-the same static key (see {{reset-oracle}}).  A connection ID from a connection
-that is reset by revealing the Stateless Reset Token cannot be reused for new
-connections at nodes that share a static key.
 
-Note that Stateless Reset packets do not have any cryptographic protection.
+终端**可以**发送无状态重置来响应具有长报头的包。
+如果对端还不能使用无状态重置令牌，则此方法将无效。
+在这个QUIC版本中，只有在建立连接时才使用长报头的数据包。
+由于无状态重置令牌在连接建立完成或接近完成之前不可用，因此忽略具有长报头的未知包可能更有效。
+
+
+终端无法从具有短报头的包中确定源连接ID，因此它无法在无状态重置包中设置目标连接ID。
+因此目标连接ID将与前面包中使用的值不同。
+随机目标连接ID使连接ID看起来是移动到使用NEW_CONNECTION_ID帧
+({{frame-new-connection-id}})提供的新连接ID的结果。
+
+
+使用随机连接ID会导致两个问题:
+
+* 数据包可能无法到达对端。如果目标连接ID对于路由到对端非常重要，
+  则此包可能被错误路由。这还可能触发另一个无状态重置，参见{{reset-looping}}。
+  没有正确路由的无状态重置是无效的错误检测和恢复机制。
+  在这种情况下，端点将需要依赖于其他方法(例如计时器)来检测连接是否失败。
+
+* 随机生成的连接ID可用于对端以外的实体，以将其标识为潜在的无状态重置。
+  偶尔使用不同连接id的终端可能会对此带来一些不确定性。
+
+
+最后，数据包的最后16个字节被设置为无状态重置令牌的值。
+
+
+这种无状态重置设计是特定于QUIC版本1的。
+支持多个QUIC版本的终端需要生成一个无状态重置，
+该重置将被终端可能支持的任何版本(或在丢失状态之前可能已经支持的版本)的对端接受。
+新版本的QUIC的设计者需要意识到这一点，或者重用这个设计，
+或者使用包的一部分而不是最后16个字节来携带数据。
+
+### 检测无状态重置(Detecting a Stateless Reset)
+
+当具有短报头的传入包不能与连接关联、不能被解密或被标记为重复包时，
+终端检测潜在的无状态重置。
+然后，端点将数据包的最后16个字节与它的对端提供的无状态重置令牌
+(在NEW_CONNECTION_ID帧中或服务器的传输参数中)进行比较。
+如果这些值相同，终端**必须**进入耗尽期，并且在此连接上不再发送任何数据包。
+如果比较失败，可以丢弃这些数据包。
+
+
+### 计算无状态重置令牌(Calculating a Stateless Reset Token) {#reset-token}
+
+无状态重置令牌**一定**很难猜测。
+为了创建无状态重置令牌，终端可以为它创建的每个连接随机生成{{!RFC4086}}一个密码。
+然而，当集群中有多个实例或终端的存储问题可能会丢失状态时，就会出现协调问题。
+无状态重置专门用于处理状态丢失的情况，所以这种方法不是最优的。
+
+通过使用抗预映像函数的第二次迭代生成证明，单个静态密钥可用于到同一终端的所有连接，
+该函数将静态键和终端选择的连接ID作为输入(请参见{{connection-id}})。
+终端可以使用HMAC {{?RFC2104}}(例如，HMAC(static_key, connection_id))
+或HKDF {{?RFC5869}}(例如，使用静态密钥作为输入密钥，连接ID作为salt)。
+此函数的输出被截断为16字节，以生成该连接的无状态重置令牌。
+
+丢失状态的终端可以使用相同的方法生成有效的无状态重置令牌。连接ID来自终端接收的包。
+
+这种设计依赖于对端总是在其包中发送连接ID，以便终端可以使用包中的连接ID重置连接。
+使用此设计的终端**必须**对所有连接使用相同的连接ID长度，
+或者对连接ID的长度进行编码，以便可以在没有状态的情况下恢复连接ID。
+此外，它不能提供零长度的连接ID。
+
+
+显示无状态重置令牌允许任何实体终止连接，因此值只能使用一次。
+这种选择无状态重置令牌的方法意味着连接ID和静态密钥的组合不能在另一个连接发生。
+如果共享静态密钥的实例使用相同的连接ID，
+或者如果攻击者可以导致数据包路由到只有相同静态密钥(请参阅{{reset-oracle}})的实例，
+则可能发生拒绝服务攻击。
+通过显示无状态重置令牌重置的连接的连接ID不能用于共享静态密钥的节点上的新连接。
+
+请注意，无状态重置包没有任何加密保护。
 
 
 ###循环(Looping) {#reset-looping}
@@ -3438,138 +3381,122 @@ Packet Number:
   Section 5.4 of {{QUIC-TLS}}. The length of the packet number field is encoded
   in the Packet Number Length bits of byte 0 (see above).
 
-### Version Negotiation Packet {#packet-version}
+### 版本协商包(Version Negotiation Packet) {#packet-version}
 
-A Version Negotiation packet is inherently not version-specific. Upon receipt by
-a client, it will be identified as a Version Negotiation packet based on the
-Version field having a value of 0.
+版本协商包本质上不是特定于版本的。
+客户端收到后，将根据Version字段的值为0将其标识为版本协商包。
 
-The Version Negotiation packet is a response to a client packet that contains a
-version that is not supported by the server, and is only sent by servers.
+版本协商包是对客户机包的响应，
+客户机包包含服务器不支持的版本，并且只由服务器发送。
 
-The layout of a Version Negotiation packet is:
+版本协商包的布局为:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+
-|1|  Unused (7) |
+|1|  未使用位(Unused) (7) |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Version (32)                         |
+|                          版本位(Version) (32)                         |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               目标连接ID(Destination Connection ID) (0/32..144)         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|                 源连接ID(Source Connection ID) (0/32..144)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Supported Version 1 (32)                 ...
+|                    支持的版本1(Supported Version 1) (32)                 ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                   [Supported Version 2 (32)]                ...
+|                   支持的版本2([Supported Version 2 (32)])                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                   [Supported Version N (32)]                ...
+|                   支持的版本N([Supported Version N (32)])                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #version-negotiation-format title="Version Negotiation Packet"}
+{: #version-negotiation-format title="版本协商包(Version Negotiation Packet)"}
 
-The value in the Unused field is selected randomly by the server.
+未使用字段中的值由服务器随机选择。
 
-The Version field of a Version Negotiation packet MUST be set to 0x00000000.
+版本协商包的版本字段**必须**设置为0x00000000。
 
-The server MUST include the value from the Source Connection ID field of the
-packet it receives in the Destination Connection ID field.  The value for Source
-Connection ID MUST be copied from the Destination Connection ID of the received
-packet, which is initially randomly selected by a client.  Echoing both
-connection IDs gives clients some assurance that the server received the packet
-and that the Version Negotiation packet was not generated by an off-path
-attacker.
+服务器**必须**在目标连接ID字段中包含它接收的包的源连接ID字段的值。
+源连接ID的值**必须**从接收包的目标连接ID复制，该包最初是由客户机随机选择的。
+响应这两个连接id可以向客户端保证服务器收到了数据包，
+并且版本协商包不是由偏离路径的攻击者生成的。
 
-The remainder of the Version Negotiation packet is a list of 32-bit versions
-which the server supports.
+版本协商包的其余部分是服务器支持的32位版本列表。
 
-A Version Negotiation packet cannot be explicitly acknowledged in an ACK frame
-by a client.  Receiving another Initial packet implicitly acknowledges a Version
-Negotiation packet.
+版本协商包不能在ACK帧中被客户机显式地确认。
+接收另一个初始包隐式地确认一个版本协商包。
 
-The Version Negotiation packet does not include the Packet Number and Length
-fields present in other packets that use the long header form.  Consequently,
-a Version Negotiation packet consumes an entire UDP datagram.
+版本协商包不包括使用长头表单的其他包中出现的包号和长度字段。
+因此，版本协商包使用整个UDP数据报。
 
-A server MUST NOT send more than one Version Negotiation packet in response to a
-single UDP datagram.
+服务器**禁止**发送多个版本协商包来响应单个UDP数据报。
 
-See {{version-negotiation}} for a description of the version negotiation
-process.
+有关版本协商过程的描述，请参见{{version-negotiation}}。
 
-### Initial Packet {#packet-initial}
+### 初始数据包(Initial Packet) {#packet-initial}
 
-An Initial packet uses long headers with a type value of 0x0.  It carries the
-first CRYPTO frames sent by the client and server to perform key exchange, and
-carries ACKs in either direction.
+初始包使用类型值为0x0的长头。
+它携带客户端和服务器发送的第一个CRYPTO帧来执行密钥交换，并携带两个方向的ACK。
 
 ~~~
 +-+-+-+-+-+-+-+-+
 |1|1| 0 |R R|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                         版本(Version) (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               目标连接ID(Destination Connection ID) (0/32..144)         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|                 源连接ID(Source Connection ID) (0/32..144)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Token Length (i)                    ...
+|                         令牌长度(Token Length) (i)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                            Token (*)                        ...
+|                            令牌(Token) (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                           Length (i)                        ...
+|                           长度(Length) (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Packet Number (8/16/24/32)               ...
+|                    包号(Packet Number) (8/16/24/32)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Payload (*)                        ...
+|                          有效载荷(Payload) (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #initial-format title="Initial Packet"}
+{: #initial-format title="初始数据包(Initial Packet)"}
 
-The Initial packet contains a long header as well as the Length and Packet
-Number fields.  The first byte contains the Reserved and Packet Number Length
-bits.  Between the SCID and Length fields, there are two additional
-field specific to the Initial packet.
+初始包包含一个长报头以及长度和包号字段。
+第一个字节包含保留的和包号长度位。
+在SCID和Length字段之间，有两个特定于初始包的附加字段。
 
-Token Length:
+令牌长度(Token Length):
 
-: A variable-length integer specifying the length of the Token field, in bytes.
-  This value is zero if no token is present.  Initial packets sent by the server
-  MUST set the Token Length field to zero; clients that receive an Initial
-  packet with a non-zero Token Length field MUST either discard the packet or
-  generate a connection error of type PROTOCOL_VIOLATION.
+: 指定令牌字段长度(以字节为单位)为可变长度整数。
+  如果不存在令牌，则此值为零。服务器发送的初始数据包**必须**将令牌长度字段设置为零;
+  接收具有非零令牌长度字段的初始数据包的客户机**必须**丢弃该数据包
+  或生成类型为PROTOCOL_VIOLATION的连接错误。
 
-Token:
+令牌(Token):
 
-: The value of the token that was previously provided in a Retry packet or
-  NEW_TOKEN frame.
+: 令牌的值是由之前的重试包或NEW_TOKEN帧中提供的。
 
-Payload:
+有效载荷(Payload):
 
-: The payload of the packet.
+: 数据包的有效载荷。
 
-In order to prevent tampering by version-unaware middleboxes, Initial packets
-are protected with connection- and version-specific keys (Initial keys) as
-described in {{QUIC-TLS}}.  This protection does not provide confidentiality or
-integrity against on-path attackers, but provides some level of protection
-against off-path attackers.
+为了防止不知道版本的中间件的篡改，
+初始数据包被连接和特定于版本的密钥(初始密钥)保护，如 {{QUIC-TLS}}中所述。
+此保护不提供对路径上攻击者的机密性或完整性的保护，
+但提供了对偏离路径攻击者的某种级别的保护。
 
-The client and server use the Initial packet type for any packet that contains
-an initial cryptographic handshake message. This includes all cases where a new
-packet containing the initial cryptographic message needs to be created, such as
-the packets sent after receiving a Retry packet ({{packet-retry}}).
+客户机和服务器对包含初始加密握手信息的任何包使用初始包类型。
+这包括所有需要创建包含初始加密消息的新包的情况，
+例如接收重试包后发送的包 ({{packet-retry}})。
 
-A server sends its first Initial packet in response to a client Initial.  A
-server may send multiple Initial packets.  The cryptographic key exchange could
-require multiple round trips or retransmissions of this data.
+服务器发送它的第一个初始包作为对客户机初始包的响应。
+服务器可以发送多个初始包。密码的密钥交换可能需要多次往返或重新传输数据。
 
 The payload of an Initial packet includes a CRYPTO frame (or frames) containing
 a cryptographic handshake message, ACK frames, or both.  PADDING and
@@ -4547,148 +4474,125 @@ The first byte in the stream has an offset of 0.  The largest offset delivered
 on a stream - the sum of the offset and data length - MUST be less than 2^62.
 
 
-## MAX_DATA Frame {#frame-max-data}
+## MAX_DATA Frame帧(MAX_DATA Frame) {#frame-max-data}
 
-The MAX_DATA frame (type=0x10) is used in flow control to inform the peer of
-the maximum amount of data that can be sent on the connection as a whole.
+在流控制中使用MAX_DATA帧(类型0x10)来通知对端连接上可以发送的最大数据量。
 
-The MAX_DATA frame is as follows:
-
-~~~
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Maximum Data (i)                     ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-~~~
-
-MAX_DATA frames contain the following fields:
-
-Maximum Data:
-
-: A variable-length integer indicating the maximum amount of data that can be
-  sent on the entire connection, in units of bytes.
-
-All data sent in STREAM frames counts toward this limit.  The sum of the largest
-received offsets on all streams - including streams in terminal states - MUST
-NOT exceed the value advertised by a receiver.  An endpoint MUST terminate a
-connection with a FLOW_CONTROL_ERROR error if it receives more data than the
-maximum data value that it has sent, unless this is a result of a change in
-the initial limits (see {{zerortt-parameters}}).
-
-
-## MAX_STREAM_DATA Frame {#frame-max-stream-data}
-
-The MAX_STREAM_DATA frame (type=0x11) is used in flow control to inform a peer
-of the maximum amount of data that can be sent on a stream.
-
-A MAX_STREAM_DATA frame can be sent for streams in the Recv state (see
-{{stream-send-states}}). Receiving a MAX_STREAM_DATA frame for a
-locally-initiated stream that has not yet been created MUST be treated as a
-connection error of type STREAM_STATE_ERROR.  An endpoint that receives a
-MAX_STREAM_DATA frame for a receive-only stream MUST terminate the connection
-with error STREAM_STATE_ERROR.
-
-The MAX_STREAM_DATA frame is as follows:
+MAX_DATA帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream ID (i)                        ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Maximum Stream Data (i)                  ...
+|                       最大数据位数(Maximum Data) (i)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-MAX_STREAM_DATA frames contain the following fields:
+MAX_DATA帧包含以下字段:
 
-Stream ID:
+最大数据量(Maximum Data):
+  一个可变长度整数，以字节为单位，指示在整个连接上可以发送的最大数据量。
 
-: The stream ID of the stream that is affected encoded as a variable-length
-  integer.
-
-Maximum Stream Data:
-
-: A variable-length integer indicating the maximum amount of data that can be
-  sent on the identified stream, in units of bytes.
-
-When counting data toward this limit, an endpoint accounts for the largest
-received offset of data that is sent or received on the stream.  Loss or
-reordering can mean that the largest received offset on a stream can be greater
-than the total size of data received on that stream.  Receiving STREAM frames
-might not increase the largest received offset.
-
-The data sent on a stream MUST NOT exceed the largest maximum stream data value
-advertised by the receiver.  An endpoint MUST terminate a connection with a
-FLOW_CONTROL_ERROR error if it receives more data than the largest maximum
-stream data that it has sent for the affected stream, unless this is a result of
-a change in the initial limits (see {{zerortt-parameters}}).
+所有在STREAM帧中发送的数据都算下来都小于这个极限。所有流(包括处于终端状态的流)
+上接收到的最大偏移量的总和**不得**超过接收方公布的值。
+如果终端接收到的数据超过其发送的最大数据值，
+则**必须**使用FLOW_CONTROL_ERROR错误终止连接，
+除非这是初始限制更改的结果(请参阅{{zerortt-parameters}})。
 
 
-## MAX_STREAMS Frames {#frame-max-streams}
+## MAX_STREAM_DATA帧 (MAX_STREAM_DATA Frame) {#frame-max-stream-data}
 
-The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the cumulative
-number of streams of a given type it is permitted to open.  A MAX_STREAMS frame
-with a type of 0x12 applies to bidirectional streams, and a MAX_STREAMS frame
-with a type of 0x13 applies to unidirectional streams.
+在流控制中使用MAX_STREAM_DATA帧(类型=0x11)来通知对端在流上可以发送的最大数据量。
 
-The MAX_STREAMS frames are as follows:
+处于Recv状态的流可以发送MAX_STREAM_DATA帧(参见{{stream-send-states}})。
+为尚未创建的本地发起的流接收MAX_STREAM_DATA帧**必须**被视为类型
+为STREAM_STATE_ERROR的连接错误。
+为仅接收流接收MAX_STREAM_DATA帧的终端**必须**使用错误STREAM_STATE_ERROR终止连接。
+
+MAX_STREAM_DATA帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Maximum Streams (i)                     ...
+|                       流ID(Stream ID) (i)                        ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                   最大的流数据(Maximum Stream Data)(i)                  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-MAX_STREAMS frames contain the following fields:
+MAX_STREAM_DATA帧包含以下字段:
 
-Maximum Streams:
+流ID (Stream ID):
 
-: A count of the cumulative number of streams of the corresponding type that
-  can be opened over the lifetime of the connection.
+: 受影响的流的流ID编码为可变长度整数。
 
-Loss or reordering can cause a MAX_STREAMS frame to be received which states a
-lower stream limit than an endpoint has previously received.  MAX_STREAMS frames
-which do not increase the stream limit MUST be ignored.
+最大的流数据 (Maximum Stream Data):
 
-An endpoint MUST NOT open more streams than permitted by the current stream
-limit set by its peer.  For instance, a server that receives a unidirectional
-stream limit of 3 is permitted to open stream 3, 7, and 11, but not stream 15.
-An endpoint MUST terminate a connection with a STREAM_LIMIT_ERROR error if a
-peer opens more streams than was permitted.
+: 一种可变长度整数，以字节为单位，指示可在标识的流上发送的最大数据量。
 
-Note that these frames (and the corresponding transport parameters) do not
-describe the number of streams that can be opened concurrently.  The limit
-includes streams that have been closed as well as those that are open.
+当将数据计数到这个极限时，终端占有流上发送或接收的数据的最大接收偏移量。
+丢失或重新排序可能意味着流上接收到的最大偏移量可能大于该流上接收到的数据的总大小。
+接收STREAM帧可能不会增加最大的接收偏移量。
+
+在流上发送的数据**不能**超过接收方公布的最大的最大流数据值。
+如果终端接收到的数据多于它为受影响的流发送的最大最大流数据值，
+则必须使用FLOW_CONTROL_ERROR错误终止连接，
+除非这是初始限制更改的结果(请参见{{zerortt-parameters}})。
 
 
-## DATA_BLOCKED Frame {#frame-data-blocked}
+## MAX_STREAMS(MAX_STREAMS Frames) {#frame-max-streams}
 
-A sender SHOULD send a DATA_BLOCKED frame (type=0x14) when it wishes to send
-data, but is unable to due to connection-level flow control (see
-{{flow-control}}).  DATA_BLOCKED frames can be used as input to tuning of flow
-control algorithms (see {{fc-credit}}).
+MAX_STREAMS帧(类型为0x12和0x13)通知对端打开允许的给定类型的流的累计数量。
+类型为0x12的MAX_STREAMS帧应用于双向流，类型为0x13的MAX_STREAMS帧应用于单向流。
 
-The DATA_BLOCKED frame is as follows:
+MAX_STREAMS帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Data Limit (i)                        ...
+|                     最大流(Maximum Streams) (i)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-DATA_BLOCKED frames contain the following fields:
+MAX_STREAMS帧包含以下字段:
 
-Data Limit:
+最大流(Maximum Streams):
 
-: A variable-length integer indicating the connection-level limit at which
-  blocking occurred.
+: 在连接的生存期内可以打开的相应类型的流的累计数量的计数。
 
+丢失或重新排序可能导致接收声明流限制低于终端之前接收到的流限制MAX_STREAMS帧。
+不增加流限制的MAX_STREAMS帧**必须**被忽略。
+
+终端打开的流**不能**超过其对端设置的当前流限制。
+例如，接收单向流限制为3的服务器可以打开流3、7和11，但不能打开流15。
+如果对端打开多于允许的流数，终端**必须**使用STREAM_LIMIT_ERROR错误终止连接。
+
+注意，这些帧(以及相应的传输参数)并不描述可以并发打开的流的数量。
+这流数的限制包括已关闭的流和已打开的流。
+
+## DATA_BLOCKED帧(DATA_BLOCKED Frame) {#frame-data-blocked}
+
+当发送方希望发送数据但由于连接级流控制而无法发送数据时(参见{{flow-control}})，
+它**应该**发送DATA_BLOCKED帧(类型=0x14)。
+DATA_BLOCKED帧可以用作流控制算法调优的输入(参见{{fc-credit}})。
+
+DATA_BLOCKED帧如下:
+
+~~~
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       数据限制(Data Limit) (i)                        ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~
+
+DATA_BLOCKED帧包含以下字段:
+
+数据限制(Data Limit):
+
+: 一个可变长度整数，指示发生阻塞时的连接级别限制。
 
 ## 流数据阻塞帧(STREAM_DATA_BLOCKED Frame) {#frame-stream-data-blocked}
 

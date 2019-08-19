@@ -191,177 +191,137 @@ input header list.
 QPACK is designed to contain the more complex state tracking to the encoder,
 while the decoder is relatively simple.
 
-### Reference Tracking
 
-An encoder MUST ensure that a header block which references a dynamic table
-entry is not received by the decoder after the referenced entry has been
-evicted.  Hence the encoder needs to track information about each compressed
-header block that references the dynamic table until that header block is
-acknowledged by the decoder.
+### 引用追踪 (Reference Tracking)
 
-### Blocked Dynamic Table Insertions {#blocked-insertion}
+编码器**必须**确保引用动态表项的报头块在被引用的条目删除后不会被解码器接收。
+因此，编码器需要跟踪关于引用动态表的每个压缩报头块的信息，直到解码器确认该报头块为止。
 
-An encoder MUST NOT insert an entry into the dynamic table (or duplicate an
-existing entry) if doing so would evict an entry with unacknowledged references.
-For header blocks that might rely on the newly added entry, the encoder can use
-a literal representation.
+### 阻塞动态表插入 (Blocked Dynamic Table Insertions) {#blocked-insertion}
 
-To ensure that the encoder is not prevented from adding new entries, the encoder
-can avoid referencing entries that are close to eviction.  Rather than
-reference such an entry, the encoder can emit a Duplicate instruction (see
-{{duplicate}}), and reference the duplicate instead.
+如果这样做会删除具有未确认引用的条目，编码器**不得**将条目插入动态表(或复制现有条目)。
+对于可能依赖于新添加条目的报头块，编码器可以使用文字表示。
 
-Determining which entries are too close to eviction to reference is an encoder
-preference.  One heuristic is to target a fixed amount of available space in the
-dynamic table: either unused space or space that can be reclaimed by evicting
-unreferenced entries.  To achieve this, the encoder can maintain a draining
-index, which is the smallest absolute index in the dynamic table that it will
-emit a reference for.  As new entries are inserted, the encoder increases the
-draining index to maintain the section of the table that it will not reference.
-If the encoder does not create new references to entries with an absolute index
-lower than the draining index, the number of unacknowledged references to those
-entries will eventually become zero, allowing them to be evicted.
+为了确保编码器不被阻止添加新条目，编码器可以避免引用接近于删除的条目。
+编码器可以发出一条重复的指令(参见{{duplicate}})，
+而不是引用这样的条目，并引用重复的指令。
+
+确定哪些条目太接近于删除而不能引用是编码器的优先项。
+一种启发式方法是针对动态表中的固定数量的可用空间:
+要么是未使用的空间，要么是可以通过删除未引用的条目来回收的空间。
+为了实现这一点，编码器可以维护一个耗尽索引，这是动态表中最小的可以发出一个引用的绝对索引。
+当插入新条目时，编码器会增加耗尽索引，以维护表中它不会引用的部分。
+如果编码器没有创建对绝对索引低于耗尽索引的条目的新引用，
+那么对这些条目的未确认引用的数量最终将变为零，从而允许将它们清除。
+
 
 ~~~~~~~~~~  drawing
    +----------+---------------------------------+--------+
-   | Draining |          Referenceable          | Unused |
-   | Entries  |             Entries             | Space  |
+   | 耗尽 |          可引用的          | 未使用的 |
+   | 索引 |           条目             | 空间  |
    +----------+---------------------------------+--------+
    ^          ^                                 ^
    |          |                                 |
- Dropping    Draining Index               Insertion Point
-  Point
+  插入    耗尽索引               插入点
+  节点
 ~~~~~~~~~~
-{:#fig-draining-index title="Draining Dynamic Table Entries"}
+{:#fig-draining-index title="耗尽动态表项(Draining Dynamic Table Entries)"}
+
+### 避免报头块阻塞 (Avoiding Head-of-Line Blocking) {#overview-hol-avoidance}
+
+由于QUIC不保证不同流上数据之间的顺序，因此报头块可能引用尚未接收到的动态表中的条目。
+
+每个报头块包含一个所需的插入计数，这是可以解码报头块的插入计数的最小可能值。
+对于引用动态表的报头块，所需的插入计数比所有引用的动态表条目的最大绝对索引大1。
+对于没有引用动态表的报头块，所需的插入计数为零。
+
+如果解码器遇到一个报头块，其所需的插入计数值大于上面定义的值，
+它**可以**将其视为HTTP_QPACK_DECOMPRESSION_FAILED类型的流错误。
+如果解码器遇到一个报头块，其所需的插入计数值小于上面定义的值，
+它**必须**将其视为HTTP_QPACK_DECOMPRESSION_FAILED类型的流错误，
+如{{invalid-references}}所述。
+
+当所需的插入计数为零时，帧不包含对动态表的引用，并且总是可以立即处理。
+
+如果所需的插入计数大于接收到的动态表条目的数量，则认为流是“阻塞的”。
+在被阻塞时，报头块数据**应**保留在被阻塞流的流控制窗口中。
+当插入计数大于或等于解码器已从流中读取的所有报头块所需的插入计数时，流将被解除阻塞。
+
+SETTINGS_QPACK_BLOCKED_STREAMS设置(参见{{configuration})
+指定了可以阻塞的流数量的上限。
+编码器**必须**始终将可能被阻塞的流的数量限制为SETTINGS_QPACK_BLOCKED_STREAMS的值。
+注意，解码器可能不会在每个可能被阻塞的流上都被阻塞。
+如果解码器遇到比它承诺支持的更多的阻塞流，
+它**必须**将此视为类型为HTTP_QPACK_DECOMPRESSION_FAILED的流错误。
+
+编码器可以决定是否接收一个有被阻塞的风险的流。
+如果SETTINGS_QPACK_BLOCKED_STREAMS的值允许，
+通常可以通过引用仍然在传输中的动态表条目来提高压缩效率，
+但是如果出现丢失或重新排序流，则可以在解码器上阻塞流。
+通过只引用已确认的动态表项，编码器可以避免阻塞的风险，但这可能意味着使用文字。
+由于字面值使报头块更大，这可能导致编码器在拥塞或流控制限制下被阻塞。
+
+### 已知接收计数器 (Known Received Count)
+
+为了确定哪些动态表条目可以安全地使用而不会阻塞流，编码器跟踪解码器接收到的条目数量。
+已知接收计数跟踪已确认插入的总数。
+
+当允许阻塞引用时，编码器使用报头块确认来维护已知的接收计数，
+如{{header-acknowledgement}}所述。
+
+为了确认报头块没有引用的动态表条目，例如因为编码器或解码器选择不冒阻塞流的风险，
+解码器发送一条Insert Count Increment指令(参见{{insert-count-increment}})。
+
+## 解码器 (Decoder)
+
+与在HPACK中一样，解码器处理报报头块并发出相应的报头列表。
+它还处理来自解码器流上接收的编码器指令的动态表修改。
+
+解码器**必须**按照其出现在输入头块中出现的顺序发出报头字段。
 
 
-### Avoiding Head-of-Line Blocking {#overview-hol-avoidance}
+### 状态同步 (State Synchronization)
 
-Because QUIC does not guarantee order between data on different streams, a
-header block might reference an entry in the dynamic table that has not yet been
-received.
+解码器指令({{decoder-instructions}})中解码器上的信号关键事件，
+允许编码器跟踪解码器的状态。这些事件包括:
 
-Each header block contains a Required Insert Count, the lowest possible value
-for the Insert Count with which the header block can be decoded. For a header
-block with references to the dynamic table, the Required Insert Count is one
-larger than the largest Absolute Index of all referenced dynamic table
-entries. For a header block with no references to the dynamic table, the
-Required Insert Count is zero.
+- 完整的报头块处理
+- 可能具有剩余报头块的流的丢弃
+- 新的动态表条目的接收
 
-If the decoder encounters a header block with a Required Insert Count value
-larger than defined above, it MAY treat this as a stream error of type
-HTTP_QPACK_DECOMPRESSION_FAILED.  If the decoder encounters a header block with
-a Required Insert Count value smaller than defined above, it MUST treat this as
-a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED as prescribed in
-{{invalid-references}}.
+了解到已经处理了包含对动态表的引用的报头块，就允许编码器将不存在未确认引用的条目删除，
+而不管这些引用是否可能被阻塞(参见{{blocked-insertion}})。
+当流被重置或放弃时，表示这些头块将永远不会被处理的指示也有类似的作用;
 
-When the Required Insert Count is zero, the frame contains no references to the
-dynamic table and can always be processed immediately.
+解码器选择何时发出插入计数增量指令(参见{{insert-count-increment})。
+在添加每个新的动态表条目后发出一条指令，这将向编码器提供最及时的反馈，
+但与其他解码器的反馈一起可能是冗余的。
+通过延迟插入计数增量指令，解码器可能能够合并多个插入计数增量指令，
+或者用报头确认完全替换它们(参见{{header-acknowledgement}})。
+但是，如果编码器在使用条目之前等待条目被确认，那么延迟太长可能会导致压缩效率低下。
 
-If the Required Insert Count is greater than the number of dynamic table entries
-received, the stream is considered "blocked."  While blocked, header field data
-SHOULD remain in the blocked stream's flow control window.  A stream becomes
-unblocked when the Insert Count becomes greater than or equal to the Required
-Insert Count for all header blocks the decoder has started reading from the
-stream.
-
-The SETTINGS_QPACK_BLOCKED_STREAMS setting (see {{configuration}}) specifies an
-upper bound on the number of streams which can be blocked. An encoder MUST limit
-the number of streams which could become blocked to the value of
-SETTINGS_QPACK_BLOCKED_STREAMS at all times. Note that the decoder might not
-actually become blocked on every stream which risks becoming blocked.  If the
-decoder encounters more blocked streams than it promised to support, it MUST
-treat this as a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.
-
-An encoder can decide whether to risk having a stream become blocked. If
-permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS, compression efficiency
-can often be improved by referencing dynamic table entries that are still in
-transit, but if there is loss or reordering the stream can become blocked at the
-decoder.  An encoder avoids the risk of blocking by only referencing dynamic
-table entries which have been acknowledged, but this could mean using
-literals. Since literals make the header block larger, this can result in the
-encoder becoming blocked on congestion or flow control limits.
-
-### Known Received Count
-
-In order to identify which dynamic table entries can be safely used without a
-stream becoming blocked, the encoder tracks the number of entries received by
-the decoder.  The Known Received Count tracks the total number of acknowledged
-insertions.
-
-When blocking references are permitted, the encoder uses header block
-acknowledgement to maintain the Known Received Count, as described in
-{{header-acknowledgement}}.
-
-To acknowledge dynamic table entries which are not referenced by header blocks,
-for example because the encoder or the decoder have chosen not to risk blocked
-streams, the decoder sends an Insert Count Increment instruction (see
-{{insert-count-increment}}).
-
-
-## Decoder
-
-As in HPACK, the decoder processes header blocks and emits the corresponding
-header lists. It also processes dynamic table modifications from encoder
-instructions received on the encoder stream.
-
-The decoder MUST emit header fields in the order their representations appear in
-the input header block.
-
-
-### State Synchronization
-
-The decoder instructions ({{decoder-instructions}}) signal key events at the
-decoder that permit the encoder to track the decoder's state.  These events are:
-
-- Complete processing of a header block
-- Abandonment of a stream which might have remaining header blocks
-- Receipt of new dynamic table entries
-
-Knowledge that a header block with references to the dynamic table has been
-processed permits the encoder to evict entries to which no unacknowledged
-references remain, regardless of whether those references were potentially
-blocking (see {{blocked-insertion}}).  When a stream is reset or abandoned, the
-indication that these header blocks will never be processed serves a similar
-function; see {{stream-cancellation}}.
-
-The decoder chooses when to emit Insert Count Increment instructions (see
-{{insert-count-increment}}). Emitting an instruction after adding each new
-dynamic table entry will provide the most timely feedback to the encoder, but
-could be redundant with other decoder feedback. By delaying an Insert Count
-Increment instruction, the decoder might be able to coalesce multiple Insert
-Count Increment instructions, or replace them entirely with Header
-Acknowledgements (see {{header-acknowledgement}}). However, delaying too long
-may lead to compression inefficiencies if the encoder waits for an entry to be
-acknowledged before using it.
 
 ### 阻塞解码(Blocked Decoding)
 
-每个流中要求插入的计数值可以用于跟踪阻塞的流。
-每当解码器处理表更新时，它就
+每个流中要求插入的计数值可以用于跟踪阻塞的流。每当解码器处理表更新时，它就
 可以开始解码任何现在满足其相关性的阻塞流。
 
 
 # 头部表(Header Tables)
 
-与HPACK不同，QPACK静态表和动态表中的条目分别
-寻址。以下各节介绍如何对每个表中
+与HPACK不同，QPACK静态表和动态表中的条目分别寻址。以下各节介绍如何对每个表中
 的条目进行寻址。
 
 ## 静态表（Static Table） {#table-static}
 
-静态表由预定义的报头字段的静态列表组成，每个字段
-随时间的推移都具有固定的索引。
+静态表由预定义的报头字段的静态列表组成，每个字段随时间的推移都具有固定的索引。
 其条目在{{static-table}}中定义。
 
 注意，QPACK静态表是从0索引的，而HPACK静态表是从1索引的。
 
-当解码器在报头块指令中遇到无效的静态表索引时，
-它**必须**将其视为类型为
-`HTTP_QPACK_DECOMPRESSION_FAILED`的流错误。
-如果在编码器流上收到此索引，
-则必须将其视为`HTTP_QPACK_ENCODER_STREAM_ERROR`
-类型的连接错误。
+当解码器在报头块指令中遇到无效的静态表索引时，它**必须**将其视为类型为
+`HTTP_QPACK_DECOMPRESSION_FAILED`的流错误。如果在编码器流上收到此索引，
+则必须将其视为`HTTP_QPACK_ENCODER_STREAM_ERROR`类型的连接错误。
 
 ## 动态表（Dynamic Table） {#table-dynamic}
 
@@ -387,76 +347,52 @@ acknowledged before using it.
 
 编码器设置动态表的容量，作为其大小的上限。动态表的初始容量为零。
 
-在将新条目添加到动态表之前，将从动态表的末尾
-逐出条目，直到动态表的大小于
-或等于(表容量-新条目的大小)或直到表为空。
-除非解码器首先确认了动态表条目，
+在将新条目添加到动态表之前，将从动态表的末尾逐出条目，直到动态表的大小于
+或等于(表容量-新条目的大小)或直到表为空。除非解码器首先确认了动态表条目，
 否则编码器**禁止**将其逐出。
 
-如果新条目的大小小于或等于动态表容量，则该条
-目将添加到表中。如果编码器
-试图添加大于动态表容量的条目，则视为错误；解
-码器必须将此视为`HTTP_QPACK_ENCODER_STREAM_ERROR`
-类型的连接错误。
+如果新条目的大小小于或等于动态表容量，则该条目将添加到表中。如果编码器
+试图添加大于动态表容量的条目，则视为错误；解码器必须将此视为
+`HTTP_QPACK_ENCODER_STREAM_ERROR`类型的连接错误。
 
-新条目可以引用动态表中的条目，在将此新条目
-添加到动态表中时，该条目将被逐出。
-如果在插入新条目之前将引用的条目从动态表中
-逐出，则应注意实现以避免删除引用
+新条目可以引用动态表中的条目，在将此新条目添加到动态表中时，该条目将被逐出。
+如果在插入新条目之前将引用的条目从动态表中逐出，则应注意实现以避免删除引用
 的名称或值。
 
-每当动态表容量被编码器减小时，条目从动态
-表的末尾被逐出，直到动态表的大小于
-或等于新的表容量。通过将容量设置为0，可
-以使用此机制完全清除动态表中的条目，
+每当动态表容量被编码器减小时，条目从动态表的末尾被逐出，直到动态表的大小于
+或等于新的表容量。通过将容量设置为0，可以使用此机制完全清除动态表中的条目，
 随后可以恢复该容量。
 
 ### 最大动态表容量（Maximum Dynamic Table Capacity）
 
-为了限制解码器的内存要求，解码器限制了允
-许编码器为动态表容量设置的最大值。在
-HTTP/3中，此限制由解码器发
-送的SETTINGS_QPACK_MAX_TABLE_CAPACITY的值确定
-(请参阅{{configuration}})。编码器不能
-设置超过此最大值的动态表容量，但它可以
-选择使用较低的动态表容量
-(请参见{{set-dynamic-capacity}})。
+为了限制解码器的内存要求，解码器限制了允许编码器为动态表容量设置的最大值。在
+HTTP/3中，此限制由解码器发送的SETTINGS_QPACK_MAX_TABLE_CAPACITY的值确定
+(请参阅{{configuration}})。编码器不能设置超过此最大值的动态表容量，但它可以
+选择使用较低的动态表容量(请参见{{set-dynamic-capacity}})。
 
-对于使用HTTP/3中的0-RTT数据的客户端，服
-务器的最大表容量是设置的记忆值，如果该值
-以前未发送，则为零。当客户端的设置的0-RTT
-值为0时，服务器可以在其SETTINGS帧中将
-其设置为非零值。如果记住的值为非零，则服务
-器必须在其SETTINGS帧中发送相同的非零值。
-如果它指定了任何其他值，或者在SETTINGS帧中
-忽略了SETTINGS_QPACK_MAX_TABLE_CAPACITY，
-编码器必须将其视为`HTTP_QPACK_DECODER_STREAM_ERROR`
-类型的连接错误。
+对于使用HTTP/3中的0-RTT数据的客户端，服务器的最大表容量是设置的记忆值，如果该值
+以前未发送，则为零。当客户端的设置的0-RTT值为0时，服务器可以在其SETTINGS帧中将
+其设置为非零值。如果记住的值为非零，则服务器必须在其SETTINGS帧中发送相同的非零值。
+如果它指定了任何其他值，或者在SETTINGS帧中忽略了SETTINGS_QPACK_MAX_TABLE_CAPACITY，
+编码器必须将其视为`HTTP_QPACK_DECODER_STREAM_ERROR`类型的连接错误。
 
-当0-RTT未到达或被拒绝时，对于HTTP/3服务器
-和HTTP/3客户端，最大表容量为0，直到
-编码器处理具有非零
-值SETTINGS_QPACK_MAX_TABLE_CAPACITY的SETTINGS帧。
+当0-RTT未到达或被拒绝时，对于HTTP/3服务器和HTTP/3客户端，最大表容量为0，直到
+编码器处理具有非零值SETTINGS_QPACK_MAX_TABLE_CAPACITY的SETTINGS帧。
 
-当最大表容量为0时，编码器不能向动态表中插入
-条目，也**禁止**在编码器流上发送任何
+当最大表容量为0时，编码器不能向动态表中插入条目，也**禁止**在编码器流上发送任何
 编码器指令。
 
 ### 绝对索引（Absolute Indexing） {#indexing}
 
-每个条目都具有为该条目的生存期固定的绝
-对索引和根据引用的上下文而改变的相对索引。
-插入的第一个条目具有绝对索引“0”；索引随
-着每次插入而增加1。
+每个条目都具有为该条目的生存期固定的绝对索引和根据引用的上下文而改变的相对索引。
+插入的第一个条目具有绝对索引“0”；索引随着每次插入而增加1。
 
 ### 相对索引（Relative Indexing）
 
-相对索引从零开始，在与绝对索引相反的方向
-上增加。确定哪个条目具有相对索引“0”取决于
+相对索引从零开始，在与绝对索引相反的方向上增加。确定哪个条目具有相对索引“0”取决于
 引用的上下文。
 
-在编码器指令中，相对索引“0”总是指动态表
-中最近插入的值。请注意，这意味着在解释编码
+在编码器指令中，相对索引“0”总是指动态表中最近插入的值。请注意，这意味着在解释编码
 器流上的指令时，给定相对索引引用的条目将发生更改。
 
 ~~~~~ drawing
@@ -474,14 +410,11 @@ d = 已删除的条目计数
 ~~~~~
 {: title="动态表索引-控制流示例"}
 
-与编码器指令不同，标头块指令中的相对索引相对
-于标头块开始处的基索引
-(请参见{{header-prefix}})。这确保了即使在
-解码报头块时更新了动态表，引用也是
+与编码器指令不同，标头块指令中的相对索引相对于标头块开始处的基索引
+(请参见{{header-prefix}})。这确保了即使在解码报头块时更新了动态表，引用也是
 稳定的。
 
-基被编码为相对于所需插入计数的值。基标识了
-可以使用相对索引引用从添加的最后一个条目
+基被编码为相对于所需插入计数的值。基标识了可以使用相对索引引用从添加的最后一个条目
 的0开始的哪些动态表条目。
 
 后基引用用于在基之后插入的条目，从0开始，对于在基之后添加的第一个条目，
