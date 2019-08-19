@@ -622,134 +622,103 @@ congestion window acknowledged.  When a loss is detected, NewReno halves
 the congestion window and sets the slow start threshold to the new
 congestion window.
 
-## Recovery Period
+## 恢复期(Recovery Period) {#recovery period}
 
-Recovery is a period of time beginning with detection of a lost packet or an
-increase in the ECN-CE counter. Because QUIC does not retransmit packets,
-it defines the end of recovery as a packet sent after the start of recovery
-being acknowledged. This is slightly different from TCP's definition of
-recovery, which ends when the lost packet that started recovery is acknowledged.
+恢复是从检测到丢失数据包或增加ECN-CE计数器开始的一段时间。
+由于QUIC不重新传输数据包，因此它将恢复结束定义为在确认恢复
+开始后发送的数据包。这与TCP对恢复的定义略有不同，TCP对恢复
+的定义在确认开始恢复的丢失数据包时结束。
 
-The recovery period limits congestion window reduction to once per round trip.
-During recovery, the congestion window remains unchanged irrespective of new
-losses or increases in the ECN-CE counter.
+恢复期将拥塞窗口减少限制为每次往返一次。在恢复期间，无论
+ECN-CE计数器中的新损失或增加，拥塞窗口保持不变。
 
-## Ignoring Loss of Undecryptable Packets
+## 忽略不可加密数据包的丢失(Ignoring Loss of Undecryptable Packets)
 
-During the handshake, some packet protection keys might not be
-available when a packet arrives. In particular, Handshake and 0-RTT packets
-cannot be processed until the Initial packets arrive, and 1-RTT packets
-cannot be processed until the handshake completes.  Endpoints MAY
-ignore the loss of Handshake, 0-RTT, and 1-RTT packets that might arrive before
-the peer has packet protection keys to process those packets.
+在握手期间，当数据包到达时，某些数据包保护密钥可能不可用。 特别是，在初始数据包到达之前，不能处理握手和0-RTT数据包，
+并且在握手完成之前无法处理1-RTT数据包。端点**可以**忽略在对端
+具有用于处理这些分组的分组保护密钥之前可能到达的握手，
+0-RTT和1-RTT分组的丢失。
 
-## Probe Timeout
+## 探测超时(Probe Timeout)
 
-Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST
-however count these packets as being additionally in flight, since these packets
-add network load without establishing packet loss.  Note that sending probe
-packets might cause the sender's bytes in flight to exceed the congestion window
-until an acknowledgement is received that establishes loss or delivery of
-packets.
+拥塞控制器**禁止**阻止探测包。但是，发送方**必须**将这些数据包计为
+另外在飞行中，因为这些数据包会增加网络负载而不会造成数据包丢失。 请注意，发送探测包可能会导致发送方的传输字节超过拥塞窗口，
+直到收到确认数据包丢失或传送的确认为止。
 
-When an ACK frame is received that establishes loss of all in-flight packets
-sent prior to a threshold number of consecutive PTOs (pto_count is more than
-kPersistentCongestionThreshold, see {{cc-consts-of-interest}}), the network is
-considered to be experiencing persistent congestion, and the sender's congestion
-window MUST be reduced to the minimum congestion window (kMinimumWindow).  This
-response of collapsing the congestion window on persistent congestion is
-functionally similar to a sender's response on a Retransmission Timeout (RTO) in
-TCP {{RFC5681}}.
+当接收到ACK帧以确定在阈值数量的连续PTO之前发送的所有正在
+进行的分组丢失（pto_count大于kPersistentCongestionThreshold，参见
+{{cc-consts-of-interest}}），则认为网络正在经历持续拥塞，并且发送者的拥塞
+窗口**必须**减少到最小拥塞窗口（kMinimumWindow）。 将拥塞窗口折叠为持久
+拥塞的这种响应在功能上类似于发送者对TCP{{RFC5681}}中的重传超时（RTO）的响应。
 
-## Pacing {#pacing}
+## 起搏器(Pacing) {#pacing}
 
-This document does not specify a pacer, but it is RECOMMENDED that a sender pace
-sending of all in-flight packets based on input from the congestion
-controller. For example, a pacer might distribute the congestion window over
-the SRTT when used with a window-based controller, and a pacer might use the
-rate estimate of a rate-based controller.
+本文档未指定起搏器，但**建议**发送方根据来自拥塞控制器的输入
+加快所有传输中数据包的发送速度。例如，当与基于窗口的控制器
+一起使用时，起搏器可能会在SRTT上分布拥塞窗口，并且起搏器
+可能使用基于速率的控制器的速率估计。
 
-An implementation should take care to architect its congestion controller to
-work well with a pacer.  For instance, a pacer might wrap the congestion
-controller and control the availability of the congestion window, or a pacer
-might pace out packets handed to it by the congestion controller. Timely
-delivery of ACK frames is important for efficient loss recovery. Packets
-containing only ACK frames should therefore not be paced, to avoid delaying
-their delivery to the peer.
+实现应该注意构建其拥塞控制器，以便与起搏器很好地配合使用。
+例如，起搏器可以包装拥塞控制器并控制拥塞窗口的可用性，
+或者起搏器可以调整由拥塞控制器递送给它的分组的速度。
+及时交付ACK帧对于高效的丢失恢复非常重要。因此，不应
+对仅包含ACK帧的数据包进行定步，以避免延迟其向对等体的传送。
 
-As an example of a well-known and publicly available implementation of a flow
-pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc)
-in Linux (3.11 onwards).
+作为流定步器的公知和公开可用实现的示例，实现者被称为Linux
+中的公平队列分组调度器(Fq Qdisk)(3.11及更高版本)。
 
+## 在空闲期后发送数据(Sending data after an idle period)
 
-## Sending data after an idle period
+如果发送方停止发送数据并且没有发送中的字节，则它将变为空闲。 
+发送方的拥塞窗口在空闲时**禁止**增加。
 
-A sender becomes idle if it ceases to send data and has no bytes in flight.  A
-sender's congestion window MUST NOT increase while it is idle.
+在空闲后发送数据时，发送方必须将其拥塞窗口重置为初始拥塞窗口（参见
+{{?RFC5681}}），除非它按比例发送数据包。如果发送方超过初始拥塞窗口
+发送任何数据包，则发送方**可以**保留其拥塞窗口。
 
-When sending data after becoming idle, a sender MUST reset its congestion window
-to the initial congestion window (see Section 4.1 of {{?RFC5681}}), unless it
-paces the sending of packets. A sender MAY retain its congestion window if it
-paces the sending of any packets in excess of the initial congestion window.
+发送方**可以**实现备用机制，以在空闲时段之后更新其拥塞窗口，例如{{?RFC7661}}
+中针对TCP提出的那些。
 
-A sender MAY implement alternate mechanisms to update its congestion window
-after idle periods, such as those proposed for TCP in {{?RFC7661}}.
+## 应用限制发送(Application Limited Sending)
 
-## Application Limited Sending
+当没有充分利用时，不应该在慢启动或拥塞避免中增加拥塞窗口。 由于应用程序数据或流量控制信用不足，拥塞窗口可能未得到充分利用。
 
-The congestion window should not be increased in slow start or congestion
-avoidance when it is not fully utilized.  The congestion window could be
-under-utilized due to insufficient application data or flow control credit.
-
-A sender that paces packets (see {{pacing}}) might delay sending packets
-and not fully utilize the congestion window due to this delay. A sender
-should not consider itself application limited if it would have fully
-utilized the congestion window without pacing delay.
+调度数据包的发送方（参见{{pacing}}）可能会延迟发送数据包，并且由于此延迟
+而无法充分利用拥塞窗口。 如果发送者在没有起搏延迟的情况下完全利用拥塞窗
+口，则不应认为自己的应用受限。
 
 
+# 安全考虑(Security Considerations)
 
-# Security Considerations
+## 拥塞信号(Congestion Signals)
 
-## Congestion Signals
+拥塞控制从根本上涉及来自未经认证的实体的信号（丢失和ECN代码点）的消耗。 路径上的攻击者可以伪造或改变这些信号。攻击者可以通过丢弃数据包或通过
+更改ECN代码点来更改发送速率来降低发送速率。
 
-Congestion control fundamentally involves the consumption of signals -- both
-loss and ECN codepoints -- from unauthenticated entities.  On-path attackers can
-spoof or alter these signals.  An attacker can cause endpoints to reduce their
-sending rate by dropping packets, or alter send rate by changing ECN codepoints.
+## 流量分析(Traffic Analysis)
 
-## Traffic Analysis
+可以通过观察分组大小来启发式地识别仅携带ACK帧的分组。 确认模式可能会暴露有关链接特征或应用程序行为的信息。 端点可以使用PADDING帧或将确认与其他帧捆绑在一起以减少泄露的信息。
 
-Packets that carry only ACK frames can be heuristically identified by observing
-packet size.  Acknowledgement patterns may expose information about link
-characteristics or application behavior.  Endpoints can use PADDING frames or
-bundle acknowledgments with other frames to reduce leaked information.
+## ECN标记误报(Misreporting ECN Markings)
 
-## Misreporting ECN Markings
+接收方可能误报ECN标记以改变发送方的拥塞响应。抑制ECN-CE标记的报告
+可能导致发送者增加其发送速率。这种增加可能导致拥堵和损失。
 
-A receiver can misreport ECN markings to alter the congestion response of a
-sender.  Suppressing reports of ECN-CE markings could cause a sender to
-increase their send rate.  This increase could result in congestion and loss.
+发送方**可以**通过标记它们与ECN-CE一起发送的临时数据包来尝试检测报告
+的抑制。如果在确认数据包时没有报告标记有ECN-CE的数据包已被标记，
+则发送方**应该**为该路径禁用ECN。
 
-A sender MAY attempt to detect suppression of reports by marking occasional
-packets that they send with ECN-CE.  If a packet marked with ECN-CE is not
-reported as having been marked when the packet is acknowledged, the sender
-SHOULD then disable ECN for that path.
+报告额外的ECN-CE标记将导致发送方降低其发送速率，这与广告减少的连接
+流控制限制类似，因此这样做没有获得优势。
 
-Reporting additional ECN-CE markings will cause a sender to reduce their sending
-rate, which is similar in effect to advertising reduced connection flow control
-limits and so no advantage is gained by doing so.
-
-Endpoints choose the congestion controller that they use.  Though congestion
-controllers generally treat reports of ECN-CE markings as equivalent to loss
-[RFC8311], the exact response for each controller could be different.  Failure
-to correctly respond to information about ECN markings is therefore difficult to
-detect.
+端点选择他们使用的拥塞控制器。虽然拥塞控制器通常将ECN-CE标记的报告
+视为等同于丢[RFC8311]，但每个控制器的确切响应可能不同。因此，很难
+检测到无法正确回应有关ECN标记的信息。
 
 
-# IANA Considerations
+# IANA注意事项(IANA Considerations)
 
-This document has no IANA actions.  Yet.
-
+然而，本文档没有IANA相关使用。
 
 --- back
 
