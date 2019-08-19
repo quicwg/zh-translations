@@ -584,44 +584,63 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
 ## 启用0-RTT(Enabling 0-RTT) {#enable-0rtt}
 
-为了可用于0-RTT，TLS必须提供一个NewSessionTicket消息，其中包含max_early_data_size为0xffffffff的“early_data”扩展;客户端可以在0-RTT中发送的数据量由服务器提供的“initial_max_data”传输参数控制。
+为了可用于0-RTT，TLS必须提供一个NewSessionTicket
+消息，其中包含max_early_data_size为0xffffffff的
+“early_data”扩展;客户端可以在0-RTT中发送的数据量
+由服务器提供的“initial_max_data”传输参数控制。
 
-当其中包含任何其他值时，客户端**必须**将包含“early_data”扩展名的NewSessionTicket的接收视为PROTOCOL_VIOLATION类型的连接错误。
+当其中包含任何其他值时，客户端**必须**
+将包含“early_data”扩展名的NewSessionTicket的接
+收视为PROTOCOL_VIOLATION类型的连接错误。
 
 **禁止**使用TLS连接中的早期数据。
-与其他TLS应用程序数据一样，服务器**必须**将接收TLS连接上的早期数据视为PROTOCOL_VIOLATION类型的连接错误。
+与其他TLS应用程序数据一样，服务器**必须**将接收TLS
+连接上的早期数据视为PROTOCOL_VIOLATION类型的连接
+错误。
 
 
 ## 拒绝0-RTT(Rejecting 0-RTT)
 
 服务器通过拒绝TLS层的0-RTT来拒绝
-0-RTT。 
+0-RTT。
 这也会阻止QUIC发送0-RTT数据。
-如果服务器发送TLS HelloRetryRequest，它将始终拒绝0-RTT。
+如果服务器发送TLS HelloRetryRequest，它将始终
+拒绝0-RTT。
 
 当拒绝0-RTT时，客户端假定的所有连接特性可能都不正确。
 这包括应用程序协议，传输参数和任何应用程序配置的选择。
-因此，客户端必须重置所有流的状态，包括绑定到这些流的应用程序状态。
+因此，客户端必须重置所有流的状态，包括绑定到这些流的
+应用程序状态。
 
-如果客户端收到重试或版本协商数据包，则**可能**尝试再次发送0-RTT。
+如果客户端收到重试或版本协商数据包，则**可能**尝试再
+次发送0-RTT。
 这些数据包并不表示拒绝0-RTT。
 
 ## HelloRetryRequest
 
-在TLS over TCP中，HelloRetryRequest功能（参见{{!TLS13}}的4.1.4节）可用于纠正客户端错误的KeyShare扩展以及无状态往返检查。
-从QUIC的角度来看，这看起来就像初始加密级别中携带的其他消息。
-虽然原则上可以在QUIC中使用此功能进行地址验证，但QUIC实现**应该**使用重试功能(参见{{QUIC-TRANSPORT}}的8.1节). 
+在TLS over TCP中，HelloRetryRequest功能
+（参见{{!TLS13}}的4.1.4节）可用于纠正客户端
+错误的KeyShare扩展以及无状态往返检查。
+从QUIC的角度来看，这看起来就像初始加密级别中
+携带的其他消息。
+虽然原则上可以在QUIC中使用此功能进行地址验证，
+但QUIC实现**应该**使用重试功能
+(参见{{QUIC-TRANSPORT}}的8.1节).
 HelloRetryRequest仍用于请求密钥共享。
 
 ## TLS错误(TLS Errors)
 
-如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当alert。
+如果TLS遇到错误，它会生成{{!TLS13}}第6节
+中定义的适当alert。
 
-通过将单字节alert描述转换为QUIC错误代码，TLS警报将变为QUIC连接错误。
-警报描述被添加到0x100以生成QUIC错误代码（从为CRYPTO_ERROR保留的范围中）。
+通过将单字节alert描述转换为QUIC错误代码，
+TLS警报将变为QUIC连接错误。
+警报描述被添加到0x100以生成QUIC错误代码
+（从为CRYPTO_ERROR保留的范围中）。
 结果值在QUIC CONNECTION_CLOSE帧中发送。
 
-所有TLS alert的警报级别都是“fatal”;TLS堆栈**禁止**在“warn”级别生成alerts。
+所有TLS alert的警报级别都是“fatal”;TLS
+堆栈**禁止**在“warn”级别生成alerts。
 
 
 ## 丢弃未使用的密钥( Discarding Unused Keys)
