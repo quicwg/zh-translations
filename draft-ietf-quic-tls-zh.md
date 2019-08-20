@@ -573,157 +573,161 @@ TLS提供服务器身份验证并允许服务器请求客户端身份验证。
 
 ## 启用0-RTT(Enabling 0-RTT) {#enable-0rtt}
 
-为了可用于0-RTT，TLS必须提供一个NewSessionTicket
-消息，其中包含max_early_data_size为0xffffffff的
-“early_data”扩展;客户端可以在0-RTT中发送的数据量
-由服务器提供的“initial_max_data”传输参数控制。
+为了可用于0-RTT，TLS必须提供一个NewSessionTicket消息，
+其中包含max_early_data_size为0xffffffff的“early_data”扩展;
+客户端可以在0-RTT中发送的数据量由服务器提供的“initial_max_data”传输参数控制。
 
-当其中包含任何其他值时，客户端**必须**
-将包含“early_data”扩展名的NewSessionTicket的接
-收视为PROTOCOL_VIOLATION类型的连接错误。
+当其中包含任何其他值时，客户端**必须**将包含“early_data”扩展名的
+NewSessionTicket的接收视为PROTOCOL_VIOLATION类型的连接错误。
 
 **禁止**使用TLS连接中的早期数据。
-与其他TLS应用程序数据一样，服务器**必须**将接收TLS
-连接上的早期数据视为PROTOCOL_VIOLATION类型的连接
-错误。
+与其他TLS应用程序数据一样，服务器**必须**将接收TLS连接上的早期数据视为PROTOCOL_VIOLATION类型的连接错误。
 
 
 ## 拒绝0-RTT(Rejecting 0-RTT)
 
-服务器通过拒绝TLS层的0-RTT来拒绝
-0-RTT。
+服务器通过拒绝TLS层的0-RTT来0-RTT。
 这也会阻止QUIC发送0-RTT数据。
-如果服务器发送TLS HelloRetryRequest，它将始终
-拒绝0-RTT。
+如果服务器发送TLS HelloRetryRequest，它将始终拒绝0-RTT。
 
 当拒绝0-RTT时，客户端假定的所有连接特性可能都不正确。
 这包括应用程序协议，传输参数和任何应用程序配置的选择。
-因此，客户端必须重置所有流的状态，包括绑定到这些流的
-应用程序状态。
+因此，客户端必须重置所有流的状态，包括绑定到这些流的应用程序状态。
 
-如果客户端收到重试或版本协商数据包，则**可能**尝试再
-次发送0-RTT。
+如果客户端收到重试或版本协商数据包，则**可能**尝试再次发送0-RTT。
 这些数据包并不表示拒绝0-RTT。
 
 ## HelloRetryRequest
 
-在TLS over TCP中，HelloRetryRequest功能
-（参见{{!TLS13}}的4.1.4节）可用于纠正客户端
-错误的KeyShare扩展以及无状态往返检查。
-从QUIC的角度来看，这看起来就像初始加密级别中
-携带的其他消息。
-虽然原则上可以在QUIC中使用此功能进行地址验证，
-但QUIC实现**应该**使用重试功能
-(参见{{QUIC-TRANSPORT}}的8.1节).
+在TLS over TCP中，HelloRetryRequest功能（参见{{!TLS13}}的4.1.4节）
+可用于纠正客户端错误的KeyShare扩展以及无状态往返检查。
+从QUIC的角度来看，这看起来就像初始加密级别中携带的其他消息。
+虽然原则上可以在QUIC中使用此功能进行地址验证，但QUIC实现**应该**使用重试功能(参见{{QUIC-TRANSPORT}}的8.1节).
 HelloRetryRequest仍用于请求密钥共享。
 
-## TLS错误(TLS Errors)
+## TLS错误(TLS Errors) {#tls-errors}
 
-如果TLS遇到错误，它会生成{{!TLS13}}第6节
-中定义的适当alert。
+如果TLS遇到错误，它会生成{{!TLS13}}第6节中定义的适当alert。
 
-通过将单字节alert描述转换为QUIC错误代码，
-TLS警报将变为QUIC连接错误。
-警报描述被添加到0x100以生成QUIC错误代码
-（从为CRYPTO_ERROR保留的范围中）。
+通过将单字节alert描述转换为QUIC错误代码，TLS警报将变为QUIC连接错误。
+警报描述被添加到0x100以生成QUIC错误代码（从为CRYPTO_ERROR保留的范围中）。
 结果值在QUIC CONNECTION_CLOSE帧中发送。
 
-所有TLS alert的警报级别都是“fatal”;TLS
-堆栈**禁止**在“warn”级别生成alerts。
+所有TLS alert的警报级别都是“fatal”;TLS堆栈**禁止**在“warn”级别生成alerts。
 
 
-## 丢弃未使用的密钥( Discarding Unused Keys)
+## Discarding Unused Keys
 
-在QUIC移动到新的加密级别之后，可以丢弃先前加密级别的数据包保护密钥。
-在握手期间以及更新密钥时会发生这种情况（参见{{key-update}})。
-初始数据包保护密钥会被特殊处理，请参见{{discard-initial}}.
+After QUIC moves to a new encryption level, packet protection keys for previous
+encryption levels can be discarded.  This occurs several times during the
+handshake, as well as when keys are updated (see {{key-update}}).  Initial
+packet protection keys are treated specially, see {{discard-initial}}.
 
-当新密钥可用时，不会立即丢弃数据包保护密钥。如果来自较低加
-密级别的数据包包含CRYPTO帧，则重传该数据的帧必须以相同的加密
-级别发送。类似地，端上会生成与正被确认的数据包处于相同加密级
-别的数据包的确认。因此，在较新加密级别的密钥可用之后，
-短时间内可能需要用于较低加密级别的密钥。
+Packet protection keys are not discarded immediately when new keys are
+available.  If packets from a lower encryption level contain CRYPTO frames,
+frames that retransmit that data MUST be sent at the same encryption level.
+Similarly, an endpoint generates acknowledgements for packets at the same
+encryption level as the packet being acknowledged.  Thus, it is possible that
+keys for a lower encryption level are needed for a short time after keys for a
+newer encryption level are available.
 
-端上不能丢弃给定加密级别的密钥，除非它既接收并确认了该加密级
-别的所有CRYPTO帧，并且该加密级别的所有CRYPTO帧都已被其对端确认。
-但是，这并不能保证在该加密级别不需要接收或发送其他数据包，
-因为对端可能尚未收到达到相同状态所需的所有确认。
+An endpoint cannot discard keys for a given encryption level unless it has both
+received and acknowledged all CRYPTO frames for that encryption level and when
+all CRYPTO frames for that encryption level have been acknowledged by its peer.
+However, this does not guarantee that no further packets will need to be
+received or sent at that encryption level because a peer might not have received
+all the acknowledgements necessary to reach the same state.
 
-在发送了给定加密级别的所有CRYPTO帧并且接收到所有预期的CRYPTO
-帧，同时已经接收或发送了所有相应的确认之后，端点启动定时器。
-对于不携带CRYPTO帧的0-RTT密钥，此计时器在发送或接收到受1-RTT
-保护的第一个数据包时启动。为了限制密钥更改时间段内
-数据包丢失的影响，端点**必须**保留该加密级别的数据包保护密钥
-[QUIC-RECOVERY]中定义的当前探测超时（PTO）间隔的至少三倍。
-此间隔保留的密钥允许在确定丢失数据包或新数据包需要确认时发
-送包含该加密级别的CRYPTO或ACK帧的数据包。
+After all CRYPTO frames for a given encryption level have been sent and all
+expected CRYPTO frames received, and all the corresponding acknowledgments have
+been received or sent, an endpoint starts a timer.  For 0-RTT keys, which do not
+carry CRYPTO frames, this timer starts when the first packets protected with
+1-RTT are sent or received.  To limit the effect of packet loss around a change
+in keys, endpoints MUST retain packet protection keys for that encryption level
+for at least three times the current Probe Timeout (PTO) interval as defined in
+{{QUIC-RECOVERY}}.  Retaining keys for this interval allows packets containing
+CRYPTO or ACK frames at that encryption level to be sent if packets are
+determined to be lost or new packets require acknowledgment.
 
-虽然端上可能会保留旧密钥，但必须以当前可用的最高加密级
-别发送新数据。仅ACK帧和CRYPTO帧中的数据重传会以先前加密级别发
-送。这些数据包也**可以**包括PADDING帧。
+Though an endpoint might retain older keys, new data MUST be sent at the highest
+currently-available encryption level.  Only ACK frames and retransmissions of
+data in CRYPTO frames are sent at a previous encryption level.  These packets
+MAY also include PADDING frames.
 
-一旦此计时器到期，端点**禁止**使用这些数据包保护密钥接受或
-生成新数据包。端上可以丢弃该加密级别的数据包保护密钥。
+Once this timer expires, an endpoint MUST NOT either accept or generate new
+packets using those packet protection keys.  An endpoint can discard packet
+protection keys for that encryption level.
 
-密钥更新（参见{{key-update}})可用于其他加
-密级别的密钥丢弃之前更新1-RTT密钥。在这种情况下，使用最
-新的密钥保护的数据包和之前发送两次更新的数据
-包表现为使用相同的密钥。握手完成后，端点只需要维护两组最
-新的数据包保护密钥，并且可以丢弃旧密钥。如果数据包显
-著延迟，快速多次更新密钥可能会导致数据包丢失。
-由于每次往返时间只能执行一次密钥更新，因此只有延迟超过一次
-往返时间的数据包才会因密钥更换而丢失;在此之前，这些数据
-包将被标记为丢失，因为它们会在数据包编号序列中留下间隙。
+Key updates (see {{key-update}}) can be used to update 1-RTT keys before keys
+from other encryption levels are discarded.  In that case, packets protected
+with the newest packet protection keys and packets sent two updates prior will
+appear to use the same keys.  After the handshake is complete, endpoints only
+need to maintain the two latest sets of packet protection keys and MAY discard
+older keys.  Updating keys multiple times rapidly can cause packets to be
+effectively lost if packets are significantly delayed.  Because key updates can
+only be performed once per round trip time, only packets that are delayed by
+more than a round trip will be lost as a result of changing keys; such packets
+will be marked as lost before this, as they leave a gap in the sequence of
+packet numbers.
 
-## 丢弃初始密钥 {#discard-initial}
 
-受初始机密(“机密”，secrets在上下文中貌似都翻译为密钥，这里
-建议也翻译为密钥)保护的数据包({{initial-secrets}})未经过身份验
-证，这意味着攻击者可能会破坏("破坏"，spoof一般翻译做欺骗，建
-议这里翻译为伪造等相近含义)数据包，意图破坏连接。
-为了限制这些攻击，可以比其他密钥更积极地丢弃初
-始数据包保护密钥。
+## Discarding Initial Keys {#discard-initial}
 
-握手数据包的成功使用表明不再需要交换初始数据包，
-因为这些密钥只能在从Initial数据包接收到所有CRYPTO帧
-之后产生。因此，客户端**必须**在首次发送握手数据包时
-丢弃初始密钥，并且服务器**必须**在首次成功处理握手数据
-包时丢弃初始密钥。在此之后，端上**禁止**发送初始数据包。
+Packets protected with Initial secrets ({{initial-secrets}}) are not
+authenticated, meaning that an attacker could spoof packets with the intent to
+disrupt a connection.  To limit these attacks, Initial packet protection keys
+can be discarded more aggressively than other keys.
 
-这导致放弃初始加密级别的丢失恢复状态并忽略任何
-未完成的初始数据包。
+The successful use of Handshake packets indicates that no more Initial packets
+need to be exchanged, as these keys can only be produced after receiving all
+CRYPTO frames from Initial packets.  Thus, a client MUST discard Initial keys
+when it first sends a Handshake packet and a server MUST discard Initial keys
+when it first successfully processes a Handshake packet.  Endpoints MUST NOT
+send Initial packets after this point.
 
-# 数据包保护{#packet-protection}
+This results in abandoning loss recovery state for the Initial encryption level
+and ignoring any outstanding Initial packets.
 
-与TCP上的TLS一样，QUIC使用TLS协商的AEAD算法来保护
-包含由TLS握手生成的密钥的数据包。
 
-## 数据包保护密钥{#protection-keys}
+# Packet Protection {#packet-protection}
 
-QUIC以与TLS派生记录保护密钥相同的方式派生数据包保护密钥。
+As with TLS over TCP, QUIC protects packets with keys derived from the TLS
+handshake, using the AEAD algorithm negotiated by TLS.
 
-每个加密级别都有单独的密钥，用于保护在每个方向上发
-送的数据包。这些流量密钥由TLS派生（参见{{!TLS13}}的第7.1节）
-，并由QUIC用于除初始加密级别之外的所有加密级别。初始加密级
-别的密钥是根据客户端的初始目标连接ID计算的，如{{initial-secrets}}所述。
 
-用于分组("分组"，根据标题应翻译为数据包)保护的密钥是使用TLS提供的KDF从TLS密钥计算的。
-在TLS 1.3中，如{{!TLS13}}的第7.1节中描述的HKDF-Expand-Label
-函数，使用来自协商密码套件的散列算法。其他版本的TLS必须提
-供类似的功能才能与QUIC一起使用。
+## Packet Protection Keys {#protection-keys}
 
-将当前加密级别秘密("秘密"，应翻译为密钥)和标签“quic key”输入到KDF以产生AEAD密钥;
-标签“quic iv”用于推导IV，见{{aead}}。头部保护密钥使用“quic
-hp”标签，请参见{{header-protect}}。使用这些标签提供了QUIC
-和TLS之间的密钥分离，请参见{{key-diversity}}
+QUIC derives packet protection keys in the same way that TLS derives record
+protection keys.
 
-用于初始密钥的KDF始终是TLS 1.3中的HKDF-Expand-Label函数
-（参见{{initial-secrets}})）。
+Each encryption level has separate secret values for protection of packets sent
+in each direction.  These traffic secrets are derived by TLS (see Section 7.1 of
+{{!TLS13}}) and are used by QUIC for all encryption levels except the Initial
+encryption level.  The secrets for the Initial encryption level are computed
+based on the client's initial Destination Connection ID, as described in
+{{initial-secrets}}.
 
-## 初始密钥 {#initial-secrets}
+The keys used for packet protection are computed from the TLS secrets using the
+KDF provided by TLS.  In TLS 1.3, the HKDF-Expand-Label function described in
+Section 7.1 of {{!TLS13}} is used, using the hash function from the negotiated
+cipher suite.  Other versions of TLS MUST provide a similar function in order to
+be used with QUIC.
 
-初始数据包受到来自客户端连接的第一个初始数据包的目标连接
-ID字段派生的密钥的保护。规范如下：
+The current encryption level secret and the label "quic key" are input to the
+KDF to produce the AEAD key; the label "quic iv" is used to derive the IV, see
+{{aead}}.  The header protection key uses the "quic hp" label, see
+{{header-protect}}.  Using these labels provides key separation between QUIC
+and TLS, see {{key-diversity}}.
+
+The KDF used for initial secrets is always the HKDF-Expand-Label function from
+TLS 1.3 (see {{initial-secrets}}).
+
+
+## Initial Secrets {#initial-secrets}
+
+Initial packets are protected with a secret derived from the Destination
+Connection ID field from the client's first Initial packet of the
+connection. Specifically:
 
 ~~~
 initial_salt = 0xef4fb0abb47470c41befcf8031334fae485e09a0
@@ -738,29 +742,34 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
                                           Hash.length)
 ~~~
 
-导出初始secret和key时使用的HKDF哈希函数是SHA-256
+The hash function for HKDF when deriving initial secrets and keys is SHA-256
 {{!SHA=DOI.10.6028/NIST.FIPS.180-4}}.
 
-与HKDF-Expand-Label一起使用的连接ID是客户端发送的
-Initial数据包中的目标连接ID。这将是一个随机选择的值，
-除非客户端在收到重试数据包后创建初始数据包，那么由
-服务器选择目标连接ID。
+The connection ID used with HKDF-Expand-Label is the Destination Connection ID
+in the Initial packet sent by the client.  This will be a randomly-selected
+value unless the client creates the Initial packet after receiving a Retry
+packet, where the Destination Connection ID is selected by the server.
 
-initial_salt的值是一个20字节的序列，以十六进制表示法
-显示在图中。 QUIC的未来版本**应该**生成一个新的salt值，从
-而确保每个版本的QUIC的密钥都不同。这可以防止仅识别一
-个版本的QUIC的中间件查看或修改来自未来版本的数据包的内容。
+The value of initial_salt is a 20 byte sequence shown in the figure in
+hexadecimal notation. Future versions of QUIC SHOULD generate a new salt value,
+thus ensuring that the keys are different for each version of QUIC. This
+prevents a middlebox that only recognizes one version of QUIC from seeing or
+modifying the contents of packets from future versions.
 
-TLS 1.3中定义的HKDF-Expand-Label函数**必须**用于初始数据
-包，即使提供的TLS版本不包括TLS 1.3。
+The HKDF-Expand-Label function defined in TLS 1.3 MUST be used for Initial
+packets even where the TLS versions offered do not include TLS 1.3.
 
-{{test-vectors-initial}} 包含初始数据包加密的测试向量。
+{{test-vectors-initial}} contains test vectors for the initial packet
+encryption.
 
-注意：
-目标连接ID具有任意长度，如果服务器发送具有零长度源连接
-ID字段的重试数据包，则它可以是零长度。在这种情况下，初
-始密钥不向客户端保证客户端服务器收到其数据包;客户端必须依赖包
-含该属性的重试数据包的交换。
+Note:
+
+: The Destination Connection ID is of arbitrary length, and it could be zero
+  length if the server sends a Retry packet with a zero-length Source Connection
+  ID field.  In this case, the Initial keys provide no assurance to the client
+  that the server received its packet; the client has to rely on the exchange
+  that included the Retry packet for that property.
+
 
 ## AEAD Usage {#aead}
 
@@ -1070,7 +1079,7 @@ decrypt the packet that contains the changed bit.
 This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a
 TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate
 message as a connection error of type 0x10a, equivalent to a fatal TLS alert of
-unexpected_message (see [tls-errors].
+unexpected_message (see {{tls-errors}}).
 
 An endpoint MUST NOT initiate more than one key update at a time.  A new key
 cannot be used until the endpoint has received and successfully decrypted a

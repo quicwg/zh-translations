@@ -405,9 +405,9 @@ latency.
 某些网络可能表现出较高程度的重新排序，导致发送方检测到可疑丢包。
 实施者**可以**使用为TCP开发的算法，例如TCP-NCR {{?RFC4653}}，以提高QUIC的重新排序弹性。
 
-### 时间阈值(Time Threshold) {#time-threshold}
+### 时间门槛(Time Threshold) {#time-threshold}
 
-一旦确认了晚到的数据包，如果在之前发送了一个阈值时间量终端**应该**声明早期数据包丢失了。
+一旦确认了以后的数据包，终端**应该**声明如果在过去发送了一个阈值时间量的早期数据包丢失了。
 时间阈值计算方法为kTimeThreshold * max（SRTT，latest_RTT）。
 如果在最大确认数据包之前发送的数据包尚未被声明丢失，那么**应该**为剩余时间设置一个定时器。
 
@@ -418,7 +418,7 @@ latency.
 * 最新的RTT样本低于SRTT，可能是由于重新排序确认遇到了较短的路径;
 * 最新的RTT样本高于SRTT，可能是由于实际RTT持续增加，但平滑后的SRTT还没有赶上。
 
-实现**可以**尝试绝对阈值，前连接阈值，自适应阈值或包含RTT方差。
+实现**可以**尝试绝对阈值，阈值前连接，自适应阈值或包含RTT方差。
 阈值阈值降低会使得重新排序的弹性范围减小并增加伪重传几率，并且较大的阈值增加了丢失检测延迟。
 
 
@@ -456,8 +456,8 @@ CRYPTO帧中的数据对于QUIC传输和加密协商至关重要，因此要使�
 两个数据包都表示已收到初始化Initial但未处理。
 这两个数据包都不能被视为对初始化Initial的确认。
 
-然而，客户端**可以**计算服务器的RTT估计值，利用从发送第一个Initial时到收到Retry或Version Negotiation数据包的时间段。
-客户端**可以**使用此值为RTT估计器设置种子，以便后续连接到服务器。
+然而，客户端**可以**计算服务器的RTT估计值，作为从发送第一个Initial时到收到Retry或Version Negotiation数据包的时间段。
+客户端**可以**使用此值为RTT估计器播种，以便后续连接到服务器。
 
 ### 丢弃密钥和数据包状态(Discarding Keys and Packet State) {#discarding-packets}
 
@@ -472,18 +472,14 @@ CRYPTO帧中的数据对于QUIC传输和加密协商至关重要，因此要使�
 如果服务器接受0-RTT，但不缓冲在Initial数据包之前到达的0-RTT数据包，则早期的0-RTT数据包将被声明丢失，但预计这种情况很少发生。
 
 期望是在用它们加密的分组被确认或声明丢失之后丢弃密钥。
-但是，只要握手密钥可用，就可以尽快销毁初始密钥（参见{{QUIC-TLS}}的第4.10节）。
+但是，只要握手密钥可用，就可以尽快销毁初始机密（参见{{QUIC-TLS}}的第4.10节）。
 
 ## 探测超时(Probe Timeout) {#pto}
 
-探测超时（PTO）在ack引出数据处于传输状态但在预期的
-时间段内未收到确认时触发探测数据包。
+探测超时（PTO）在ack引出数据处于传输状态但在预期的时间段内未收到确认时触发探测数据包。
 PTO使连接能够从丢失尾包或确认中恢复。
-QUIC中使用的PTO算法实现了尾部丢
-失探测[ID.dukkipati-tcpm-tcp-loss-probe]
- {{?RACK}}，RTO {{?RFC5681}}和F-RTO的可靠性
- 功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重
- 传超时时间{{?RFC6298}}。
+QUIC中使用的PTO算法实现了尾部丢失探测{{?TLP=I-D.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}，
+RTO {{?RFC5681}}和F-RTO的可靠性功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重传超时时间{{?RFC6298}}。
 
 ### 计算PTO{#Computing PTO}
 
@@ -556,7 +552,7 @@ ack-eliciting包作为探测。发送方可以发
 ### 丢失检测Detection {#pto-loss}
 
 当接收到新确认一个或多个分组的ACK帧时，
-就可以确认传输中的分组的已经送达或丢失。	
+就可以确认传输中的分组的已经送达或丢失。
 
 PTO计时器到期事件不表示数据包丢失，
 并且**禁止**将先前未确认的数据包标
@@ -1186,7 +1182,7 @@ kPersistentCongestionThreshold:
 : Number of consecutive PTOs required for persistent congestion to be
   established.  The rationale for this threshold is to enable a sender to use
   initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP)
-  [TLP] {{RACK}}, before establishing persistent congestion, as TCP does with
+  {{TLP}} {{RACK}}, before establishing persistent congestion, as TCP does with
   a Retransmission Timeout (RTO) {{?RFC5681}}.  The RECOMMENDED value for
   kPersistentCongestionThreshold is 2, which is equivalent to having two TLPs
   before an RTO in TCP.

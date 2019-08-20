@@ -191,115 +191,149 @@ input header list.
 QPACK is designed to contain the more complex state tracking to the encoder,
 while the decoder is relatively simple.
 
+### Reference Tracking
 
-### 引用追踪 (Reference Tracking)
+An encoder MUST ensure that a header block which references a dynamic table
+entry is not received by the decoder after the referenced entry has been
+evicted.  Hence the encoder needs to track information about each compressed
+header block that references the dynamic table until that header block is
+acknowledged by the decoder.
 
-编码器**必须**确保引用动态表项的报头块在被引用的条目删除后不会被解码器接收。
-因此，编码器需要跟踪关于引用动态表的每个压缩报头块的信息，直到解码器确认该报头块为止。
+### Blocked Dynamic Table Insertions {#blocked-insertion}
 
-### 阻塞动态表插入 (Blocked Dynamic Table Insertions) {#blocked-insertion}
+An encoder MUST NOT insert an entry into the dynamic table (or duplicate an
+existing entry) if doing so would evict an entry with unacknowledged references.
+For header blocks that might rely on the newly added entry, the encoder can use
+a literal representation.
 
-如果这样做会删除具有未确认引用的条目，编码器**不得**将条目插入动态表(或复制现有条目)。
-对于可能依赖于新添加条目的报头块，编码器可以使用文字表示。
+To ensure that the encoder is not prevented from adding new entries, the encoder
+can avoid referencing entries that are close to eviction.  Rather than
+reference such an entry, the encoder can emit a Duplicate instruction (see
+{{duplicate}}), and reference the duplicate instead.
 
-为了确保编码器不被阻止添加新条目，编码器可以避免引用接近于删除的条目。
-编码器可以发出一条重复的指令(参见{{duplicate}})，
-而不是引用这样的条目，并引用重复的指令。
-
-确定哪些条目太接近于删除而不能引用是编码器的优先项。
-一种启发式方法是针对动态表中的固定数量的可用空间:
-要么是未使用的空间，要么是可以通过删除未引用的条目来回收的空间。
-为了实现这一点，编码器可以维护一个耗尽索引，这是动态表中最小的可以发出一个引用的绝对索引。
-当插入新条目时，编码器会增加耗尽索引，以维护表中它不会引用的部分。
-如果编码器没有创建对绝对索引低于耗尽索引的条目的新引用，
-那么对这些条目的未确认引用的数量最终将变为零，从而允许将它们清除。
-
+Determining which entries are too close to eviction to reference is an encoder
+preference.  One heuristic is to target a fixed amount of available space in the
+dynamic table: either unused space or space that can be reclaimed by evicting
+unreferenced entries.  To achieve this, the encoder can maintain a draining
+index, which is the smallest absolute index in the dynamic table that it will
+emit a reference for.  As new entries are inserted, the encoder increases the
+draining index to maintain the section of the table that it will not reference.
+If the encoder does not create new references to entries with an absolute index
+lower than the draining index, the number of unacknowledged references to those
+entries will eventually become zero, allowing them to be evicted.
 
 ~~~~~~~~~~  drawing
    +----------+---------------------------------+--------+
-   | 耗尽 |          可引用的          | 未使用的 |
-   | 索引 |           条目             | 空间  |
+   | Draining |          Referenceable          | Unused |
+   | Entries  |             Entries             | Space  |
    +----------+---------------------------------+--------+
    ^          ^                                 ^
    |          |                                 |
-  插入    耗尽索引               插入点
-  节点
+ Dropping    Draining Index               Insertion Point
+  Point
 ~~~~~~~~~~
-{:#fig-draining-index title="耗尽动态表项(Draining Dynamic Table Entries)"}
-
-### 避免报头块阻塞 (Avoiding Head-of-Line Blocking) {#overview-hol-avoidance}
-
-由于QUIC不保证不同流上数据之间的顺序，因此报头块可能引用尚未接收到的动态表中的条目。
-
-每个报头块包含一个所需的插入计数，这是可以解码报头块的插入计数的最小可能值。
-对于引用动态表的报头块，所需的插入计数比所有引用的动态表条目的最大绝对索引大1。
-对于没有引用动态表的报头块，所需的插入计数为零。
-
-如果解码器遇到一个报头块，其所需的插入计数值大于上面定义的值，
-它**可以**将其视为HTTP_QPACK_DECOMPRESSION_FAILED类型的流错误。
-如果解码器遇到一个报头块，其所需的插入计数值小于上面定义的值，
-它**必须**将其视为HTTP_QPACK_DECOMPRESSION_FAILED类型的流错误，
-如{{invalid-references}}所述。
-
-当所需的插入计数为零时，帧不包含对动态表的引用，并且总是可以立即处理。
-
-如果所需的插入计数大于接收到的动态表条目的数量，则认为流是“阻塞的”。
-在被阻塞时，报头块数据**应**保留在被阻塞流的流控制窗口中。
-当插入计数大于或等于解码器已从流中读取的所有报头块所需的插入计数时，流将被解除阻塞。
-
-SETTINGS_QPACK_BLOCKED_STREAMS设置(参见{{configuration})
-指定了可以阻塞的流数量的上限。
-编码器**必须**始终将可能被阻塞的流的数量限制为SETTINGS_QPACK_BLOCKED_STREAMS的值。
-注意，解码器可能不会在每个可能被阻塞的流上都被阻塞。
-如果解码器遇到比它承诺支持的更多的阻塞流，
-它**必须**将此视为类型为HTTP_QPACK_DECOMPRESSION_FAILED的流错误。
-
-编码器可以决定是否接收一个有被阻塞的风险的流。
-如果SETTINGS_QPACK_BLOCKED_STREAMS的值允许，
-通常可以通过引用仍然在传输中的动态表条目来提高压缩效率，
-但是如果出现丢失或重新排序流，则可以在解码器上阻塞流。
-通过只引用已确认的动态表项，编码器可以避免阻塞的风险，但这可能意味着使用文字。
-由于字面值使报头块更大，这可能导致编码器在拥塞或流控制限制下被阻塞。
-
-### 已知接收计数器 (Known Received Count)
-
-为了确定哪些动态表条目可以安全地使用而不会阻塞流，编码器跟踪解码器接收到的条目数量。
-已知接收计数跟踪已确认插入的总数。
-
-当允许阻塞引用时，编码器使用报头块确认来维护已知的接收计数，
-如{{header-acknowledgement}}所述。
-
-为了确认报头块没有引用的动态表条目，例如因为编码器或解码器选择不冒阻塞流的风险，
-解码器发送一条Insert Count Increment指令(参见{{insert-count-increment}})。
-
-## 解码器 (Decoder)
-
-与在HPACK中一样，解码器处理报报头块并发出相应的报头列表。
-它还处理来自解码器流上接收的编码器指令的动态表修改。
-
-解码器**必须**按照其出现在输入头块中出现的顺序发出报头字段。
+{:#fig-draining-index title="Draining Dynamic Table Entries"}
 
 
-### 状态同步 (State Synchronization)
+### Avoiding Head-of-Line Blocking {#overview-hol-avoidance}
 
-解码器指令({{decoder-instructions}})中解码器上的信号关键事件，
-允许编码器跟踪解码器的状态。这些事件包括:
+Because QUIC does not guarantee order between data on different streams, a
+header block might reference an entry in the dynamic table that has not yet been
+received.
 
-- 完整的报头块处理
-- 可能具有剩余报头块的流的丢弃
-- 新的动态表条目的接收
+Each header block contains a Required Insert Count, the lowest possible value
+for the Insert Count with which the header block can be decoded. For a header
+block with references to the dynamic table, the Required Insert Count is one
+larger than the largest Absolute Index of all referenced dynamic table
+entries. For a header block with no references to the dynamic table, the
+Required Insert Count is zero.
 
-了解到已经处理了包含对动态表的引用的报头块，就允许编码器将不存在未确认引用的条目删除，
-而不管这些引用是否可能被阻塞(参见{{blocked-insertion}})。
-当流被重置或放弃时，表示这些头块将永远不会被处理的指示也有类似的作用;
+If the decoder encounters a header block with a Required Insert Count value
+larger than defined above, it MAY treat this as a stream error of type
+HTTP_QPACK_DECOMPRESSION_FAILED.  If the decoder encounters a header block with
+a Required Insert Count value smaller than defined above, it MUST treat this as
+a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED as prescribed in
+{{invalid-references}}.
 
-解码器选择何时发出插入计数增量指令(参见{{insert-count-increment})。
-在添加每个新的动态表条目后发出一条指令，这将向编码器提供最及时的反馈，
-但与其他解码器的反馈一起可能是冗余的。
-通过延迟插入计数增量指令，解码器可能能够合并多个插入计数增量指令，
-或者用报头确认完全替换它们(参见{{header-acknowledgement}})。
-但是，如果编码器在使用条目之前等待条目被确认，那么延迟太长可能会导致压缩效率低下。
+When the Required Insert Count is zero, the frame contains no references to the
+dynamic table and can always be processed immediately.
 
+If the Required Insert Count is greater than the number of dynamic table entries
+received, the stream is considered "blocked."  While blocked, header field data
+SHOULD remain in the blocked stream's flow control window.  A stream becomes
+unblocked when the Insert Count becomes greater than or equal to the Required
+Insert Count for all header blocks the decoder has started reading from the
+stream.
+
+The SETTINGS_QPACK_BLOCKED_STREAMS setting (see {{configuration}}) specifies an
+upper bound on the number of streams which can be blocked. An encoder MUST limit
+the number of streams which could become blocked to the value of
+SETTINGS_QPACK_BLOCKED_STREAMS at all times. Note that the decoder might not
+actually become blocked on every stream which risks becoming blocked.  If the
+decoder encounters more blocked streams than it promised to support, it MUST
+treat this as a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.
+
+An encoder can decide whether to risk having a stream become blocked. If
+permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS, compression efficiency
+can often be improved by referencing dynamic table entries that are still in
+transit, but if there is loss or reordering the stream can become blocked at the
+decoder.  An encoder avoids the risk of blocking by only referencing dynamic
+table entries which have been acknowledged, but this could mean using
+literals. Since literals make the header block larger, this can result in the
+encoder becoming blocked on congestion or flow control limits.
+
+### Known Received Count
+
+In order to identify which dynamic table entries can be safely used without a
+stream becoming blocked, the encoder tracks the number of entries received by
+the decoder.  The Known Received Count tracks the total number of acknowledged
+insertions.
+
+When blocking references are permitted, the encoder uses header block
+acknowledgement to maintain the Known Received Count, as described in
+{{header-acknowledgement}}.
+
+To acknowledge dynamic table entries which are not referenced by header blocks,
+for example because the encoder or the decoder have chosen not to risk blocked
+streams, the decoder sends an Insert Count Increment instruction (see
+{{insert-count-increment}}).
+
+
+## Decoder
+
+As in HPACK, the decoder processes header blocks and emits the corresponding
+header lists. It also processes dynamic table modifications from encoder
+instructions received on the encoder stream.
+
+The decoder MUST emit header fields in the order their representations appear in
+the input header block.
+
+
+### State Synchronization
+
+The decoder instructions ({{decoder-instructions}}) signal key events at the
+decoder that permit the encoder to track the decoder's state.  These events are:
+
+- Complete processing of a header block
+- Abandonment of a stream which might have remaining header blocks
+- Receipt of new dynamic table entries
+
+Knowledge that a header block with references to the dynamic table has been
+processed permits the encoder to evict entries to which no unacknowledged
+references remain, regardless of whether those references were potentially
+blocking (see {{blocked-insertion}}).  When a stream is reset or abandoned, the
+indication that these header blocks will never be processed serves a similar
+function; see {{stream-cancellation}}.
+
+The decoder chooses when to emit Insert Count Increment instructions (see
+{{insert-count-increment}}). Emitting an instruction after adding each new
+dynamic table entry will provide the most timely feedback to the encoder, but
+could be redundant with other decoder feedback. By delaying an Insert Count
+Increment instruction, the decoder might be able to coalesce multiple Insert
+Count Increment instructions, or replace them entirely with Header
+Acknowledgements (see {{header-acknowledgement}}). However, delaying too long
+may lead to compression inefficiencies if the encoder waits for an entry to be
+acknowledged before using it.
 
 ### 阻塞解码(Blocked Decoding)
 
@@ -624,9 +658,7 @@ HTTP/3终端包含QPACK编码器和解码器。
 {:#fig-index-with-duplication title="Duplicate"}
 
 现有条目将重新插入动态表中，而不重新发送名称或值。
-这对于减少频繁引用的旧条目的驱逐非常有用，既
-可以避免重新发送标头，也可以避免表中的现有
-条目有阻止插入新标头的能力。
+这对于减少频繁引用的旧条目的驱逐非常有用，既可以避免重新发送标头，也可以避免表中的现有条目有阻止插入新标头的能力。
 
 ### 设置动态表容量(Set Dynamic Table Capacity) {#set-dynamic-capacity}
 
@@ -641,16 +673,13 @@ HTTP/3终端包含QPACK编码器和解码器。
 ~~~~~~~~~~
 {:#fig-set-capacity title="Set Dynamic Table Capacity"}
 
-新容量**必须**低于或等于
-{{maximum-dynamic-table-capacity}}中描述的限制。
-在HTTP / 3中，此限制是从解码器中受
-到的SETTINGS_QPACK_MAX_TABLE_CAPACITY参数(参考 {{configuration}})的值。
-解码器**必须**将超过此限制的新动态表容量
-值视为类型`HTTP_QPACK_ENCODER_STREAM_ERROR`的连接错误。
+新容量**必须**低于或等于{{maximum-dynamic-table-capacity}}中描述的限制。
+在HTTP / 3中，此限制是从解码器中受到的
+SETTINGS_QPACK_MAX_TABLE_CAPACITY参数(参考 {{configuration}})的值。
+解码器**必须**将超过此限制的新动态表容量值视为类型`HTTP_QPACK_ENCODER_STREAM_ERROR`的连接错误。
 
 减少动态表容量可能导致条目被逐出(参考{{eviction}})。
-该操作**禁止**导致具有动态表引用的条目被
-驱逐(参考 {{reference-tracking}})。
+该操作**禁止**导致具有动态表引用的条目被驱逐(参考 {{reference-tracking}})。
 由于此指令未插入条目，因此无法确认更改动态表的容量。
 
 
@@ -658,21 +687,16 @@ HTTP/3终端包含QPACK编码器和解码器。
 
 解码器指令提供用于确保动态表一致性的信息。
 它们在解码流中从解码器发送到编码器;
-也就是说，服务器通知客户端有关客户端标头块和
-表更新的处理，客户端通知服务器有关服务器标头
-块和表更新的处理。
+也就是说，服务器通知客户端有关客户端标头块和表更新的处理，客户端通知服务器有关服务器标头块和表更新的处理。
 
 本节指定以下解码器说明。
 
 ### 插入计数增量(Insert Count Increment)
 
 插入计数增量指令以'00'两位字头开始。
-该指令指定自上一次插入计数增量或标题确认以
-来增加动态表的已知接收计数，用以得到动态表插
-入和重复的总数(参考{{known-received-count}})。
+该指令指定自上一次插入计数增量或标题确认以来增加动态表的已知接收计数，用以得到动态表插入和重复的总数(参考{{known-received-count}})。
 Increment字段编码为6位前缀整数。
-编码器使用此值来确定哪些表条目可能导致流被
-阻止，参见{{state-synchronization}}中的描述.
+编码器使用此值来确定哪些表条目可能导致流被阻止，参见{{state-synchronization}}中的描述.
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -682,19 +706,14 @@ Increment字段编码为6位前缀整数。
 ~~~~~~~~~~
 {:#fig-size-sync title="Insert Count Increment"}
 
-接收增量字段等于零的编码器或一个增加已知接收
-计数超出它发送的数量的编码器**必须**被视为类
-型为“HTTP_QPACK_DECODER_STREAM_ERROR”的
-连接错误。
+接收增量字段等于零的编码器或一个增加已知接收计数超出
+它发送的数量的编码器**必须**被视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
 
 ### 头确认(Header Acknowledgement)
 
-在处理完其声明的必需插入计数不为零的标题块
-之后，解码器在解码器流上发出标头确认指令。
-该指令以“1”一位字头开始，并包括标题块的相关
-流ID，编码为7位前缀整数。
-对端的编码器使用它来知道何时可以安全地逐
-出条目，并可能更新已知接收计数。
+在处理完其声明的必需插入计数不为零的标题块之后，解码器在解码器流上发出标头确认指令。
+该指令以“1”一位字头开始，并包括标题块的相关流ID，编码为7位前缀整数。
+对端的编码器使用它来知道何时可以安全地逐出条目，并可能更新已知接收计数。
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -704,26 +723,15 @@ Increment字段编码为6位前缀整数。
 ~~~~~~~~~~
 {:#fig-header-ack title="Header Acknowledgement"}
 
-可以多次识别相同的流ID，因为在中间响应，
-预告和推送请求的情况下，可以在单个流上发
-送多个头块。
-由于每个流上的HEADERS和PUSH_PROMISE帧
-会被接收并按顺序处理，因此这给编码器提供了
-关于流中的哪些报头块已被完全处理的精确反馈。
+可以多次识别相同的流ID，因为在中间响应，预告和推送请求的情况下，可以在单个流上发送多个头块。
+由于每个流上的HEADERS和PUSH_PROMISE帧会被接收并按顺序处理，因此这给编码器提供了关于流中的哪些报头块已被完全处理的精确反馈。
 
-如果编码器接收到一个头确认指令，该指令指的
-是已经确认了具有非零必需插入计数的每个头块的
-流，则**必须**将其视为类型为
-“HTTP_QPACK_DECODER_STREAM_ERROR”的
-连接错误。
+如果编码器接收到一个头确认指令，该指令指的是已经确认了具有非零必需插入计数的每个头块的流，
+则**必须**将其视为类型为“HTTP_QPACK_DECODER_STREAM_ERROR”的连接错误。
 
-当允许阻塞引用时，编码器使用标头块确认来更
-新已知接收计数。
-如果标头块可能阻塞，则确认意味着解码器已经
-接收到处理标头块所需的所有动态表状态。
-如果确认的标头块的必需插入计数大于编码器的
-当前已知接收计数，则块的必需插入计数将成为
-新的已知接收计数。
+当允许阻塞引用时，编码器使用标头块确认来更新已知接收计数。
+如果标头块可能阻塞，则确认意味着解码器已经接收到处理标头块所需的所有动态表状态。
+如果确认的标头块的必需插入计数大于编码器的当前已知接收计数，则块的必需插入计数将成为新的已知接收计数。
 
 ### 流取消(Stream Cancellation)
 
@@ -746,23 +754,24 @@ Increment字段编码为6位前缀整数。
 编码器无法从该指令推断出已接收到对动态表的任何更新。
 
 
-##　头部块的指令（Header Block Instructions）
+## Header Block Instructions
 
+HTTP/3 endpoints convert header lists to headers blocks and exchange them inside
+HEADERS and PUSH_PROMISE frames. A decoder interprets header block instructions
+in order to construct a header list. These instructions reference the static
+table, or dynamic table in a particular state without modifying it.
 
-HTTP/3 端会将头部列表转换为头部块，并在HEADERS和PUSH_PROMISE帧
-内交换它们。解码器解释头部指令以便构造头部列表。
-这些指令引用静态表或没有修改的特定状态的动态表。
+This section specifies the following header block instructions.
 
-本节指定以下头部块指令
+### Header Block Prefix {#header-prefix}
 
-### 头部块前缀 {#header-prefix}
+Each header block is prefixed with two integers.  The Required Insert Count is
+encoded as an integer with an 8-bit prefix after the encoding described in
+{{ric}}).  The Base is encoded as sign-and-modulus integer, using a single sign
+bit and a value with a 7-bit prefix (see {{base}}).
 
-每个标题块都以两个整数为前缀。必需的插入计数(RIC)是
-在{{ric}}描述的编码之后编码的有8位前缀的整数
-The Base 被编码为有符号的取模整数，利用一个符号位和
-7位前缀的值（请参阅{{base}}）。
-这两个值后面是压缩头部的指令，整个块会被使用的协议
-分帧．
+These two values are followed by instructions for compressed headers.  The
+entire block is expected to be framed by the using protocol.
 
 ~~~~~~~~~~  drawing
   0   1   2   3   4   5   6   7
@@ -774,15 +783,16 @@ The Base 被编码为有符号的取模整数，利用一个符号位和
 |      Compressed Headers     ...
 +-------------------------------+
 ~~~~~~~~~~
-{:#fig-base-index title="帧载荷"}
+{:#fig-base-index title="Frame Payload"}
 
 
-#### 必需的插入计数 {#ric}
+#### Required Insert Count {#ric}
 
-必需的插入计数(ric)标识处理头部块所需的动态表的状态。
-阻塞解码器使用必需的插入计数来确定何时可以安全地处理块的其余部分。
+Required Insert Count identifies the state of the dynamic table needed to
+process the header block.  Blocking decoders use the Required Insert Count to
+determine when it is safe to process the rest of the block.
 
-编码器在编码之前对必需的插入计数(RIC)转换如下：
+The encoder transforms the Required Insert Count as follows before encoding:
 
 ~~~
    if ReqInsertCount == 0:
@@ -791,22 +801,26 @@ The Base 被编码为有符号的取模整数，利用一个符号位和
       EncInsertCount = (ReqInsertCount mod (2 * MaxEntries)) + 1
 ~~~
 
-这里MaxEntries是动态表可以拥有的最大条目数。
-最小的条目具有空名称和值字符串，大小为32.因此MaxEntries计算为
+Here `MaxEntries` is the maximum number of entries that the dynamic table can
+have.  The smallest entry has empty name and value strings and has the size of
+32.   Hence `MaxEntries` is calculated as
 
 ~~~
    MaxEntries = floor( MaxTableCapacity / 32 )
 ~~~
-MaxTableCapacity是解码器指定的动态表的最大容量,见
-{{maximum-dynamic-table-capacity}}.
 
-此编码限制了长期连接上的前缀长度。
+`MaxTableCapacity` is the maximum capacity of the dynamic table as specified by
+the decoder (see {{maximum-dynamic-table-capacity}}).
 
-解码器可以使用诸如以下的算法重建所需的插入计数。如果解码器
-遇到无法由符合编码器生成的EncodedInsertCount值，则**必须**将其视为
-HTTP_QPACK_DECOMPRESSION_FAILED类型的流错误。
+This encoding limits the length of the prefix on long-lived connections.
 
-TotalNumberOfInserts是解码器动态表中插入的总数。
+The decoder can reconstruct the Required Insert Count using an algorithm such as
+the following.  If the decoder encounters a value of EncodedInsertCount that
+could not have been produced by a conformant encoder, it MUST treat this as a
+stream error of type `HTTP_QPACK_DECOMPRESSION_FAILED`.
+
+TotalNumberOfInserts is the total number of inserts into the decoder's dynamic
+table.
 
 ~~~
    FullRange = 2 * MaxEntries
@@ -817,31 +831,33 @@ TotalNumberOfInserts是解码器动态表中插入的总数。
          Error
       MaxValue = TotalNumberOfInserts + MaxEntries
 
-      # MaxWrapped是ReqInsertCount最大的可能值
-      # 即0 mod 2*MaxEntries
+      # MaxWrapped is the largest possible value of
+      # ReqInsertCount that is 0 mod 2*MaxEntries
       MaxWrapped = floor(MaxValue / FullRange) * FullRange
       ReqInsertCount = MaxWrapped + EncodedInsertCount - 1
 
-      # 如果ReqInsertCount超过 MaxValue,则一定是编码器的值
-      #被少包装了一次
+      # If ReqInsertCount exceeds MaxValue, the Encoder's value
+      # must have wrapped one fewer time
       if ReqInsertCount > MaxValue:
          if ReqInsertCount < FullRange:
             Error
          ReqInsertCount -= FullRange
 ~~~
 
-例如，如果动态表是100个字节，则必需的插入计数将以模6编码。
-如果解码器已接收10个插入，则编码值3表示头部块的必需插入计数为9。
+For example, if the dynamic table is 100 bytes, then the Required Insert Count
+will be encoded modulo 6.  If a decoder has received 10 inserts, then an encoded
+value of 3 indicates that the Required Insert Count is 9 for the header block.
 
-#### 基数 {#base}
+#### Base {#base}
 
-Base用于解析动态表中的引用，见
+The `Base` is used to resolve references in the dynamic table as described in
 {{relative-indexing}}.
 
-为了节省空间，Base使用一位符号和Delta Base值相对于插入计数进行编
-码。符号位为0表示Base大于或等于Insert Count的值;将Delta Base的值
-添加到Insert Count以确定Base的值。符号位为1表示Base小于插入计数。
-即：
+To save space, the Base is encoded relative to the Insert Count using a one-bit
+sign and the `Delta Base` value.  A sign bit of 0 indicates that the Base is
+greater than or equal to the value of the Insert Count; the value of Delta Base
+is added to the Insert Count to determine the value of the Base.  A sign bit of
+1 indicates that the Base is less than the Insert Count.  That is:
 
 ~~~
    if S == 0:
@@ -850,28 +866,33 @@ Base用于解析动态表中的引用，见
       Base = ReqInsertCount - DeltaBase - 1
 ~~~
 
-单通道编码器在编码头部块之前确定Base。如果编码器在编码头部块
-时在动态表中插入条目，则必需插入计数将大于基数，因此编码差异为负，
-符号位设置为1.如果头部块未引用在表中的最新条目输入并且未插入任何
-新条目，Base将大于Required Insert Count，因此delta将为正且符号
-位设置为0。
+A single-pass encoder determines the Base before encoding a header block.  If
+the encoder inserted entries in the dynamic table while encoding the header
+block, Required Insert Count will be greater than the Base, so the encoded
+difference is negative and the sign bit is set to 1.  If the header block did
+not reference the most recent entry in the table and did not insert any new
+entries, the Base will be greater than the Required Insert Count, so the delta
+will be positive and the sign bit is set to 0.
+
+An encoder that produces table updates before encoding a header block might set
+Required Insert Count and the Base to the same value.  In such case, both the
+sign bit and the Delta Base will be set to zero.
+
+A header block that does not reference the dynamic table can use any value for
+the Base; setting Delta Base to zero is the most efficient encoding.
+
+For example, with an Required Insert Count of 9, a decoder receives a S bit of 1
+and a Delta Base of 2.  This sets the Base to 6 and enables post-base indexing
+for three entries.  In this example, a regular index of 1 refers to the 5th
+entry that was added to the table; a post-base index of 1 refers to the 8th
+entry.
 
 
-在编码头部块之前产生表更新的编码器可能会将Required Insert Count
-和Base设置为相同的值。在这种情况下，符号位和Delta Base都将设置为零。
+### Indexed Header Field
 
-不引用动态表的头部块可以设置Base为任何值;
-将Delta Base设置为零是最有效的编码。
-
-例如，如果所需插入计数为9，则解码器接收S位为1且Delta Base为2.
-这将Base设置为6并为三个条目启用后基索引。在此示例中，
-常规索引1表示添加到表中的第5个条目;后基索引为1指的是第8个条目。
-
-### 索引标题字段
-(Indexed Header Field)
-
-索引标题字段表示标识静态表或动态表中的条目，并使该标题字段被添
-加到解码的标题列表中，如[RFC7541]的第3.2节中所述
+An indexed header field representation identifies an entry in either the static
+table or the dynamic table and causes that header field to be added to the
+decoded header list, as described in Section 3.2 of [RFC7541].
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -879,18 +900,23 @@ Base用于解析动态表中的引用，见
 | 1 | S |      Index (6+)       |
 +---+---+-----------------------+
 ~~~~~~~~~~
-{: title="索引标题字段"}
+{: title="Indexed Header Field"}
 
-如果条目在静态表中，或者在绝对索引小于Base的动态表中,
-则该表示以“1”1位模式开始，后跟S位表明引用是否进入静态（ S = 1）
-或动态（S = 0）表。最后，匹配头字段的相对索引表示为具有6位前缀
-的整数（参见[RFC7541]的第5.1节）。
+If the entry is in the static table, or in the dynamic table with an absolute
+index less than the Base, this representation starts with the '1' 1-bit pattern,
+followed by the `S` bit indicating whether the reference is into the static
+(S=1) or dynamic (S=0) table. Finally, the relative index of the matching header
+field is represented as an integer with a 6-bit prefix (see Section 5.1 of
+[RFC7541]).
 
-### 带有后基索引的索引标题字段(Indexed Header Field With Post-Base Index)
 
-如果条目在绝对索引大于或等于Base的动态表中，
-表现为'0001'4位模式开始，后跟匹配的后基索引（参见{{post-base}})
-的头部字段，表示为具有4位前缀的整数（参见[RFC7541]的第5.1节）。
+### Indexed Header Field With Post-Base Index
+
+If the entry is in the dynamic table with an absolute index greater than or
+equal to the Base, the representation starts with the '0001' 4-bit pattern,
+followed by the post-base index (see {{post-base}}) of the matching header
+field, represented as an integer with a 4-bit prefix (see Section 5.1 of
+[RFC7541]).
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -898,7 +924,7 @@ Base用于解析动态表中的引用，见
 | 0 | 0 | 0 | 1 |  Index (4+)   |
 +---+---+---+---+---------------+
 ~~~~~~~~~~
-{: title="带有后基索引的头部索引字段"}
+{: title="Indexed Header Field with Post-Base Index"}
 
 
 ### 具有名称引用的文本标头字段(Literal Header Field With Name Reference)

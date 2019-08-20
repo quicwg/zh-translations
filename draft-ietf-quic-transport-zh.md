@@ -2920,144 +2920,138 @@ ACK帧（见{{processing-and-ack}}和{{frame-ack}}）。
 同时1-RTT包的编号空间计数加2。
 
 
-### ECN 验证 {#ecn-verification}
-每个端上都可以将它到对端的链路ip
-报头ECN码点设置为ECN开启传输（ECT），
-来单独验证和开启ECN。即使没能在传输
-的包上设置ECN码点，端上**应该**为接收
-到ECN标记提供反馈（如果可达的话）
+### ECN Verification {#ecn-verification}
 
-为了验证端上可以支持ECN同时对端可以
-提供ECN反馈，端上必须在所有的出端流量ip
-报文头设置ECT（0）码点,详见
-{{!RFC8311}}.
+Each endpoint independently verifies and enables use of ECN by setting the IP
+header ECN codepoint to ECN Capable Transport (ECT) for the path from it to the
+other peer. Even if not setting ECN codepoints on packets it transmits, the
+endpoint SHOULD provide feedback about ECN markings received (if accessible).
 
-如果一个在ip报文头中设置的ECT码点在没有被
-网络设备损坏，那么接收到的报文中要么包括对
-端发送的码点，要么包括一个被正在经历拥塞的
-网络设备设置的拥塞经历（CE）码点。
+To verify both that a path supports ECN and the peer can provide ECN feedback,
+an endpoint sets the ECT(0) codepoint in the IP header of all outgoing
+packets {{!RFC8311}}.
 
-如果一个带有ECT码点quic的quic报文是被对
-端在没有ECN反馈的ACK帧中回复应答，那么端上
-就不会在后续的Ip包中设置ECT码点，也不期望
-网络链路或者对端支持ECN。
+If an ECT codepoint set in the IP header is not corrupted by a network device,
+then a received packet contains either the codepoint sent by the peer or the
+Congestion Experienced (CE) codepoint set by a network device that is
+experiencing congestion.
 
-损坏的网络设备或者应用非标准ECN标记或许会
-导致吞吐量的下降或意料之外的副作用。为了降
-低这种风险，端上在验证它在ACK帧中接收到的
-数量时会采取以下几个步骤。
+If a QUIC packet sent with an ECT codepoint is newly acknowledged by the peer in
+an ACK frame without ECN feedback, the endpoint stops setting ECT codepoints in
+subsequent IP packets, with the expectation that either the network path or the
+peer no longer supports ECN.
 
-* ECT(0),ECT(1)和CE增加的总和**必须**不比在
-刚接收到响应ACK帧中，所有带ECT码点的quic包数
-量的总和小。这一步是为了检测将ECT(0)，ECT(1),
-或CE码点转换为为非ECT的网络。
+Network devices that corrupt or apply non-standard ECN markings might result in
+reduced throughput or other undesirable side-effects.  To reduce this risk, an
+endpoint uses the following steps to verify the counts it receives in an ACK
+frame.
 
-* ECT(0)或ECT(1)增加的数量，加上CE增加
-的数量，**必须**不比在这个ACK帧中带有新应答的
-相符合ECT码点的包数量少。这一步检测任何易错
-的从ECT(0)到ECT(1)（或反向）的网络重标记情况。
+* The total increase in ECT(0), ECT(1), and CE counts MUST be no smaller than
+  the total number of QUIC packets sent with an ECT codepoint that are newly
+  acknowledged in this ACK frame.  This step detects any network remarking from
+  ECT(0), ECT(1), or CE codepoints to Not-ECT.
 
-端上在ACK帧丢失的时候有可能错过某个包的响应。
-因此总共ECT(0),ECT(1)和CE的增加的数量有可能
-比在一个ACK帧中回应的包数量大。当这种情况发
-生的时候，如果验证继续，本地引用的数量**必须
-**增加来对应ACK帧中的数量。
+* Any increase in either ECT(0) or ECT(1) counts, plus any increase in the CE
+  count, MUST be no smaller than the number of packets sent with the
+  corresponding ECT codepoint that are newly acknowledged in this ACK frame.
+  This step detects any erroneous network remarking from ECT(0) to ECT(1) (or
+  vice versa).
 
-无序的加和处理会导致验证失败。当接收到的ACK
-帧所在的包下标比之前接收到的ACK帧下标更低时，
-端上**不应该**继续这类验证。基于无序到达的ack
-帧验证会导致不必要的ECN关闭。
+An endpoint could miss acknowledgements for a packet when ACK frames are lost.
+It is therefore possible for the total increase in ECT(0), ECT(1), and CE counts
+to be greater than the number of packets acknowledged in an ACK frame.  When
+this happens, and if verification succeeds, the local reference counts MUST be
+increased to match the counts in the ACK frame.
 
-一旦验证成功，端上会在后继的包中设置ECT码点，
-并预期这条链路是开启了ECN的。
+Processing counts out of order can result in verification failure.  An endpoint
+SHOULD NOT perform this verification if the ACK frame is received in a packet
+with packet number lower than a previously received ACK frame.  Verifying based
+on ACK frames that arrive out of order can result in disabling ECN
+unnecessarily.
 
-如果验证失败，端上就会停止在后续的ip报文中
-设置ECT码点，并预期网络链路或者对端不支持
-ECN。
+Upon successful verification, an endpoint continues to set ECT codepoints in
+subsequent packets with the expectation that the path is ECN-capable.
 
-如果端上在出端的ip包中设置了ECT码点，同时
-由于没有收到对端的响应(见{{QUIC-RECOVERY}}
-导致重传超时，或者端上有理由相信网络链路上
-的某处会损坏ECN码点，端上**可以**在后续的
-包中停止设置ECT码点。这样使得连接对那些损
-坏ip报文头中ECN码点或者丢弃在IP报文头中含有
-ECT／CE码点包的部分网络有更强的容忍性。
+If verification fails, then the endpoint ceases setting ECT codepoints in
+subsequent IP packets with the expectation that either the network path or the
+peer does not support ECN.
 
-# 包大小{#packet-size}
+If an endpoint sets ECT codepoints on outgoing IP packets and encounters a
+retransmission timeout due to the absence of acknowledgments from the peer (see
+{{QUIC-RECOVERY}}), or if an endpoint has reason to believe that an element on
+the network path might be corrupting ECN codepoints, the endpoint MAY cease
+setting ECT codepoints in subsequent packets.  Doing so allows the connection to
+be resilient to network elements that corrupt ECN codepoints in the IP header or
+drop packets with ECT or CE codepoints in the IP header.
 
-quic 包体的大小包括quic报文头和加密的内容
-，但是没有upd或者ip的报文头。
 
-客户端**必须**保证他们在一个单独的ip报文中
-发送第一个初始包。同样地，在收到一个重试包
-之后第一个初始包也**必须**在一个单独的ip包
-中。
+# Packet Size {#packet-size}
 
-包含第一个首包的udp报文**必须**通过为首包
-添加**填充**帧或者将首包和0Rtt包结合的方式
-(详见{{packet-coalesce}})将包体扩充到至少
-1200bytes。发送一个这种大小的udp报文确保
-网络链路支持一个合理大小的最大传输单元(MTU
-)，同时帮助降低由于服务端对未验证的客户端
-地址发送响应导致的放大攻击程度。详见{{
-address-validation}}.
+The QUIC packet size includes the QUIC header and protected payload, but not the
+UDP or IP header.
 
-如果客户端相信链路最大传输单元(PMTU)支持它
-选择的大小,那么包括来自客户端第一个首包的
-报文**可以**超过1200字节。
+Clients MUST ensure they send the first Initial packet in a single IP packet.
+Similarly, the first Initial packet sent after receiving a Retry packet MUST be
+sent in a single IP packet.
 
-当从客户端收到的udp报文小于1200bytes时
-服务端**可以**发送一个带有错误码
-PROTOCOL_VIOLATION的CONNECTION_CLOSE帧
-作为第一个初始包的回应。**禁止**发送
-其他任何的帧作为回应，不然就会表现为
-冲突包的某部分被当作有效来处理。
+The payload of a UDP datagram carrying the first Initial packet MUST be expanded
+to at least 1200 bytes, by adding PADDING frames to the Initial packet and/or by
+combining the Initial packet with a 0-RTT packet (see {{packet-coalesce}}).
+Sending a UDP datagram of this size ensures that the network path supports a
+reasonable Maximum Transmission Unit (MTU), and helps reduce the amplitude of
+amplification attacks caused by server responses toward an unverified client
+address, see {{address-validation}}.
 
-同时服务端**必须**在验证客户端地址之前
-限制它发送的字节数，详见
-{{address-validation}}.
+The datagram containing the first Initial packet from a client MAY exceed 1200
+bytes if the client believes that the Path Maximum Transmission Unit (PMTU)
+supports the size that it chooses.
 
-## 链路最大传输单元 (PMTU)
-PMTU是包括了ip报文头，udp报文头，udp报文
-体在内的整个ip包的最大的大小。UDP报文包括
-了udp包的头部，受保护的包体还有任何其他认
-证域。PMTU是依赖于当前链路的特性的，因此，
-某个实现会发送的当前最大UDP报文会被认为
-QUIC最大支持包大小。
+A server MAY send a CONNECTION_CLOSE frame with error code PROTOCOL_VIOLATION in
+response to the first Initial packet it receives from a client if the UDP
+datagram is smaller than 1200 bytes. It MUST NOT send any other frame type in
+response, or otherwise behave as if any part of the offending packet was
+processed as valid.
 
-QUIC依赖于最小1280字节的PMTU。这是IPv6最
-小支持的大小(见{{?RFC8200}})，同时也是
-被大多数的现代IPv4网络所支持的。所有的
-QUIC包(尤其是PMTU的探测包)**应该**定义为
-小于最大支持包大小，这样就可以避免报文被
-分片或者丢弃(详见{{?RFC8085}})
+The server MUST also limit the number of bytes it sends before validating the
+address of the client, see {{address-validation}}.
 
-端上**应该**使用报文分包层的PMTU发现机制
-({{!DPLPMTUD=I-D.ietf-tsvwg-datagram-plpmtud}})
-或者实现链路MTU发现机制
-(PMTUD) {{!RFC1191}} {{!RFC8201}}
-来决定到终点的链路是否支持没有经过分片的
-定制消息大小。
 
-在这些机制不存在的时候，QUIC的端上**不
-应该**发送超过1280字节的ip包。考虑到最
-小的IP报文头大小，QUIC在IPv6链路的最大
-包大小为1232字节，在IPv4为1252字节。QUIC
-的实现**可以**在计算QUCI最大包大小
-的时候更加保守，这样就可以为未知的通道
-附加，或者ip报文头选项／扩展等留有余量。
+## Path Maximum Transmission Unit (PMTU)
 
-每对本地和远端地址都可以有单独的PMTU。
-QUIC在实现任何一种PMTU发现机制的时候**
-应该**为每对本地和远端IP地址维护一个
-最大包大小。
+The PMTU is the maximum size of the entire IP packet including the IP header,
+UDP header, and UDP payload.  The UDP payload includes the QUIC packet header,
+protected payload, and any authentication fields. The PMTU can depend upon the
+current path characteristics.  Therefore, the current largest UDP payload an
+implementation will send is referred to as the QUIC maximum packet size.
 
-如果一个QUIC端上发现某对本地和远程ip地址
-的之间的PMTU已经降低到比支持的最小
-“最大包大小”还低，就**必须**立即停止在
-受影响的链路发送QUIC包，除了PMTU的探测包。
-如果可替代的链路不能被发现的话，端上**可
-以**终止掉该连接。
+QUIC depends on a PMTU of at least 1280 bytes. This is the IPv6 minimum size
+{{?RFC8200}} and is also supported by most modern IPv4 networks.  All QUIC
+packets (except for PMTU probe packets) SHOULD be sized to fit within the
+maximum packet size to avoid the packet being fragmented or dropped
+{{?RFC8085}}.
+
+An endpoint SHOULD use Datagram Packetization Layer PMTU Discovery
+({{!DPLPMTUD=I-D.ietf-tsvwg-datagram-plpmtud}}) or implement Path MTU Discovery
+(PMTUD) {{!RFC1191}} {{!RFC8201}} to determine whether the path to a destination
+will support a desired message size without fragmentation.
+
+In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP packets
+larger than 1280 bytes. Assuming the minimum IP header size, this results in a
+QUIC maximum packet size of 1232 bytes for IPv6 and 1252 bytes for IPv4. A QUIC
+implementation MAY be more conservative in computing the QUIC maximum packet
+size to allow for unknown tunnel overheads or IP header options/extensions.
+
+Each pair of local and remote addresses could have a different PMTU.  QUIC
+implementations that implement any kind of PMTU discovery therefore SHOULD
+maintain a maximum packet size for each combination of local and remote IP
+addresses.
+
+If a QUIC endpoint determines that the PMTU between any pair of local and remote
+IP addresses has fallen below the size needed to support the smallest allowed
+maximum packet size, it MUST immediately cease sending QUIC packets, except for
+PMTU probe packets, on the affected path.  An endpoint MAY terminate the
+connection if an alternative path cannot be found.
+
 
 ## ICMP 包太大消息(ICMP Packet Too Big Messages) {#icmp-pmtud}
 
@@ -3498,32 +3492,29 @@ Packet Number:
 服务器发送它的第一个初始包作为对客户机初始包的响应。
 服务器可以发送多个初始包。密码的密钥交换可能需要多次往返或重新传输数据。
 
-The payload of an Initial packet includes a CRYPTO frame (or frames) containing
-a cryptographic handshake message, ACK frames, or both.  PADDING and
-CONNECTION_CLOSE frames are also permitted.  An endpoint that receives an
-Initial packet containing other frames can either discard the packet as spurious
-or treat it as a connection error.
+初始包的有效负载包括包含加密握手信息、ACK帧或两者都包含的CRYPTO帧(或多个帧)。
+也允许PADDING和CONNECTION_CLOSE帧。
+接收包含其他帧的初始包的终端可以将该包作为伪包丢弃，也可以将其视为连接错误。
 
-The first packet sent by a client always includes a CRYPTO frame that contains
-the entirety of the first cryptographic handshake message.  This packet, and the
-cryptographic handshake message, MUST fit in a single UDP datagram (see
-{{handshake}}).  The first CRYPTO frame sent always begins at an offset of 0
-(see {{handshake}}).
+客户端发送的第一个数据包总是包含一个含有第一个加密握手消息全部内容的CRYPTO帧。
+这个数据包和加密握手信息**必须**包含在一个UDP数据报中(见{{handshake}})。
+发送的第一个CRYPTO帧总是以偏移量0开始(见{{handshake}})。
 
-Note that if the server sends a HelloRetryRequest, the client will send a second
-Initial packet.  This Initial packet will continue the cryptographic handshake
-and will contain a CRYPTO frame with an offset matching the size of the CRYPTO
-frame sent in the first Initial packet.  Cryptographic handshake messages
-subsequent to the first do not need to fit within a single UDP datagram.
+注意，如果服务器发送一个HelloRetryRequest，客户机将发送第二个初始包。
+这个初始包将继续加密握手，并将包含一个与第一个初始包中发送的CRYPTO帧
+大小匹配的偏移量的CRYPTO帧。
+第一次握手之后的加密握手信息不需要包含在一个UDP数据报中。
 
-#### 放弃初始数据包(Abandoning Initial Packets) {#discard-initial}
+#### 丢弃初始数据包(Abandoning Initial Packets) {#discard-initial}
 
-客户端在发送第一个握手数据包时停止发送和处理初始数据包。服务器在收到第一个握手数据包
-时停止发送和处理初始数据包。虽然数据包可能仍在传输或等待确认，但在此之后无需再交换初
-始数据包。丢弃初始数据包保护密钥(参见{{QUIC-TLS}}第4.10节)以及任何丢失追回和阻塞控
-制状态(参见{{QUIC-RECOVERY}}的第5.3.1.2和6.9节)。
+客户端在发送第一个握手包时停止发送和处理初始数据包。
+当服务器接收到它的第一个握手包时停止发送和处理初始数据包。
+虽然数据包可能仍然在传输或等待确认，但在此之后不需要再互相传输任何初始包。
+初始包保护密钥，(参见{{QUIC-TLS}}第4.10节)，
+任何丢失恢复和拥塞控制状态都将被丢弃(参见{{QUIC-RECOVERY}}第5.3.1.2节和6.9节)。
 
-当丢弃初始密钥时，CRYPTO帧中的任何数据都将被丢弃，且不再重新传输。
+当初始密钥被丢弃时，CRYPTO帧中的任何数据都将被丢弃，并且不再重新传输。
+
 
 ### 0-RTT {#packet-0rtt}
 
@@ -3993,81 +3984,72 @@ MAX_STREAM_DATA帧（{{frame-max-stream-data}}）。
 TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
 
-# 帧的类型和格式 {#frame-formats}
+# Frame Types and Formats {#frame-formats}
 
-参见 {{frames}}章节, 每个包体包括
-了一个或多个帧，这部分描述了核心
-QUIC帧类型的格式和语义．
+As described in {{frames}}, packets contain one or more frames. This section
+describes the format and semantics of the core QUIC frame types.
 
-## 填充(PADDING)帧 {#frame-padding}
 
-PADDING 帧(type=0x00)没有语义上的值
-，能够用来增加包体的大小．填充
-帧也可以用来增加初始客户端包的大小
-到最小要求大小，或者为受保护包
-的提供保护使之免于流量分析．
+## PADDING Frame {#frame-padding}
 
-填充帧是没有内容的，填充帧只包括了
-标识帧为PADDING帧的一个字节．
+The PADDING frame (type=0x00) has no semantic value.  PADDING frames can be used
+to increase the size of a packet.  Padding can be used to increase an initial
+client packet to the minimum required size, or to provide protection against
+traffic analysis for protected packets.
 
-## PING 帧 {#frame-ping}
-端上能使用PING帧(type=0x01)来确认
-对端是可达的，或者检测对端的可
-达性．PING帧不包括额外的字段信息．
+A PADDING frame has no content.  That is, a PADDING frame consists of the single
+byte that identifies the frame as a PADDING frame.
 
-PING帧的接受者只是简单的确认下包
-中包括这个帧．
 
-当某个应用或者应用协议想要使连接
-免于超时的时候，PING帧能够被用于
-连接的保活．应用层的协议**应该**
-为需要生成PING的场景提供指引，来
-表明到底**应该**是由客户端还是服
-务端来发送PING.双方都发送PING帧
-会导致多余的包发送，影响性能．
+## PING Frame {#frame-ping}
 
-如果超过了传输参数idle_timeout设
-置的时间仍然没有包发出或者收到
-，连接就会超时．参见{{termination}}).
-  然而，中间设备的超时状态
-或许比这个时间更短.尽管在
- {{?RFC4787}} 中的第５条
-要求建议至少２分钟的超时时间间隔，
-经验表明，每15到30秒发一个包是
-必要的，这样才能使大多数的中间设备
-不至于丢掉UDP流的状态．
+Endpoints can use PING frames (type=0x01) to verify that their peers are still
+alive or to check reachability to the peer. The PING frame contains no
+additional fields.
 
-## ACK 帧 {#frame-ack}
+The receiver of a PING frame simply needs to acknowledge the packet containing
+this frame.
 
-接受者会发送ACK帧(类型 0x02 and
-0x03)来通知到包的发送者他们已经
-接收或者处理了包．ACK帧中包括了
-一个或者多个ACK范围(Range),ACK范围
-标明了接收到的包．如果帧的类型
-是0x03,ACK帧同时会包括了到目前为止
-连接上接收到的带有ECN标记的QUIC包
-总和．QUIC的实现**必须**正确处理
-这两种类型，并且如果为发送的包开
-启了ECN的话，它们**应该**使用ECN
-部分中的信息来管理拥塞控制状态．
+The PING frame can be used to keep a connection alive when an application or
+application protocol wishes to prevent the connection from timing out. An
+application protocol SHOULD provide guidance about the conditions under which
+generating a PING is recommended.  This guidance SHOULD indicate whether it is
+the client or the server that is expected to send the PING.  Having both
+endpoints send PING frames without coordination can produce an excessive number
+of packets and poor performance.
 
-QUIC的应答是不可以被撤回的．一旦
-被应答，即使在未来的ACK帧中没有
-出现，该包仍然会保持被应答过的状
-态．这一点不像TCP的SACKs
- ({{?RFC2018}}).
+A connection will time out if no packets are sent or received for a period
+longer than the time specified in the idle_timeout transport parameter (see
+{{termination}}).  However, state in middleboxes might time out earlier than
+that.  Though REQ-5 in {{?RFC4787}} recommends a 2 minute timeout interval,
+experience shows that sending packets every 15 to 30 seconds is necessary to
+prevent the majority of middleboxes from losing state for UDP flows.
 
-发送者会在不同的包标号空间里重
-新利用同样的包标号．ACK帧只在接
-受ACK的包同样的包标号空间为发送
-者传递的包标号做出回应．
 
-版本协商包和重试包不会被相应，因
-为它们不含有包标号．这些包通过下个
-客户端发送的初始包被间接应答，而
-不是通过ACK帧．
+## ACK Frames {#frame-ack}
 
-ACK帧的格式如下：
+Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets
+they have received and processed. The ACK frame contains one or more ACK Ranges.
+ACK Ranges identify acknowledged packets. If the frame type is 0x03, ACK frames
+also contain the sum of QUIC packets with associated ECN marks received on the
+connection up until this point.  QUIC implementations MUST properly handle both
+types and, if they have enabled ECN for packets they send, they SHOULD use the
+information in the ECN section to manage their congestion state.
+
+QUIC acknowledgements are irrevocable.  Once acknowledged, a packet remains
+acknowledged, even if it does not appear in a future ACK frame.  This is unlike
+TCP SACKs ({{?RFC2018}}).
+
+It is expected that a sender will reuse the same packet number across different
+packet number spaces.  ACK frames only acknowledge the packet numbers that were
+transmitted by the sender in the same packet number space of the packet that the
+ACK was received in.
+
+Version Negotiation and Retry packets cannot be acknowledged because they do not
+contain a packet number.  Rather than relying on ACK frames, these packets are
+implicitly acknowledged by the next Initial packet sent by the client.
+
+An ACK frame is as follows:
 
 ~~~
  0                   1                   2                   3
@@ -4088,47 +4070,49 @@ ACK帧的格式如下：
 ~~~
 {: #ack-format title="ACK Frame Format"}
 
-ACK 帧包括以下的字段：
-最大的响应： Largest Acknowledged
-: 代表对端响应最大包编号的
-一个变长整数;通常是对端在生成ACK帧之
-前接收到的最大包编号．跟QUIC长短头部
-的包编号不同，ACK帧中的值是没有被截取
-过的．
+ACK frames contain the following fields:
 
-ACK 延时:ACK Delay
-: 一个包含了最新应答的包从ACK发出到
-对端接收到的毫秒级时间戳(Largest
- Acknowledged字段标识了最新应答的包)
-ACK延时时间通过乘以被ack帧的发送者
-设置的'ack_delay_exponent'传输参数
-的２次方来扩展．'ack_delay_exponent'
-默认值是３，即乘数为８(见
-{{transport-parameter-definitions}}).
-此类的缩小可以达到用较低的成本更短的
-编码来表示更大的范围．
+Largest Acknowledged:
 
-ACK 范围统计: ACK Range Count
+: A variable-length integer representing the largest packet number the peer is
+  acknowledging; this is usually the largest packet number that the peer has
+  received prior to generating the ACK frame.  Unlike the packet number in the
+  QUIC long or short header, the value in an ACK frame is not truncated.
 
-: 一个表示帧中间断和ACK范围数量的变
-长整数
+ACK Delay:
 
-第一个ACK 范围:First ACK Range
-: 一个表明在最新的应答之前被应答的
-连续包的数量．第一个ACK范围被编码为
-从最新的响应开始的ACK范围(见{{ack-ranges}})．
-即这个范围中最小应答包为最新应答
-减去第一个ACK范围的值．
+: A variable-length integer including the time in microseconds that the largest
+  acknowledged packet, as indicated in the Largest Acknowledged field, was
+  received by this peer to when this ACK was sent.  The value of the ACK Delay
+  field is scaled by multiplying the encoded value by 2 to the power of the
+  value of the `ack_delay_exponent` transport parameter set by the sender of the
+  ACK frame.  The `ack_delay_exponent` defaults to 3, or a multiplier of 8 (see
+  {{transport-parameter-definitions}}).  Scaling in this fashion allows for a
+  larger range of values with a shorter encoding at the cost of lower
+  resolution.
 
-ACK范围:ACK Ranges:
-:包括了未被应答的(间断)和已被应答
-的(ACK过的范围)交错排列的额外的
-包范围，见
-{{ack-ranges}}.
+ACK Range Count:
 
-ECN计数:ECN Counts:
+: A variable-length integer specifying the number of Gap and ACK Range fields in
+  the frame.
 
-: 三个ECN 计数, 见 {{ack-ecn-counts}}.
+First ACK Range:
+
+: A variable-length integer indicating the number of contiguous packets
+  preceding the Largest Acknowledged that are being acknowledged.  The First ACK
+  Range is encoded as an ACK Range (see {{ack-ranges}}) starting from the
+  Largest Acknowledged.  That is, the smallest packet acknowledged in the
+  range is determined by subtracting the First ACK Range value from the Largest
+  Acknowledged.
+
+ACK Ranges:
+
+: Contains additional ranges of packets which are alternately not
+  acknowledged (Gap) and acknowledged (ACK Range), see {{ack-ranges}}.
+
+ECN Counts:
+
+: The three ECN Counts, see {{ack-ecn-counts}}.
 
 
 ### ACK范围(ACK Ranges) {#ack-ranges}
@@ -5669,16 +5653,3 @@ Hamilton, Jana Iyengar, Fedor Kouranov, Charles Krasic, Jo Kulik, Adam Langley,
 Jim Roskind, Robbie Shade, Satyam Shekhar, Cherie Shi, Ian Swett, Raman Tenneti,
 Victor Vasiliev, Antonio Vicente, Patrik Westin, Alyssa Wilk, Dale Worley, Fan
 Yang, Dan Zhang, Daniel Ziegler.
----
-title: "QUIC: A UDP-Based Multiplexed and Secure Transport"
-abbrev: QUIC Transport Protocol
-docname: draft-ietf-quic-transport-latest
-date: {DATE}
-category: std
-ipr: trust200902
-area: Transport
-workgroup: QUIC
-
-stand_alone: yes
-pi: [toc, sortrefs, symrefs, docmapping]
-
