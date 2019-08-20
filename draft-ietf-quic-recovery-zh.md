@@ -481,7 +481,7 @@ PTO使连接能够从丢失尾包或确认中恢复。
 QUIC中使用的PTO算法实现了尾部丢失探测{{?TLP=I-D.dukkipati-tcpm-tcp-loss-probe}} {{?RACK}}，
 RTO {{?RFC5681}}和F-RTO的可靠性功能TCP {{?RFC5682}}的算法，超时计算基于TCP的重传超时时间{{?RFC6298}}。
 
-### 计算PTO{#Computing PTO}
+### 计算PTO {#Computing PTO}
 
 当发送ack-eiting数据包时，发送方为PTO周期安排计时器，如下所示:
 
@@ -560,7 +560,7 @@ PTO计时器到期事件不表示数据包丢失，
 丢包检测按数据包和时间阈值机制的规定
 进行，请参阅 {{ack-loss-detection}}。
 
-## 讨论{#Discussion}
+## 讨论 {#Discussion}
 大多数常量源自互联网上广泛部署
 的TCP实现中的最佳常见实践。例外
 情况如下。
@@ -594,7 +594,7 @@ QUIC主机**禁止**发送数据包，如果它们会增加
 同的算法。 QUIC提供的用于拥塞控制的指标
 是通用的，并且被设计为支持不同的算法。
 
-## 显式拥塞通知{#congestion-ecn}
+## 显式拥塞通知 {#congestion-ecn}
 
 如果已验证路径支持ECN，则QUIC会把
 IP报头中的Congestion Experienced
@@ -614,7 +614,7 @@ QUIC都会重新进入慢启动，通常只
 时，QUIC会将拥塞窗口的大小增加
 处理每个确认时确认的字节数。
 
-## 拥塞避免{#Congestion Avoidance}
+## 拥塞避免 {#Congestion Avoidance}
 慢启动结束为拥塞避免。 NewReno中的
 拥塞避免使用加法增加乘法减少（AIMD）
 的方法将每个确认的拥塞窗口增加一个
