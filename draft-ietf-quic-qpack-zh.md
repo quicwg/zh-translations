@@ -302,10 +302,10 @@ SETTINGS_QPACK_BLOCKED_STREAMS设置(参见{{configuration})
 
 
 ### 阻塞解码(Blocked Decoding)
-
 每个流中要求插入的计数值可以用于跟踪阻塞的流。每当解码器处理表更新时，它就
 可以开始解码任何现在满足其相关性的阻塞流。
 
+# Header Tables
 
 # 头部表(Header Tables)
 
