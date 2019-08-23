@@ -50,7 +50,7 @@ for inputfile in args.files:
             # Check length
             length = len(line)
             limit = args.maxFigureLineLength if insideFigure else args.maxLineLength
-            if length > limit:
+            if length > limit and not line.startswith("#"):
                 foundError = True
                 sys.stderr.write("{0}: Line is {1} characters; limit is {2}\n".format(
                     linenumber, length, limit))
