@@ -247,7 +247,7 @@ QoF{{TMA-QOF}}拒绝组件的RTT明显高于流上
 设置成一个随机值，可以是每个包独立决定，
 也可以是每个路径独立决定一次。
 
-# IANA兼容（IANA Considerations）*可能是兼容的意思*
+# IANA兼容（IANA Considerations）
 
 此文档没有考虑IANA。
 
