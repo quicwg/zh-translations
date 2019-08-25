@@ -918,7 +918,7 @@ Common Fields:
 {: #fig-sample title="报头保护和密文样本"}
 
 在TLS密码组可以与QUIC一起使用之前，必须为与该密码组一起使用的AEAD指定
-报头保护算法。本文档定义了AEAD_AES_128_GCM, AEAD_AES_128_CCM, 
+报头保护算法。本文档定义了AEAD_AES_128_GCM, AEAD_AES_128_CCM,
 AEAD_AES_256_GCM,AEAD_AES_256_CCM (所有AES AEAD在{{!AEAD=RFC5116}}中定义)
 和AEAD_CHACHA20_POLY1305 {{!CHACHA=RFC8439}}的算法。在TLS选择密码组之前，
 使用AES报头保护(({{hp-aes}})，匹配AEAD_AES_128_GCM数据包保护。
