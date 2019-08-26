@@ -17,6 +17,10 @@
 
 [QUIC-Recovery 丢失恢复 draft-ietf-quic-recovery-zh](http://docs.wxclimb.top/draft-ietf-quic-recovery-zh.html)
 
+[QUIC-spin-exp 自旋实践 draft-ietf-quic-spin-exp-zh](http://docs.wxclimb.top/draft-ietf-quic-spin-exp-zh.html)
+
+[QUIC-invariants 不变量 draft-ietf-quic-invariants-zh](http://docs.wxclimb.top/draft-ietf-quic-invariants-zh.html)
+
 ## 翻译格式与翻译相关
 
 * 采用 [IETF Internet Draft 标准格式](https://github.com/martinthomson/i-d-template)

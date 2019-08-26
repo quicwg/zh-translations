@@ -745,91 +745,70 @@ ID字段的重试数据包，则它可以是零长度。在这种情况下，初
 始密钥不向客户端保证客户端服务器收到其数据包;客户端必须依赖包
 含该属性的重试数据包的交换。
 
-## AEAD Usage {#aead}
+## AEAD用法(AEAD Usage) {#aead}
 
-The Authentication Encryption with Associated Data (AEAD) {{!AEAD}} function
-used for QUIC packet protection is the AEAD that is negotiated for use with the
-TLS connection.  For example, if TLS is using the TLS_AES_128_GCM_SHA256, the
-AEAD_AES_128_GCM function is used.
+用于QUIC数据包保护的具有关联数据的身份验证加密(AEAD)
+{{!AEAD}}功能是协商以与TLS连接一起使用的AEAD。例如，
+如果TLS使用TLS_AES_128_GCM_SHA256，则使用aead_AES_128_GCM函数。
 
-Packets are protected prior to applying header protection ({{header-protect}}).
-The unprotected packet header is part of the associated data (A).  When removing
-packet protection, an endpoint first removes the header protection.
+在应用包头保护之前对数据包进行保护({{header-protect}})。未受保护的
+数据包报头是关联数据(A)的一部分。当移除数据包保护时，端点首先移除报头保护。
 
-All QUIC packets other than Version Negotiation and Retry packets are protected
-with an AEAD algorithm {{!AEAD}}. Prior to establishing a shared secret, packets
-are protected with AEAD_AES_128_GCM and a key derived from the Destination
-Connection ID in the client's first Initial packet (see {{initial-secrets}}).
-This provides protection against off-path attackers and robustness against QUIC
-version unaware middleboxes, but not against on-path attackers.
+除版本协商和重试分组之外的所有QUIC分组都使用AEAD算法{{!AEAD}}进行保护。
+在建立共享密钥之前，使用aead_aes_128_gcm和从客户端的第一个初始数据包中
+的目标连接ID派生的密钥来保护数据包(参见{{initial-secrets}})。这提供了针对路
+径外攻击者的保护，以及针对QUIC版本无意识中间件的鲁棒性，但不能抵御路径上的攻击者。
 
-QUIC can use any of the ciphersuites defined in {{!TLS13}} with the exception of
-TLS_AES_128_CCM_8_SHA256.  The AEAD for that ciphersuite, AEAD_AES_128_CCM_8
-{{?CCM=RFC6655}}, does not produce a large enough authentication tag for use
-with the header protection designs provided (see {{header-protect}}).  All other
-ciphersuites defined in {{!TLS13}} have a 16-byte authentication tag and produce
-an output 16 bytes larger than their input.
+QUIC可以使用{{!TLS13}}中定义的任何密码套件，但TLS_AES_128_CCM_8_SHA256除外。
+该密码套件的AEAD（AEAD_AES_128_CCM_8{{?CCM=RFC6655}}）不会产生满足
+包头保护设计要求（参见{{header-protect}}）的足够长度的认证标签。{{!TLS13}}中定义的
+其他所有密码套件都有一个16字节的认证标签，产生的输出比输入大16个字节。
 
-The key and IV for the packet are computed as described in {{protection-keys}}.
-The nonce, N, is formed by combining the packet protection IV with the packet
-number.  The 62 bits of the reconstructed QUIC packet number in network byte
-order are left-padded with zeros to the size of the IV.  The exclusive OR of the
-padded packet number and the IV forms the AEAD nonce.
+数据包的密钥和IV按{{protection-keys}}中的描述计算。通过将数据包保护IV与数据包号组合
+来形成随机数N。以网络字节顺序重构的QUIC分组编号的62位用前导0填充到IV的尺寸。填
+充分组编号和IV的异或形成AEAD随机数。
 
-The associated data, A, for the AEAD is the contents of the QUIC header,
-starting from the flags byte in either the short or long header, up to and
-including the unprotected packet number.
+AEAD的相关数据A是QUIC报头的内容，从短报头或长报头中的标志字节开始，直到并包括
+不受保护的数据包号。
 
-The input plaintext, P, for the AEAD is the payload of the QUIC packet, as
-described in {{QUIC-TRANSPORT}}.
+AEAD的输入明文P是QUIC包的有效载荷，如{{QUIC-TRANSPORT}}中所述。
 
-The output ciphertext, C, of the AEAD is transmitted in place of P.
+AEAD的输出密文C代替P发送。
 
-Some AEAD functions have limits for how many packets can be encrypted under the
-same key and IV (see for example {{AEBounds}}).  This might be lower than the
-packet number limit.  An endpoint MUST initiate a key update ({{key-update}})
-prior to exceeding any limit set for the AEAD that is in use.
+一些AEAD功能限制了在相同的密钥和IV下可以加密多少个数据包（例如参见{{AEBounds}}）。
+这可能低于数据包数量限制。在超过为正在使用的AEAD设置的任何限制之前，端点**必须**
+启动密钥更新({{key-update}})。
 
 
-## Header Protection {#header-protect}
+## 包头保护(Header Protection) {#header-protect}
 
-Parts of QUIC packet headers, in particular the Packet Number field, are
-protected using a key that is derived separate to the packet protection key and
-IV.  The key derived using the "quic hp" label is used to provide
-confidentiality protection for those fields that are not exposed to on-path
-elements.
+QUIC数据包报头的一部分，特别是数据包编号字段，使用与数据包保护密钥和IV分开导出
+的密钥来保护。使用“quic hp”标签导出的密钥用于为那些不暴露于路径上元素的字段提供
+机密性保护。
 
-This protection applies to the least-significant bits of the first byte, plus
-the Packet Number field.  The four least-significant bits of the first byte are
-protected for packets with long headers; the five least significant bits of the
-first byte are protected for packets with short headers.  For both header forms,
-this covers the reserved bits and the Packet Number Length field; the Key Phase
-bit is also protected for packets with a short header.
+此保护适用于第一个字节的最低有效位以及数据包编号字段。对于具有长报头的数据包，
+第一字节的四个最低有效位受到保护;第一个字节的五个最低有效位受到短标头数据包
+的保护。对于两种报头形式，这包括保留位和分组号长度字段;对于具有短报头的数据
+包，密钥相位位也受到保护。
 
-The same header protection key is used for the duration of the connection, with
-the value not changing after a key update (see {{key-update}}).  This allows
-header protection to be used to protect the key phase.
+在连接期间使用相同的报头保护密钥，密钥更新后值不会改变(参见{{key-update}})。
+这允许使用报头保护来保护密钥阶段。
 
-This process does not apply to Retry or Version Negotiation packets, which do
-not contain a protected payload or any of the fields that are protected by this
-process.
+此过程不适用于重试或版本协商数据包，这些数据包不包含受保护的有效负载或此
+过程保护的任何字段。
 
 
-### Header Protection Application
+### 包头保护应用(Header Protection Application)
 
-Header protection is applied after packet protection is applied (see {{aead}}).
-The ciphertext of the packet is sampled and used as input to an encryption
-algorithm.  The algorithm used depends on the negotiated AEAD.
+报头保护是在应用了数据包保护之后应用的(参见{{aead}})。分组的密文被采样并用作
+加密算法的输入。所使用的算法取决于协商的AEAD。
 
-The output of this algorithm is a 5 byte mask which is applied to the protected
-header fields using exclusive OR.  The least significant bits of the first byte
-of the packet are masked by the least significant bits of the first mask byte,
-and the packet number is masked with the remaining bytes.  Any unused bytes of
-mask that might result from a shorter packet number encoding are unused.
+此算法的输出是5字节掩码，该掩码使用异或应用于受保护的报头字段。分组的第一
+字节的最低有效位被第一掩码字节的最低有效位屏蔽，并且分组编号用剩余字节屏蔽。
+可能由较短的分组号编码产生的任何未使用的掩码字节都是未使用的。
 
-{{pseudo-hp}} shows a sample algorithm for applying header protection. Removing
-header protection only differs in the order in which the packet number length
-(pn_length) is determined.
+{{pseudo-hp}} 显示了应用报头保护的示例算法。移除报头保护仅在确定分组编号长度
+(Pn_Length)的顺序上不同。
 
 ~~~
 mask = header_protection(hp_key, sample)
@@ -845,10 +824,10 @@ else:
 # pn_offset is the start of the Packet Number field.
 packet[pn_offset:pn_offset+pn_length] ^= mask[1:1+pn_length]
 ~~~
-{: #pseudo-hp title="Header Protection Pseudocode"}
+{: #pseudo-hp title="报头保护伪码"}
 
-{{fig-sample}} shows the protected fields of long and short headers marked with
-an E.  {{fig-sample}} also shows the sampled fields.
+{{fig-sample}} 显示了标有E的长标题和短标题的受保护字段。  {{fig-sample}} 还
+显示了采样字段。
 
 ~~~
 Long Header:
@@ -876,40 +855,37 @@ Common Fields:
 |                 Protected Payload Remainder (*)             ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #fig-sample title="Header Protection and Ciphertext Sample"}
+{: #fig-sample title="报头保护和密文样本"}
 
-Before a TLS ciphersuite can be used with QUIC, a header protection algorithm
-MUST be specified for the AEAD used with that ciphersuite.  This document
-defines algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM,
-AEAD_AES_256_CCM (all AES AEADs are defined in {{!AEAD=RFC5116}}), and
-AEAD_CHACHA20_POLY1305 {{!CHACHA=RFC8439}}.  Prior to TLS selecting a
-ciphersuite, AES header protection is used ({{hp-aes}}), matching the
-AEAD_AES_128_GCM packet protection.
+在TLS密码组可以与QUIC一起使用之前，必须为与该密码组一起使用的AEAD指定
+报头保护算法。本文档定义了AEAD_AES_128_GCM, AEAD_AES_128_CCM,
+AEAD_AES_256_GCM,AEAD_AES_256_CCM (所有AES AEAD在{{!AEAD=RFC5116}}中定义)
+和AEAD_CHACHA20_POLY1305 {{!CHACHA=RFC8439}}的算法。在TLS选择密码组之前，
+使用AES报头保护(({{hp-aes}})，匹配AEAD_AES_128_GCM数据包保护。
 
+### 包头保护的示例（Header Protection Sample） {#hp-sample}
 
-### Header Protection Sample {#hp-sample}
+包头保护算法使用包头保护密钥和
+数据包负载字段的一个抽样。
 
-The header protection algorithm uses both the header protection key and a sample
-of the ciphertext from the packet Payload field.
+虽然每次都采样相同数量的字节，但还是要为了终端移能除保护做
+一些工作，终端在移除保护时不知道包编号字段
+的长度。在对密文进行采样时，假设
+包编号字段长度位4字节（编码过后它的最大可能长度）。
 
-The same number of bytes are always sampled, but an allowance needs to be made
-for the endpoint removing protection, which will not know the length of the
-Packet Number field.  In sampling the packet ciphertext, the Packet Number field
-is assumed to be 4 bytes long (its maximum possible encoded length).
+终端 **必须** 丢弃哪些不足一个样本长度
+的数据包。
 
-An endpoint MUST discard packets that are not long enough to contain a complete
-sample.
+为了确保在采样时有足够多的数据，数据包是扩展后的，所以
+编码后的数据包的包编号字段和填充物的总长度，至少
+比包头保护的采样过程要求的长4个字节。在{{?TLS13}}
+定义的AEAD中，采用了16位扩展和16位
+包头保护采样，这意味着如果包编号字段
+被编码成单个字节，则至少需要帧中的3个字节
+的填充物，如果被编码成2个字节，则需要帧中的2字节。
 
-To ensure that sufficient data is available for sampling, packets are padded so
-that the combined lengths of the encoded packet number and protected payload is
-at least 4 bytes longer than the sample required for header protection.  For the
-AEAD functions defined in {{?TLS13}}, which have 16-byte expansions and 16-byte
-header protection samples, this results in needing at least 3 bytes of frames in
-the unprotected payload if the packet number is encoded on a single byte, or 2
-bytes of frames for a 2-byte packet number encoding.
-
-The sampled ciphertext for a packet with a short header can be determined by the
-following pseudocode:
+具有一个短包头的数据包的密文可以用如下伪码
+采样（sample：样本）：
 
 ~~~
 sample_offset = 1 + len(connection_id) + 4
@@ -917,13 +893,13 @@ sample_offset = 1 + len(connection_id) + 4
 sample = packet[sample_offset..sample_offset+sample_length]
 ~~~
 
-For example, for a packet with a short header, an 8 byte connection ID, and
-protected with AEAD_AES_128_GCM, the sample takes bytes 13 to 28 inclusive
-(using zero-based indexing).
+比如，对于一个短包头的数据包，8为的连接ID，以及
+使用AEAD_AES_128_GCM加密，采样选取第13到28个字节
+（包含13和28，编号从0开始）。
 
-A packet with a long header is sampled in the same way, noting that multiple
-QUIC packets might be included in the same UDP datagram and that each one is
-handled separately.
+对长包头的数据包采用相同的采样方式，注意同一UDP数据报可能
+包含多个QUIC数据包，每个数据包都是
+单独处理的。
 
 ~~~
 sample_offset = 6 + len(destination_connection_id) +
@@ -937,35 +913,35 @@ sample = packet[sample_offset..sample_offset+sample_length]
 ~~~
 
 
-### AES-Based Header Protection {#hp-aes}
+### AES包头保护（AES-Based Header Protection） {#hp-aes}
 
-This section defines the packet protection algorithm for AEAD_AES_128_GCM,
-AEAD_AES_128_CCM, AEAD_AES_256_GCM, and AEAD_AES_256_CCM. AEAD_AES_128_GCM and
-AEAD_AES_128_CCM use 128-bit AES {{!AES=DOI.10.6028/NIST.FIPS.197}} in
-electronic code-book (ECB) mode. AEAD_AES_256_GCM, and AEAD_AES_256_CCM use
-256-bit AES in ECB mode.
+本部分定义使用AEAD_AES_128_GCM，AEAD_AES_128_CCM，
+AEAD_AES_256_GCM和AEAD_AES_256_CCM进行包头保护的算法。AEAD_AES_128_GCM和
+AEAD_AES_128_CCM使用128位AES{{!AES=DOI.10.6028/NIST.FIPS.197}}和
+电子密码簿（ECB）模式。AEAD_AES_256_CCM和AEAD_256_CCM使用
+256位AES和ECB模式。
 
-This algorithm samples 16 bytes from the packet ciphertext. This value is used
-as the input to AES-ECB.  In pseudocode:
+这个算法采集密文的16字节。采样结果用作
+算法的输入。伪代码如下：
 
 ~~~
 mask = AES-ECB(hp_key, sample)
 ~~~
 
 
-### ChaCha20-Based Header Protection {#hp-chacha}
+### ChaCha20包头保护（ChaCha20-Based Header Protection） {#hp-chacha}
 
-When AEAD_CHACHA20_POLY1305 is in use, header protection uses the raw ChaCha20
-function as defined in Section 2.4 of {{!CHACHA}}.  This uses a 256-bit key and
-16 bytes sampled from the packet protection output.
+当使用AEAD_CHACHA20_POLY1305的时候，包头保护使用在2.4章{{!CHACHA}}定义的
+原始的ChaCha20函数。它使用256位的密钥和
+16位密文采样。
 
-The first 4 bytes of the sampled ciphertext are interpreted as a 32-bit number
-in little-endian order and are used as the block count.  The remaining 12 bytes
-are interpreted as three concatenated 32-bit numbers in little-endian order and
-used as the nonce.
+密文采样结果的前4字节被解释为32位小端整数，
+用来存储块数量。剩下的12位
+被解释为3个连续的32位小端整数，
+用来存放随机数。
 
-The encryption mask is produced by invoking ChaCha20 to protect 5 zero bytes. In
-pseudocode:
+通过使用5个0来调用ChaCha20来得到加密掩码。
+伪代码如下：
 
 ~~~
 counter = DecodeLE(sample[0..3])
@@ -974,68 +950,68 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 ~~~
 
 
-## Receiving Protected Packets
+## 接收被保护的数据包（Receiving Protected Packets）
 
-Once an endpoint successfully receives a packet with a given packet number, it
-MUST discard all packets in the same packet number space with higher packet
-numbers if they cannot be successfully unprotected with either the same key, or
-- if there is a key update - the next packet protection key (see
-{{key-update}}).  Similarly, a packet that appears to trigger a key update, but
-cannot be unprotected successfully MUST be discarded.
+终端一旦成功的接收到一个有特定包编号的数据包之后，
+终端**必须**丢弃那些在同一包编号空间中
+无法被此密钥或下一个密钥 -如果密钥发生了更新-
+（参见{{key-update}}）解密的更高编号的数据包。
+类似的，试图更新密钥但无法
+被成功解密的数据包**必须**被丢弃。
 
-Failure to unprotect a packet does not necessarily indicate the existence of a
-protocol error in a peer or an attack.  The truncated packet number encoding
-used in QUIC can cause packet numbers to be decoded incorrectly if they are
-delayed significantly.
-
-
-## Use of 0-RTT Keys {#using-early-data}
-
-If 0-RTT keys are available (see {{enable-0rtt}}), the lack of replay protection
-means that restrictions on their use are necessary to avoid replay attacks on
-the protocol.
-
-A client MUST only use 0-RTT keys to protect data that is idempotent.  A client
-MAY wish to apply additional restrictions on what data it sends prior to the
-completion of the TLS handshake.  A client otherwise treats 0-RTT keys as
-equivalent to 1-RTT keys, except that it MUST NOT send ACKs with 0-RTT keys.
-
-A client that receives an indication that its 0-RTT data has been accepted by a
-server can send 0-RTT data until it receives all of the server's handshake
-messages.  A client SHOULD stop sending 0-RTT data if it receives an indication
-that 0-RTT data has been rejected.
-
-A server MUST NOT use 0-RTT keys to protect packets; it uses 1-RTT keys to
-protect acknowledgements of 0-RTT packets.  A client MUST NOT attempt to
-decrypt 0-RTT packets it receives and instead MUST discard them.
-
-Note:
-
-: 0-RTT data can be acknowledged by the server as it receives it, but any
-  packets containing acknowledgments of 0-RTT data cannot have packet protection
-  removed by the client until the TLS handshake is complete.  The 1-RTT keys
-  necessary to remove packet protection cannot be derived until the client
-  receives all server handshake messages.
+数据包解密失败并不意味着
+对端存在协议错误或者攻击。QUIC使用的包编号截断方式
+可能导致在数据包严重延迟的情况下无法被
+正常解码。
 
 
-## Receiving Out-of-Order Protected Frames {#pre-hs-protected}
+## 使用0-RTT密钥（Use of 0-RTT Keys） {#using-early-data}
 
-Due to reordering and loss, protected packets might be received by an endpoint
-before the final TLS handshake messages are received.  A client will be unable
-to decrypt 1-RTT packets from the server, whereas a server will be able to
-decrypt 1-RTT packets from the client.
+如果0-RTT密钥可用（参见{{enable-0rtt}}），则在缺乏重放保护的
+情况下，有必要限制他们的使用来避免对协议发起的
+重放攻击。
 
-However, a server MUST NOT process data from incoming 1-RTT protected packets
-before verifying either the client Finished message or - in the case that the
-server has chosen to use a pre-shared key - the pre-shared key binder (see
-Section 4.2.11 of {{!TLS13}}).  Verifying these values provides the server with
-an assurance that the ClientHello has not been modified.  Packets protected with
-1-RTT keys MAY be stored and later decrypted and used once the handshake is
-complete.
+客户端**必须**仅使用0-RTT密钥来保护幂等的数据。客户端
+**可能**想要对完成TLS握手前发送的数据
+添加额外的限制。客户端要么把0-RTT密钥视为1-RTT密钥，否则
+他**禁止**发送具有0-RTT密钥的ACK。
 
-A server could receive packets protected with 0-RTT keys prior to receiving a
-TLS ClientHello.  The server MAY retain these packets for later decryption in
-anticipation of receiving a ClientHello.
+客户端在收到0-RTT数据被接受之后和在
+收到完整的服务端握手消息之前，可以发送
+0-RTT数据。客户端在收到0-RTT数据被拒绝的信息
+之后**应该**停止发送0-RTT数据。
+
+服务端**禁止**使用0-RTT密钥来保护数据包；服务端使用1-RTT密钥来
+保护0-RTT数据包的确认信息。客户端**禁止**尝试去解密
+他收到的0-RTT数据，反之**必须**丢弃他们。
+
+注意：
+
+: 服务端可以对0-RTT数据回复确认信息，但是
+  任何包含0-RTT数据确认信息的数据包，都不应该
+  让客户端在TLS握手完成前能够移除其保护。用来移除
+  包保护的1-RTT密钥在客户端收到完整的
+  握手消息之前不能被传输。
+
+
+## 接收无需的保护后的帧（Receiving Out-of-Order Protected Frames） {#pre-hs-protected}
+
+由于乱序和丢失，终端在接收TLS握手消息之前可能接收到
+被保护的数据包。客户端可能无法解密服务端
+发过来的1-RTT的数据包，但此时服务端又可以
+解密客户端发送的1-RTT数据包。
+
+然而，服务器在确认客户端完成握手，或
+验证了预共享密钥
+ -在这种情况下服务器选择使用预共享密钥-（参见4.2.11章{{!TLS13}}）
+之前，**禁止**处理传入的1-RTT保护后的数据包。
+验证这些信息可以让服务器确保ClientHello没有被修改过。被1-RTT密钥
+保护的数据包**可能**被存储然后被解密并在握手完成
+之后被使用。
+
+服务器可能在收到ClientHello之前收到被0-RTT密钥保护
+的数据包。服务器**可能**保留这个数据包以后再解密
+并等待接受ClientHello。
 
 
 # 密钥更新

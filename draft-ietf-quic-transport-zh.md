@@ -316,6 +316,37 @@ QUIC的实现**应该**提供方法，
 只要它的行为与实现这些状态的实现的一致。
 
 
+# 流状态(stream-states)
+
+本节介绍流的发送和接收组件。
+描述了两种状态机：
+一种用于终端传输数据的流传输状态
+({{stream-send-states}})，
+另一种是用于终端接收数据的流接收状态
+({{stream-recv-states}})。
+
+单向流直接使用适用的状态机。
+双向流使用两个状态机。
+大部分情况下，无论流是单向的还是双向的，
+这些状态机的用法都是相同的。
+对于双向流来说，打开流的情况稍微复杂一点，
+因为无论是在发送方还是接收方的打开过程
+都会让流在两个方向上打开。
+
+一个终端再打开相同类型的流的时候
+**必须**使用增序的流传输ID。
+
+注意：
+: 这些状态很大程度上是指导性的。
+本文档使用流状态来描述何时以及如何
+发送不同类型的帧的规则，
+以及在接收到不同类型的帧的预期响应规则。
+尽管这些这些状态机在实现QUIC时是有用的，
+但这些状态并不用于约束实现。
+在实现中可以定义不同的状态机，
+只要它的行为与实现这些状态的实现的一致。
+
+
 ## 发送流数据的状态 (Sending Stream States) {#stream-send-states}
 
 {{fig-stream-send-states}} 展示了发送数据到对端部分的流的状态
@@ -408,8 +439,6 @@ MAX_STREAM_DATA帧。
 
 一旦一个包含RESET_STREAM的包被，
 流发送部分进入被称为“Reset Recvd”的最终状态。
-
-
 
 
 ## 接收流的状态(Receiving Stream States) {#stream-recv-states}
@@ -1152,81 +1181,62 @@ QUIC 版本达成了一致。
 这可能用于索要服务端所支持的版本列表。
 
 
-# Cryptographic and Transport Handshake {#handshake}
+# 加密与传输握手(Cryptographic and Transport Handshake) {#handshake}
 
-QUIC relies on a combined cryptographic and transport handshake to minimize
-connection establishment latency.  QUIC uses the CRYPTO frame {{frame-crypto}}
-to transmit the cryptographic handshake.  Version 0x00000001 of QUIC uses TLS as
-described in {{QUIC-TLS}}; a different QUIC version number could indicate that a
-different cryptographic handshake protocol is in use.
+QUIC使用结合在一起的加密和传输握手来最小化链接建立延迟。QUIC使用CRYPTO帧{{frame-crypto}}
+来进行加密握手。0x00000001版本的QUIC使用TLS{{QUIC-TLS}}；不同版本的QUIC可能使用
+不同的加密握手协议。
 
-QUIC provides reliable, ordered delivery of the cryptographic handshake
-data. QUIC packet protection is used to encrypt as much of the handshake
-protocol as possible. The cryptographic handshake MUST provide the following
-properties:
+QUIC提供可信的、有序的加密握手数据交付。QUIC数据包保护被用来编码尽可能多的握手协议包。
+加密握手**必须**提供如下特性：
 
-* authenticated key exchange, where
+* 认证密钥交换，当
 
-   * a server is always authenticated,
+  * 服务器总是经过认证的，且
 
-   * a client is optionally authenticated,
+  * 客户端是可能经过认证的，且
 
-   * every connection produces distinct and unrelated keys,
+  * 每一个链接都产生不同且不相关的密钥，且
 
-   * keying material is usable for packet protection for both 0-RTT and 1-RTT
-     packets, and
+  * 密钥可以保护0-RTT和1-RTT的数据包，且
 
-   * 1-RTT keys have forward secrecy
+  * 1-RTT的密钥具有前向保密性
 
-* authenticated values for the transport parameters of the peer (see
-  {{transport-parameters}})
+* 对端传输参数的认证值（参见{{transport-parameters}}）
 
-* authenticated negotiation of an application protocol (TLS uses ALPN
-  {{?RFC7301}} for this purpose)
+* 应用层协议的认证协商（TLS使用ALPN{{?RFC7301}}来达到这个目的）
 
-The first CRYPTO frame from a client MUST be sent in a single packet.  Any
-second attempt that is triggered by address validation (see
-{{validate-handshake}}) MUST also be sent within a single packet. This avoids
-having to reassemble a message from multiple packets.
+客户端的第一个CRYPTO帧**必须**被单独放在一个包中发送。任何由地址验证触发的第二次尝试（参见
+{{validate-handshake}}）也都**必须**被单独放在一个包中发送。这样可以避免从多个数据包重
+新组合消息。
 
-The first client packet of the cryptographic handshake protocol MUST fit within
-a 1232 byte QUIC packet payload.  This includes overheads that reduce the space
-available to the cryptographic handshake protocol.
+加密握手协议的第一个客户端包**必须**长度小于等于1232个字节的QUIC包负载。这包括减少加密握手
+协议可用空间的开销。
 
-An endpoint can verify support for Explicit Congestion Notification (ECN) in the
-first packets it sends, as described in {{ecn-verification}}.
+终端可以在它发送的第一个数据包中验证对现实用塞通知（ECN）的支持，在{{ecn-verification}}
+中介绍。
 
-The CRYPTO frame can be sent in different packet number spaces.  The sequence
-numbers used by CRYPTO frames to ensure ordered delivery of cryptographic
-handshake data start from zero in each packet number space.
+CRYPTO帧可以在不同的数据包编号空间中发送。CRYPTO帧用来保证加密握手数据顺序交付而使用的序号在
+每个数据包序号空间中是从零开始的。
 
-Endpoints MUST explicitly negotiate an application protocol.  This avoids
-situations where there is a disagreement about the protocol that is in use.
+终端**必须**显式的协商应用层协议。这样避免了对正在使用的协议产生分歧的情况。
 
+## 握手流示例(Example Handshake Flows)
 
-## Example Handshake Flows
+{{QUIC-TLS}}中提供了QUIC使用TLS的相关细节，这里提供一些示例。{{validate-retry}}提供了
+一个让次交换支持客户端地址验证的拓展。
 
-Details of how TLS is integrated with QUIC are provided in {{QUIC-TLS}}, but
-some examples are provided here.  An extension of this exchange to support
-client address validation is shown in {{validate-retry}}.
+一旦完成了地址验证，加密握手就被用作协商加密密钥。加密握手在初始(Initial)包
+（{{packet-initial}}）和握手(Handshake)包（{{packet-initial}}）中进行。
 
-Once any address validation exchanges are complete, the
-cryptographic handshake is used to agree on cryptographic keys.  The
-cryptographic handshake is carried in Initial ({{packet-initial}}) and Handshake
-({{packet-handshake}}) packets.
+{{tls-1rtt-handshake}} 提供了有关1-RTT握手的介绍。每一行显示一个QUIC包，首先是包的类型和
+序号，接着是通常包含在包中的帧。例如，第一个包类型为序号为0的“初始（Initial）”，其中包含着承载
+了ClientHello的CRYPTO帧。
 
-{{tls-1rtt-handshake}} provides an overview of the 1-RTT handshake.  Each line
-shows a QUIC packet with the packet type and packet number shown first, followed
-by the frames that are typically contained in those packets. So, for instance
-the first packet is of type Initial, with packet number 0, and contains a CRYPTO
-frame carrying the ClientHello.
-
-Note that multiple QUIC packets -- even of different encryption levels -- may be
-coalesced into a single UDP datagram (see {{packet-coalesce}}), and so this
-handshake may consist of as few as 4 UDP datagrams, or any number more. For
-instance, the server's first flight contains packets from the Initial encryption
-level (obfuscation), the Handshake level, and "0.5-RTT data" from the server at
-the 1-RTT encryption level.
+注意，多个QUIC包 -- 甚至是不同加密级别的 -- 也可能被合并到单个UDP数据报中
+（参见{{packet-coalesce}}），因此这种握手可能只包含4个UDP数据报，也可能包含更多的数据报。
+例如，服务器的第一个数据报包含初始（Initial）加密级别（混淆）的包、握手（Handshake）级别的包
+和服务器使1-RTT加密级别的“0.5-RTT数据”。
 
 ~~~~
 Client                                                  Server
@@ -1244,12 +1254,11 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
                             1-RTT[1]: STREAM[3, "..."], ACK[0]
                                        <- Handshake[1]: ACK[0]
 ~~~~
-{: #tls-1rtt-handshake title="Example 1-RTT Handshake"}
+{: #tls-1rtt-handshake title="1-RTT 握手（Handshake）的示例"}
 
-{{tls-0rtt-handshake}} shows an example of a connection with a 0-RTT handshake
-and a single packet of 0-RTT data. Note that as described in {{packet-numbers}},
-the server acknowledges 0-RTT data at the 1-RTT encryption level, and the
-client sends 1-RTT packets in the same packet number space.
+{{tls-0rtt-handshake}}展示了包含0-RTT握手和单个0-RTT数据包的链接示例。注意，就和
+{{packet-numbers}}中描述的一样，服务端在1-RTT加密级别确认0-RTT数据，客户端在相同的包编号
+空间发送1-RTT包。
 
 ~~~~
 Client                                                  Server
@@ -1268,7 +1277,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
                             1-RTT[1]: STREAM[3, "..."], ACK[1]
                                        <- Handshake[1]: ACK[0]
 ~~~~
-{: #tls-0rtt-handshake title="Example 0-RTT Handshake"}
+{: #tls-0rtt-handshake title="0-RTT 握手（Handshake）的示例"}
 
 
 ## 协商连接IDs （Negotiating Connection IDs） {#negotiating-connection-ids}
@@ -2074,151 +2083,155 @@ IPv6 流标签**应该**是一个源与目标地址、
 目标CID以及本地密钥的加密哈希函数来计算。
 
 
-# 连接终止(Connection Termination) {#termination}
+# 连接终止（Connection Termination） {#termination}
 
-连接应该保持打开直到它们预协商的
-一段时间内处于空闲状态。
-一个 QUIC 的连接，建立后能被以下三种方式的终止：
+在没有操作的时候连接是默认打开的，除非闲置了一段时间，
+这个时间是预先定义的。一个已经建立好的
+QUIC连接遇到一下情况会终止。
 
-* 空闲超时 ({{idle-timeout}})
-* 立即关闭 ({{immediate-close}})
-* 无状态重置 ({{stateless-reset}})
-
-## Closing and Draining Connection States {#draining}
-
-The closing and draining connection states exist to ensure that connections
-close cleanly and that delayed or reordered packets are properly discarded.
-These states SHOULD persist for at least three times the current Probe Timeout
-(PTO) interval as defined in {{QUIC-RECOVERY}}.
-
-An endpoint enters a closing period after initiating an immediate close
-({{immediate-close}}).  While closing, an endpoint MUST NOT send packets unless
-they contain a CONNECTION_CLOSE frame (see {{immediate-close}} for details).  An
-endpoint retains only enough information to generate a packet containing a
-CONNECTION_CLOSE frame and to identify packets as belonging to the connection.
-The endpoint's selected connection ID and the QUIC version are sufficient
-information to identify packets for a closing connection; an endpoint can
-discard all other connection state. An endpoint MAY retain packet protection
-keys for incoming packets to allow it to read and process a CONNECTION_CLOSE
-frame.
-
-The draining state is entered once an endpoint receives a signal that its peer
-is closing or draining.  While otherwise identical to the closing state, an
-endpoint in the draining state MUST NOT send any packets.  Retaining packet
-protection keys is unnecessary once a connection is in the draining state.
-
-An endpoint MAY transition from the closing period to the draining period if it
-receives a CONNECTION_CLOSE frame or stateless reset, both of which indicate
-that the peer is also closing or draining.  The draining period SHOULD end when
-the closing period would have ended.  In other words, the endpoint can use the
-same end time, but cease retransmission of the closing packet.
-
-Disposing of connection state prior to the end of the closing or draining period
-could cause delayed or reordered packets to be handled poorly.  Endpoints that
-have some alternative means to ensure that late-arriving packets on the
-connection do not create QUIC state, such as those that are able to close the
-UDP socket, MAY use an abbreviated draining period which can allow for faster
-resource recovery.  Servers that retain an open socket for accepting new
-connections SHOULD NOT exit the closing or draining period early.
-
-Once the closing or draining period has ended, an endpoint SHOULD discard all
-connection state.  This results in new packets on the connection being handled
-generically.  For instance, an endpoint MAY send a stateless reset in response
-to any further incoming packets.
-
-The draining and closing periods do not apply when a stateless reset
-({{stateless-reset}}) is sent.
-
-An endpoint is not expected to handle key updates when it is closing or
-draining.  A key update might prevent the endpoint from moving from the closing
-state to draining, but it otherwise has no impact.
-
-While in the closing period, an endpoint could receive packets from a new source
-address, indicating a connection migration ({{migration}}). An endpoint in the
-closing state MUST strictly limit the number of packets it sends to this new
-address until the address is validated (see {{migrate-validate}}). A server in
-the closing state MAY instead choose to discard packets received from a new
-source address.
+* 闲置超时（{{idle-timeout}}）
+* 立即关闭（{{immediate-close}}）
+* 无状态重置（{{stateless-reset}}）
 
 
-## Idle Timeout {#idle-timeout}
+## 关闭中和释放中状态（Closing and Draining Connection States） {#draining}
 
-If the idle timeout is enabled, a connection is silently closed and the state is
-discarded when it remains idle for longer than both the advertised
-idle timeout (see {{transport-parameter-definitions}}) and three times the
-current Probe Timeout (PTO).
+关闭中和释放中状态是为了确保连接在关闭的时候
+是干净的，并确保延迟或乱序的包被正确丢弃。
+这些状态**应该**保持至少三倍于在{{QUIC-RECOVERY}}
+中定义的探测超时（PTO）间隔。
 
-Each endpoint advertises its own idle timeout to its peer.  An endpoint
-restarts any timer it maintains when a packet from its peer is received and
-processed successfully.  The timer is also restarted when sending a packet
-containing frames other than ACK or PADDING (an ACK-eliciting packet, see
-{{QUIC-RECOVERY}}), but only if no other ACK-eliciting packets have been sent
-since last receiving a packet.  Restarting when sending packets ensures that
-connections do not prematurely time out when initiating new activity.
+当一个终端开始立即关闭流程（{{immediate-close}}）时进入
+关闭中阶段。在关闭中，除非是包含CONNECTION_CLOSE帧的包否则
+终端**必须不**发送任何包（查看{{immediate-close}}以获得详细信息）。
+终端只保留用于生成包含CONNECTION_CLOSE帧的包的信息，
+并将数据包标记为属于该链接。
+终端选择的连接ID和QUIC版本就足够
+来标记包属于哪个关闭中的连接；终端
+可以丢弃其他所有的连接状态。终端**可能**为
+读取和处理CONNECTION_CLOSE帧而保留
+传入包的包保护密钥。
 
-The value for an idle timeout can be asymmetric.  The value advertised by an
-endpoint is only used to determine whether the connection is live at that
-endpoint.  An endpoint that sends packets near the end of the idle timeout
-period of a peer risks having those packets discarded if its peer enters the
-draining state before the packets arrive.  If a peer could timeout within an
-Probe Timeout (PTO, see Section 6.2.2 of {{QUIC-RECOVERY}}), it is advisable to
-test for liveness before sending any data that cannot be retried safely.
+当一个终端收到它的对端进入关闭中或释放中状态的信号时立即
+计入释放中状态。同关闭中状态一致，处于释放中状态的终端
+**必须不**发送任何包。连接进入释放中状态时就没有必要再
+保存包保护密钥。
+
+端点在收到CONNECTION_CLOSE帧或无状态重置时**可能**回从
+关闭中状态转换到释放中状态，这两种情况都表明对端也在
+关闭中或释放中。当关闭中周期结束的时候释放中周期也必须结束。
+也就是说，终端可以使用相同的结束时间，
+但是停止重传关闭中包。
+
+*(这一点没怎么看懂，加了点意译)*
+在关闭中周期或释放中周期结束前处理连接的状态 *(猜测可能是想说在超时之前把连接状态给改了)*
+*(所以在closing和draining状态之后还能到其他状态？)*
+会导致延迟或乱序的包不能被正确处理。有某种能
+确保连接上延迟到达的包不创建QUIC状态的终端 *(结合下面感觉是说一个延迟的包到达，但是这个时候此连接)*
+*(在此终端上已经不是closing或draining状态而是导致这个延迟的包把此链接的状态再次改变了)*
+**可能**使用较短的释放周期和关闭周期来更快的回复资源，例如
+可以关闭UDP套接字的终端。保留用于接受新连接的 *(把UDP socket关了就不回有问题了)*
+开放套接字的服务器**不可以**提前退出关闭或耗尽周期。*(一个UDP套接字有多个连接一个关了socket不关)*
+*(所以这个socket还能收到已经关闭的连接的延迟到达的包，导致已经被关闭的连接又进入新的状态)*
+*(如果是这样理解没错的话那就是终端记录每个socket已关闭的连接收到延迟包以后直接丢弃也行)*
+
+一旦关闭中或释放中周期结束了，终端**应该**丢弃此
+连接的所有状态。这样这个连接上新的包就能被正常处理。
+比如，终端**可能**发送无状态重置
+来相应之后传入的包。
+
+当发送无状态重置（{{stateless-reset}}）时
+释放中和关闭中状态不适用。
+
+处于关闭中或释放中的终端不需要处理 *(密钥？健？)* 更新。
+Key更新可能会阻止终端从关闭中状态转向释放中状态，
+但实际上它应该没有任何影响。
+
+终端在关闭中周期时可能接收到来自新地址的
+连接迁移（{{migration}}）。处于关闭状态的端点
+**必须**严格限制发送到此新地址的包的数量，
+直到该地址经过验证（参见{{migrate-validate}}）。处于
+关闭中状态的终端**可以**选择丢弃从新地址
+接收来的包。
 
 
-## Immediate Close
+## 闲置超时（Idle Timeout） {#idle-timeout}
 
-An endpoint sends a CONNECTION_CLOSE frame ({{frame-connection-close}}) to
-terminate the connection immediately.  A CONNECTION_CLOSE frame causes all
-streams to immediately become closed; open streams can be assumed to be
-implicitly reset.
+如果启用了空闲超时，则当连接持续空闲时间超过预公布的空闲超时
+（参见{{transport-parameter-definitions}}）和三倍
+当前探测超时（PTO）的最大值时会被静默关闭，并且连接的
+所有状态都会被抛弃。
 
-After sending a CONNECTION_CLOSE frame, endpoints immediately enter the closing
-state.  During the closing period, an endpoint that sends a CONNECTION_CLOSE
-frame SHOULD respond to any packet that it receives with another packet
-containing a CONNECTION_CLOSE frame.  To minimize the state that an endpoint
-maintains for a closing connection, endpoints MAY send the exact same packet.
-However, endpoints SHOULD limit the number of packets they generate containing a
-CONNECTION_CLOSE frame.  For instance, an endpoint could progressively increase
-the number of packets that it receives before sending additional packets or
-increase the time between packets.
+每个终端都会给对端公布自己的闲置超时。终端
+在收到并成功处理其对端发送的包后重置自己维护的
+任何计时器。当收到一个包且没有发送其他ACK诱发包时，
+发送任何不包含ACK或PADDING
+（一个ACK诱发包，参见{{QUIC-RECOVERY}}）
+帧的包也会重置计时器。发送包的时候重置计时器
+能确保在启动新活动时连接不会过早的超时。
 
-Note:
+闲置超时的值可以是不对等的。终端公布的值
+仅仅时用来确定此终端上的连接是否
+处于活动状态。终端在对端闲置超时周期快要结束的时候发送
+的包可能会因为对端在收到包之前就进入释放状态而被丢弃。
+如果对端可能在一个探测超时（PTO，参见{{QUIC-RECOVERY}}）
+时间内超时，建议在发送任何不能安全重发的数据之前
+测试连接的活动状态。
 
-: Allowing retransmission of a closing packet contradicts other advice in this
-  document that recommends the creation of new packet numbers for every packet.
-  Sending new packet numbers is primarily of advantage to loss recovery and
-  congestion control, which are not expected to be relevant for a closed
-  connection.  Retransmitting the final packet requires less state.
 
-New packets from unverified addresses could be used to create an amplification
-attack (see {{address-validation}}).  To avoid this, endpoints MUST either limit
-transmission of CONNECTION_CLOSE frames to validated addresses or drop packets
-without response if the response would be more than three times larger than the
-received packet.
+## 立即关闭（Immediate Close）
 
-After receiving a CONNECTION_CLOSE frame, endpoints enter the draining state.
-An endpoint that receives a CONNECTION_CLOSE frame MAY send a single packet
-containing a CONNECTION_CLOSE frame before entering the draining state, using a
-CONNECTION_CLOSE frame and a NO_ERROR code if appropriate.  An endpoint MUST NOT
-send further packets, which could result in a constant exchange of
-CONNECTION_CLOSE frames until the closing period on either peer ended.
+终端可以发送CONNECTIN_CLOSE帧（{{frame-connection-close}}）来
+马上立即终止连接。CONNECTION_CLOSE帧会让
+所有的流马上被关闭；可以假定开放流都被
+隐式重置。
 
-An immediate close can be used after an application protocol has arranged to
-close a connection.  This might be after the application protocols negotiates a
-graceful shutdown.  The application protocol exchanges whatever messages that
-are needed to cause both endpoints to agree to close the connection, after which
-the application requests that the connection be closed.  The application
-protocol can use an CONNECTION_CLOSE frame with an appropriate error code to
-signal closure.
+终端在发送CONNECTION_CLOSE帧之后马上进入关闭中状态。
+在关闭中周期中，发送CONNECTION_CLOSE的终端
+**应该**在答复任何接收到的包的同时发送额外的包含
+CONNECTION_CLOSE帧的包。为了最小化
+终端在关闭中维护的状态，终端**可能**重复发送完全一样的包。
+但是终端**应该**限制包含CONNECTION_CLOSE帧的额外包的数量。
+例如，端点可以逐渐增加两次额外包之间
+收到包的数量或者两个额外包
+之间的时间间隔。
 
-If the connection has been successfully established, endpoints MUST send any
-CONNECTION_CLOSE frames in a 1-RTT packet.  Prior to connection establishment a
-peer might not have 1-RTT keys, so endpoints SHOULD send CONNECTION_CLOSE frames
-in a Handshake packet.  If the endpoint does not have Handshake keys, or it is
-not certain that the peer has Handshake keys, it MAY send CONNECTION_CLOSE
-frames in an Initial packet.  If multiple packets are sent, they can be
-coalesced (see {{packet-coalesce}}) to facilitate retransmission.
+注意：
 
+: 允许重传关闭包和本文档中为每个包创建
+  新包号码的建议相矛盾。
+  发送新的包号码主要有利于丢失恢复
+  和用赛控制，这与关闭的连接不相关。
+  重传最终包所需要的状态很较少。*（没怎么看懂）*
+
+从未验证的地址发来的包可能是用来创建
+放大攻击的（参见{{address-validation}}）。为了避免此攻击，终端**必须**选择
+对发送到经验证地址的CONNECTION_CLOSE帧做限制，
+或者不答复直接丢弃答复包的大小比接收到的数据大小
+大三倍的包。
+
+终端在收到CONNECTION_CLOSE帧以后进入释放中状态。
+收到CONNECTION_CLOSE的终端**可能**再进入
+释放中状态之前发送一个包含CONNECTION_CLOSE的单个包，如果需要
+可以使用CONNECTION_CLOSE帧和NO_ERROR码。终端**必须不**
+发送更多的包，因为这会导致在一方结束周期结束之前双方
+不停的交换CONNECTION_CLOSE帧。
+
+在应用协议安排关闭连接之后可以使用立即关闭。
+这可能是在应用协议正常关闭之后。
+两端的应用协议进行了充分的协商并、
+都同意关闭连接，之后
+应用程序请求关闭连接。应用协议
+可以使用带有适当错误码的CONNECTION_CLOSE帧
+来指示关闭。
+
+连接成功建立后，终端**必须**在1-RTT包中发送
+CONNECTION_CLOSE帧。在连接简历之前
+对端可能没有1-RTT密钥，因此终端**应该**在
+握手（Handshake）数据包中发送CONNECTION_CLOSE帧。如果终端没有握手密钥，或者
+不确定对等设备是否有握手密钥，它**可以**在初始化（Initial）包
+中发送CONNECTION_CLOSE帧。如果发送多个数据包，可以
+合并（参见{{packet-coalesce}}）以便重传。
 
 ## 无状态重置(Stateless Reset) {#stateless-reset}
 
@@ -3195,56 +3208,56 @@ QUIC 可变长度整数编码保留了第一个字节的两个最高有效位，
 
 
 
-# Packet Formats {#packet-formats}
+# 包格式（Packet Formats） {#packet-formats}
 
-All numeric values are encoded in network byte order (that is, big-endian) and
-all field sizes are in bits.  Hexadecimal notation is used for describing the
-value of fields.
-
-
-## Packet Number Encoding and Decoding {#packet-encoding}
-
-Packet numbers are integers in the range 0 to 2^62-1 ({{packet-numbers}}).  When
-present in long or short packet headers, they are encoded in 1 to 4 bytes.  The
-number of bits required to represent the packet number is reduced by including
-the least significant bits of the packet number.
-
-The encoded packet number is protected as described in Section 5.4 of
-{{QUIC-TLS}}.
-
-The sender MUST use a packet number size able to represent more than twice as
-large a range than the difference between the largest acknowledged packet and
-packet number being sent.  A peer receiving the packet will then correctly
-decode the packet number, unless the packet is delayed in transit such that it
-arrives after many higher-numbered packets have been received.  An endpoint
-SHOULD use a large enough packet number encoding to allow the packet number to
-be recovered even if the packet arrives after packets that are sent afterwards.
-
-As a result, the size of the packet number encoding is at least one bit more
-than the base-2 logarithm of the number of contiguous unacknowledged packet
-numbers, including the new packet.
-
-For example, if an endpoint has received an acknowledgment for packet 0xabe8bc,
-sending a packet with a number of 0xac5c02 requires a packet number encoding
-with 16 bits or more; whereas the 24-bit packet number encoding is needed to
-send a packet with a number of 0xace8fe.
-
-At a receiver, protection of the packet number is removed prior to recovering
-the full packet number. The full packet number is then reconstructed based on
-the number of significant bits present, the value of those bits, and the largest
-packet number received on a successfully authenticated packet. Recovering the
-full packet number is necessary to successfully remove packet protection.
-
-Once header protection is removed, the packet number is decoded by finding the
-packet number value that is closest to the next expected packet.  The next
-expected packet is the highest received packet number plus one.  For example, if
-the highest successfully authenticated packet had a packet number of 0xa82f30ea,
-then a packet containing a 16-bit value of 0x9b32 will be decoded as 0xa82f9b32.
-Example pseudo-code for packet number decoding can be found in
-{{sample-packet-number-decoding}}.
+所有数字以大端法编码，
+所有字段大小均以位为单位。
+使用十六进制描述字段的值。
 
 
-## Long Header Packets {#long-header}
+## 包编号的编码和解码（Packet Number Encoding and Decoding） {#packet-encoding}
+
+包编号是从0到2^64-1的数字（{{packet-numbers}}）。
+在长或短包头中，以1到4个字节进行编码。
+通过包含包编号的最低有效位来减少
+其所需的字节数。
+
+编码后的包编号使用5.4章中描述的{{QUIC-TLS}}
+进行保护。
+
+发送方**必须**必须预留足够大的包编号范围，这个范围必须是
+最大的已确认包的编号大小和已发送包数量的
+两倍。接收包的对端将正确的解码该包编号，
+除非该包延迟了，使得它
+在许多较高编号的包之后到达。终端
+**应该**使用足够大的包编号编码，以允许包编号被接收，
+即使是此包在它之后发送的包之后才到达。
+
+所以，包编号编码的大小至少比包含新包在内的连续的
+未确认的包数量的以2为底的对数多一位。
+log2(len(包含新包在内的连续的未确认的包))+1。
+
+例如，如果一个终端收到了0xabe8bc包的确认，
+在发送编号为0xac5c02的包的时候需要16位以上
+的包编号编码；发送编号为0xace8fe就需要24位
+包编号编码。
+
+在接收方，在恢复完整的包编号之前要移除对包编号
+的保护。然后，根据存在的有效位的数量、这些位的
+值以及在成功验证的数据包上接收的最大数据包数，
+重新构造完整的数据包号。成功移除包保护依赖于
+恢复完整的包编号。
+
+一旦包头保护被移除，就可以根据最接近下一个预期包的
+包编号来解码包编号。下一个
+预期的包是接收到的最高包编号加1。例如，如果
+成功通过验证的包中最高包编号为0xa82f30ea，
+包含16位编码0x9b32的包编码将被解码位0xa82f9b32。
+包解码的为代码示例在
+{{sample-packet-number-decoding}}中提供。
+
+
+## 长包头数据包（Long Header Packets） {#long-header}
 
 ~~~~~
  0                   1                   2                   3
@@ -3252,128 +3265,128 @@ Example pseudo-code for packet number decoding can be found in
 +-+-+-+-+-+-+-+-+
 |1|1|T T|X X X X|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Version (32)                          |
+|                       版本（Version） (32)                      |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |DCIL(4)|SCIL(4)|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|         目标连接ID（Destination Connection ID）(0/32..144)    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+|               源连接ID（Source Connection ID）(0/32..144)     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~
-{: #fig-long-header title="Long Header Packet Format"}
+{: #fig-long-header title="长包头数据包格式"}
 
-Long headers are used for packets that are sent prior to the establishment
-of 1-RTT keys. Once both conditions are
-met, a sender switches to sending packets using the short header
-({{short-header}}).  The long form allows for special packets - such as the
-Version Negotiation packet - to be represented in this uniform fixed-length
-packet format. Packets that use the long header contain the following fields:
+长包头用于那些遭遇建立1-RTT密钥的包。
+满足两个条件后，
+发送方切换到使用短包头来发送包
+（{{short-header}}）。长格式允许特殊的包 - 比如
+版本协商包 - 食用这样统一固定长度的
+包格式。使用长包头的包包含如下字段：
 
-Header Form:
+头表单：
 
-: The most significant bit (0x80) of byte 0 (the first byte) is set to 1 for
-  long headers.
+: 0字节（第一个字节）最高有效位（0x80）设置为1
+  代表长包头。
 
-Fixed Bit:
+固定位：
 
-: The next bit (0x40) of byte 0 is set to 1.  Packets containing a zero value
-  for this bit are not valid packets in this version and MUST be discarded.
+: 0字节中的下一个位（0x40）被设置成1。这一位为0
+  的包在这个版本下是无效的并且**必须**被丢弃。
 
-Long Packet Type (T):
+长包类型（T）：
 
-: The next two bits (those with a mask of 0x30) of byte 0 contain a packet type.
-  Packet types are listed in {{long-packet-types}}.
+: 0字节接下来的两位（0x30）包含包类型。
+  包类型在{{long-packet-types}}中列举了。
 
-Type-Specific Bits (X):
+类型限定位（X）：
 
-: The lower four bits (those with a mask of 0x0f) of byte 0 are type-specific.
+: 0字节较低的4位（0x0f）是类型限定位。
 
-Version:
+版本：
 
-: The QUIC Version is a 32-bit field that follows the first byte.  This field
-  indicates which version of QUIC is in use and determines how the rest of the
-  protocol fields are interpreted.
+: QUIC版本是一个紧跟着第一个字节的32位字段。这个字段
+  标明了正在使用的QUIC版本，并标明了如何解释剩余
+  的协议字段如何解释。
 
-DCIL and SCIL:
+DCIL和SCIL：
 
-: The byte following the version contains the lengths of the two connection ID
-  fields that follow it.  These lengths are encoded as two 4-bit unsigned
-  integers. The Destination Connection ID Length (DCIL) field occupies the 4
-  high bits of the byte and the Source Connection ID Length (SCIL) field
-  occupies the 4 low bits of the byte.  An encoded length of 0 indicates that
-  the connection ID is also 0 bytes in length.  Non-zero encoded lengths are
-  increased by 3 to get the full length of the connection ID, producing a length
-  between 4 and 18 bytes inclusive.  For example, an byte with the value 0x50
-  describes an 8-byte Destination Connection ID and a zero-length Source
-  Connection ID.
+: 紧接着版本之后的字节标明了两个链接ID
+  字段的长度。这两个长度被编码位4位无符号
+  证书。目标连接ID长度（DCIL）为高4位
+  源连接ID长度（SCIL）
+  为低4位。0值表示
+  连接ID的长度是0字节。非0值
+  需要加3以获取连接ID的完整长度，ID长度
+  在4到18字节（包含4和18）之间。例如，0x50这个字节
+  描述了目标连接ID长度位8为，
+  源连接ID长度为0。
 
-Destination Connection ID:
+目标连接ID：
 
-: The Destination Connection ID field follows the connection ID lengths and is
-  either 0 bytes in length or between 4 and 18 bytes.
-  {{negotiating-connection-ids}} describes the use of this field in more detail.
+: 目标连接ID字段紧接着ID长度字段，它
+  可能是0字节或者4到18字节长。
+  {{negotiating-connection-ids}}描述了更多此字段的细节。
 
-Source Connection ID:
+源连接ID：
 
-: The Source Connection ID field follows the Destination Connection ID and is
-  either 0 bytes in length or between 4 and 18 bytes.
-  {{negotiating-connection-ids}} describes the use of this field in more detail.
+: 源连接ID字段紧跟着目标连接ID字段，它
+  也是0字节或者4到18字节长。
+  {{negotiating-connection-ids}}描述了更多关于此字段的细节。
 
-In this version of QUIC, the following packet types with the long header are
-defined:
+如下给出了在此版本的QUIC中长包头包中类型的
+定义：
 
-| Type | Name                          | Section                     |
+| 类型  | 名称                          | 章节                         |
 |-----:|:------------------------------|:----------------------------|
 |  0x0 | Initial                       | {{packet-initial}}          |
 |  0x1 | 0-RTT                         | {{packet-0rtt}}             |
 |  0x2 | Handshake                     | {{packet-handshake}}        |
 |  0x3 | Retry                         | {{packet-retry}}            |
-{: #long-packet-types title="Long Header Packet Types"}
+{: #long-packet-types title="长包头包类型"}
 
-The header form bit, connection ID lengths byte, Destination and Source
-Connection ID fields, and Version fields of a long header packet are
-version-independent. The other fields in the first byte are version-specific.
-See {{QUIC-INVARIANTS}} for details on how packets from different versions of
-QUIC are interpreted.
+长包头当中描述连接ID长度的字段、目标和源地址的字段
+以及版本字段
+是版本无关的。第一个字节中其他的字段是版本特殊的。
+参考{{QUIC-INVARIANTS}}中描述的不同版本的QUIC
+是如何解释包格式的。
 
-The interpretation of the fields and the payload are specific to a version and
-packet type.  While type-specific semantics for this version are described in
-the following sections, several long-header packets in this version of QUIC
-contain these additional fields:
+字段和有效负载的解释在各个版本和包类型之间是
+不同的。以下各节介绍了
+此版本的特殊信息，此版本的QUIC中一些长包头包
+包含额外的字段。
 
-Reserved Bits (R):
+保留位（R）：
 
-: Two bits (those with a mask of 0x0c) of byte 0 are reserved across multiple
-  packet types.  These bits are protected using header protection (see Section
-  5.4 of {{QUIC-TLS}}). The value included prior to protection MUST be set to 0.
-  An endpoint MUST treat receipt of a packet that has a non-zero value for these
-  bits, after removing both packet and header protection, as a connection error
-  of type PROTOCOL_VIOLATION. Discarding such a packet after only removing
-  header protection can expose the endpoint to attacks (see Section 9.3 of
-  {{QUIC-TLS}}).
+: 0字节中的两位（0x0c）是跨包类型
+  保留的。这些位使用包头保护进行保护（参见章节
+  5.4{{QUIC-TLS}}）。这个字段的原是值必须是0。
+  如果终端在移除包和包头保护之后发现此字段为非0值，
+  则终端**必须**将这种情况视为PROTOCOL_VIOLATION
+  类型的连接错误。在仅移除包头包头保护之后丢弃
+  这样的包可能导致终端收到攻击
+  （参见章节9.3{{QUIC-TLS}}）。
 
-Packet Number Length (P):
+包编号长度（P）：
 
-: In packet types which contain a Packet Number field, the least significant two
-  bits (those with a mask of 0x03) of byte 0 contain the length of the packet
-  number, encoded as an unsigned, two-bit integer that is one less than the
-  length of the packet number field in bytes.  That is, the length of the packet
-  number field is the value of this field, plus one.  These bits are protected
-  using header protection (see Section 5.4 of {{QUIC-TLS}}).
+: 在包含包编号字段的包中，0字节的最低两个有效
+  位（0x03）包含包编号的长度。
+  编码位2位无符号整数，次整数比包编
+  号的长度小1。也就是说，包编号字段的
+  长度是此字段的值加1。这些位使用
+  包头保护进行保护（参见5.4{{QUIC-TLS}}）。
 
-Length:
+长度：
 
-: The length of the remainder of the packet (that is, the Packet Number and
-  Payload fields) in bytes, encoded as a variable-length integer
-  ({{integer-encoding}}).
+: 包中剩下的部分（包编号和有效负载字段）
+  以字节为单位的长度，编码为可变长度的整数
+  （{{integer-encoding}}）。
 
-Packet Number:
+包编号：
 
-: The packet number field is 1 to 4 bytes long. The packet number has
-  confidentiality protection separate from packet protection, as described in
-  Section 5.4 of {{QUIC-TLS}}. The length of the packet number field is encoded
-  in the Packet Number Length bits of byte 0 (see above).
+: 包编号字段的长度为1到4字节。包编号具有独立于
+  包保护的机密性保护，如章节5.4{{QUIC-TLS}}
+  中描述的。包编号字段的长度被编码在字节0的
+  包编号位中（见上文）。
 
 ### 版本协商包(Version Negotiation Packet) {#packet-version}
 
@@ -4270,192 +4283,193 @@ RESET_STREAM 帧包含下列字段:
 : 一个变长整数，
 表示以位为单位的发送者定义的流的最终大小。
 
-## STOP_SENDING Frame {#frame-stop-sending}
+## STOP_SENDING帧（STOP_SENDING Frame） {#frame-stop-sending}
 
-An endpoint uses a STOP_SENDING frame (type=0x05) to communicate that incoming
-data is being discarded on receipt at application request.  STOP_SENDING
-requests that a peer cease transmission on a stream.
+终端使用STOP_SENDING帧（类型标记为0x05）来告诉发送方应用程序要求
+丢弃传入的数据。STOP_SENDING要求
+对端停止在流当中的传输。
 
-A STOP_SENDING frame can be sent for streams in the Recv or Size Known states
-(see {{stream-send-states}}). Receiving a STOP_SENDING frame for a
-locally-initiated stream that has not yet been created MUST be treated as a
-connection error of type STREAM_STATE_ERROR.  An endpoint that receives a
-STOP_SENDING frame for a receive-only stream MUST terminate the connection with
-error STREAM_STATE_ERROR.
+STOP_SENDING帧可以在状态为Rec和Size Known的流当中发送
+（详见{{stream-send-states}}）。在一个本地初始化之后但
+还未创建的流中收到STOP_SENDING帧**必须**引发
+STREAM_STATE_ERROR类型的连接异常。终端在一个仅
+接收的流中收到STOP_SENDING帧**必须**引发STREAM_STATE_ERROR
+类型的连接异常。
 
-The STOP_SENDING frame is as follows:
+STOP_SENDING帧如下说述：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream ID (i)                        ...
+|                        流 ID (i)                            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Application Error Code (16)  |
+|       应用程序错误码 (16)       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-STOP_SENDING frames contain the following fields:
+STOP_SENDING帧包含如下字段
 
-Stream ID:
+流ID：
 
-: A variable-length integer carrying the Stream ID of the stream being ignored.
+: 可变长度的整数，表示被忽略的流ID。
 
-Application Error Code:
+应用程序错误码：
 
-: A 16-bit, application-specified reason the sender is ignoring the stream (see
-  {{app-error-codes}}).
+: 16位的，由应用程序指定的，发送方忽略此流的原因
+  （详见{{app-error-codes}}）。
 
 
-## CRYPTO Frame {#frame-crypto}
+## CRYPTO帧（CRYPTO Frame） {#frame-crypto}
 
-The CRYPTO frame (type=0x06) is used to transmit cryptographic handshake
-messages. It can be sent in all packet types. The CRYPTO frame offers the
-cryptographic protocol an in-order stream of bytes.  CRYPTO frames are
-functionally identical to STREAM frames, except that they do not bear a stream
-identifier; they are not flow controlled; and they do not carry markers for
-optional offset, optional length, and the end of the stream.
+CRYPTO帧（类型标记为0x06）是用来传输加密握手信息的。
+它可以被包含在所有类型的包当中被发送。CRYPTO帧为加密
+协议提供了有顺序的字节流。CRYPTO帧和STREAM帧在
+功能上相同，但是他们具有不同的流标示
+符；他们不受流控制的限制；并且它们不包含
+可选偏移、可选长度和流末端的标记。
 
-The CRYPTO frame is as follows:
+CRYPTO帧如下所述：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Offset (i)                         ...
+|                          偏移 (i)                           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Length (i)                         ...
+|                          长度 (i)                           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Crypto Data (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #crypto-format title="CRYPTO Frame Format"}
+{: #crypto-format title="CRYPTO帧格式"}
 
-CRYPTO frames contain the following fields:
+CRYPTO帧包含如下字段：
 
-Offset:
+偏移：
 
-: A variable-length integer specifying the byte offset in the stream for the
-  data in this CRYPTO frame.
+: 可变长度的整数，指定流中在此CRYPTO帧中的数据的
+  偏移。
 
-Length:
+长度：
 
-: A variable-length integer specifying the length of the Crypto Data field in
-  this CRYPTO frame.
+: 可变长度整数，指定此CRYPTO帧中Crypto Data字段的
+  长度。
 
 Crypto Data:
 
-: The cryptographic message data.
+: 加密信息数据。
 
-There is a separate flow of cryptographic handshake data in each encryption
-level, each of which starts at an offset of 0. This implies that each encryption
-level is treated as a separate CRYPTO stream of data.
+对于每一个加密级别有单独的加密
+握手流，每个流都从偏移量0开始。这意味着每一个加密
+级别都被视为单独的CRYPTO数据流。
 
-Unlike STREAM frames, which include a Stream ID indicating to which stream the
-data belongs, the CRYPTO frame carries data for a single stream per encryption
-level. The stream does not have an explicit end, so CRYPTO frames do not have a
-FIN bit.
+CRYPTO帧不像STREAM帧那样含有用于指定数据属于那个流的
+流ID，CRYPTO帧在每一个加密级别上为单个流
+传输数据。流没有明确的结尾，所以CRYPTO帧没有
+FIN位。
 
 
-## NEW_TOKEN Frame {#frame-new-token}
+## NEW_TOKEN帧（NEW_TOKEN Frame） {#frame-new-token}
 
-A server sends a NEW_TOKEN frame (type=0x07) to provide the client with a token
-to send in the header of an Initial packet for a future connection.
+服务器通过NEW_TOKEN帧（类型标记为0x07）给客户端发送一个token，
+这个token是用在以后连接的Initial包的包头的。
 
-The NEW_TOKEN frame is as follows:
+NEW_TOKEN帧结构如下：
+
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Token Length (i)  ...
+|                         Token 长度 (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                            Token (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
 
-NEW_TOKEN frames contain the following fields:
+NEW_TOKEN包含如下字段：
 
-Token Length:
+Token长度：
 
-: A variable-length integer specifying the length of the token in bytes.
+: 可变长度整数，表明token按位算的长度。
 
-Token:
+Token：
 
-: An opaque blob that the client may use with a future Initial packet.
+: 一个不透明的小玩意，客户端可能会用在以后的Initial包中。
 
 
-## STREAM Frames {#frame-stream}
+## STREAM帧（STREAM Frames） {#frame-stream}
 
-STREAM frames implicitly create a stream and carry stream data.  The STREAM
-frame takes the form 0b00001XXX (or the set of values from 0x08 to 0x0f).  The
-value of the three low-order bits of the frame type determine the fields that
-are present in the frame.
+STREAM帧隐式的创建一个流并运送流数据。STREAM帧
+采用0b00001XXX（或从0x08到0x0f的一组值）。
+帧类型当中较低的3位标明了帧
+当中存在的字段。
 
-* The OFF bit (0x04) in the frame type is set to indicate that there is an
-  Offset field present.  When set to 1, the Offset field is present.  When set
-  to 0, the Offset field is absent and the Stream Data starts at an offset of 0
-  (that is, the frame contains the first bytes of the stream, or the end of a
-  stream that includes no data).
+* OFF位（0x04）在帧类型中表明帧中有
+  偏移字段。设置为1时，偏移字段存在。
+  设置为0时，偏移字段不存在并且流数据从偏移0开始
+  （也就是说，此帧包含这批流数据当中最开始的部分，或
+  最后不包含数据的一部分。）
 
-* The LEN bit (0x02) in the frame type is set to indicate that there is a Length
-  field present.  If this bit is set to 0, the Length field is absent and the
-  Stream Data field extends to the end of the packet.  If this bit is set to 1,
-  the Length field is present.
+* LEN位（0x02）在帧类型中表明帧中有
+  长度字段。设置为0时，长度字段不存在并且流数据
+  字段延续到包的末尾。设置为1时，
+  长度字段存在。
 
-* The FIN bit (0x01) of the frame type is set only on frames that contain the
-  final size of the stream.  Setting this bit indicates that the frame
-  marks the end of the stream.
+* FIN位（0x01）在帧类型中表明此帧包含此流
+  最后的数据。此位被设置表明此帧
+  标志着流的结束。
 
-An endpoint that receives a STREAM frame for a send-only stream MUST terminate
-the connection with error STREAM_STATE_ERROR.
+当一个终端从一个仅发送的流当中收到STREAM帧时，它**必须**关闭
+连接并附带STEAM_STATE_ERROR错误。
 
-The STREAM frames are as follows:
+STEAM帧结构如下：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Stream ID (i)                       ...
+|                           流 ID (i)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         [Offset (i)]                        ...
+|                           [偏移 (i)]                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         [Length (i)]                        ...
+|                          [长度 (i)]                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Stream Data (*)                      ...
+|                           流数据 (*)                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #stream-format title="STREAM Frame Format"}
+{: #stream-format title="STREAM帧格式"}
 
-STREAM frames contain the following fields:
+STEREAM帧包含如下字段：
 
-Stream ID:
+流ID：
 
-: A variable-length integer indicating the stream ID of the stream (see
-  {{stream-id}}).
+: 可变长度的整数，标明此流的流ID（参见
+{{stream-id}}）。
 
-Offset:
+偏移：
 
-: A variable-length integer specifying the byte offset in the stream for the
-  data in this STREAM frame.  This field is present when the OFF bit is set to
-  1.  When the Offset field is absent, the offset is 0.
+: 可变长度整数，标明STREAM帧当中数据字段的
+  偏移位。当OFF位设置为1时此字段存在。
+  当偏移字段不存在时，偏移为0.
 
-Length:
+长度：
 
-: A variable-length integer specifying the length of the Stream Data field in
-  this STREAM frame.  This field is present when the LEN bit is set to 1.  When
-  the LEN bit is set to 0, the Stream Data field consumes all the remaining
-  bytes in the packet.
+: 可变成都整数，标明STREAM帧中流数据字段
+  的长度。当LEN位设置为1时此字段存在。当
+  LEN位设置为0时，流数据占据了此包
+  剩下的所有位。
 
-Stream Data:
+流数据：
 
-: The bytes from the designated stream to be delivered.
+: 要传递的指定流中的字节。
 
-When a Stream Data field has a length of 0, the offset in the STREAM frame is
-the offset of the next byte that would be sent.
+当流数据字段的长度为0时，STREAM帧当中的偏移标明的是
+下一个将要发送的位的偏移。
 
-The first byte in the stream has an offset of 0.  The largest offset delivered
-on a stream - the sum of the offset and data length - MUST be less than 2^62.
+流的第一位的偏移为0。在流上传递的最大
+偏移量 - 偏移量和数据长度之和 - **必须**小于2^62。
 
 
 ## MAX_DATA Frame帧(MAX_DATA Frame) {#frame-max-data}
