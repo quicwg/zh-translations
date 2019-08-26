@@ -153,44 +153,44 @@ x (A+)
 x ...
 : 表示 x 是变长的，并延展到区域末端。
 
-# Compression Process Overview
+# 压缩处理概述 {#Compression Process Overview}
 
-Like HPACK, QPACK uses two tables for associating header fields to indices.  The
-static table (see {{table-static}}) is predefined and contains common header
-fields (some of them with an empty value).  The dynamic table (see
-{{table-dynamic}}) is built up over the course of the connection and can be used
-by the encoder to index header fields in the encoded header lists.
+与HPACK一样，QPACK使用两个表来将头字段与索引相关联。该
+静态表（请参阅{{table-static}}）是预定义的，包含公共标题
+字段（其中一些值为空值）。动态表（见
+{{table-dynamic}}）是在连接过程中构建的，可以使用
+由编码器索引编码后标题列表中的标题字段。
 
-QPACK instructions appear in three different types of streams:
+QPACK指令出现在三种不同类型的流中：
 
-- The encoder uses a unidirectional stream to modify the state of the dynamic
-table without emitting header fields associated with any particular request.
+ - 编码器使用单向流来修改动态表的状态，
+不会发出与任何特定请求相关联的头字段。
 
-- HEADERS and PUSH_PROMISE frames on request and push streams reference the
-table state without modifying it.
+ - 请求和推送流中的HEADERS和PUSH_PROMISE帧在不修改
+表状态的情况下引用表．
 
-- The decoder sends feedback to the encoder on a unidirectional stream.  This
-feedback enables the encoder to manage dynamic table state.
+ - 解码器在单向流上向编码器发送反馈。这个
+反馈使编码器能够管理动态表状态。
 
-## Encoder
+## 编码器 ｛#Encoder}　
 
-An encoder compresses a header list by emitting either an indexed or a literal
-representation for each header field in the list.  References to the static
-table and literal representations do not require any dynamic state and never
-risk head-of-line blocking.  References to the dynamic table risk head-of-line
-blocking if the encoder has not received an acknowledgement indicating the entry
-is available at the decoder.
+编码器通过为每个列表中的头部字段发出索引
+或文字表示的方式来压缩头部列表．
+引用静态表和文字表示不需要任何动态状态，也
+没有线头阻塞的风险。
+如果编码器没有收到某个条目的确认，动态表
+的引用就会有线头阻塞的风险，表明该条目可以
+从解码处获得．
 
-An encoder MAY insert any entry in the dynamic table it chooses; it is not
-limited to header fields it is compressing.
+编码器**可以**在它选择的动态表中插入任何条目;不限
+于正在压缩的头部字段．
 
-QPACK preserves the ordering of header fields within each header list.  An
-encoder MUST emit header field representations in the order they appear in the
-input header list.
+QPACK保留每个头部列表中头部字段的顺序。一个
+编码器**必须**按照它们在头部列表中出现的顺序
+发出头部字段标识．
 
-QPACK is designed to contain the more complex state tracking to the encoder,
-while the decoder is relatively simple.
-
+QPACK旨在将更复杂的状态跟踪包含在编码器中，
+而解码器相对简单。
 
 ### 引用追踪 (Reference Tracking)
 
