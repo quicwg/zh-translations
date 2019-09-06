@@ -1032,23 +1032,16 @@ HTTP/3 使用的优先级规则与{{!RFC7540}}章节5.3 中描述的方案类似
 和流一样，占位符也有与其关联的优先级。
 
 
-### Priority Tree Maintenance
+### 优先树维护(Priority Tree Maintenance)
 
-Because placeholders will be used to "root" any persistent structure of the tree
-which the client cares about retaining, servers can aggressively prune inactive
-regions from the priority tree. For prioritization purposes, a node in the tree
-is considered "inactive" when the corresponding stream has been closed for at
-least two round-trip times (using any reasonable estimate available on the
-server).  This delay helps mitigate race conditions where the server has pruned
-a node the client believed was still active and used as a Stream Dependency.
+因为根客户端在关注并保留的树的任何持久性结构中使用占位符，所以服务器可以从优先级树中积极地修剪非活动区域。
+为了确定优先级，当相应的流已经关闭至少两个往返间隔（使用服务器上可用的任何合理估计时间）时，树中的节点被认为是“非活动的”。
+此延迟有助于缓解服务器已修剪的客户端中仍处于活动状态并用作流依赖性的节点之间的竞争。
 
-Specifically, the server MAY at any time:
+具体来说，服务器**可能**随时：
 
-- Identify and discard branches of the tree containing only inactive nodes
-  (i.e. a node with only other inactive nodes as descendants, along with those
-  descendants)
-- Identify and condense interior regions of the tree containing only inactive
-  nodes, allocating weight appropriately
+- 识别并丢弃仅包含非活动节点的树的分支（即只有非活动节点作为叶子的节点，以及这些叶子节点本身）
+- 识别并压缩仅包含非活动节点的树的内部区域，适当地分配权重
 
 ~~~~~~~~~~  drawing
     x                x                 x
@@ -1063,88 +1056,58 @@ Specifically, the server MAY at any time:
 ~~~~~~~~~~
 {: #fig-pruning title="Example of Priority Tree Pruning"}
 
-In the example in {{fig-pruning}}, `P` represents a Placeholder, `A` represents
-an active node, and `I` represents an inactive node.  In the first step, the
-server discards two inactive branches (each a single node).  In the second step,
-the server condenses an interior inactive node.  Note that these transformations
-will result in no change in the resources allocated to a particular active
-stream.
+在{{fig-pruning}}的示例中，“P”表示占位符，“A”表示活动节点，“I”表示非活动节点。
+在第一步中，服务器丢弃两个非活动分支（每个分支都是一个节点I）。
+在第二步中，服务器压缩内部非活动节点。
+请注意，这些转换不会导致分配给特定活动流的资源发生变化。
 
-Clients SHOULD assume the server is actively performing such pruning and SHOULD
-NOT declare a dependency on a stream it knows to have been closed.
+客户端**应该**假设服务器正在主动执行这样的修剪，并且**不应该**声明它已知道已关闭的流的依赖性。
 
-## Server Push
+## 服务器推送(Server Push)
 
-HTTP/3 server push is similar to what is described in HTTP/2 {{!RFC7540}}, but
-uses different mechanisms.
+HTTP / 3服务器推送类似于HTTP / 2 {{!RFC7540}}中描述的，但使用不同的机制。
 
-Each server push is identified by a unique Push ID. This Push ID is used in a
-single PUSH_PROMISE frame (see {{frame-push-promise}}) which carries the request
-headers, possibly included in one or more DUPLICATE_PUSH frames (see
-{{frame-duplicate-push}}), then included with the push stream which ultimately
-fulfills those promises.
+每个服务器推送都由唯一的推送ID标识。
+此推送ID用于单个PUSH_PROMISE帧（参阅{{frame-push-promise}}），其中包含可能包含在一个或多个DUPLICATE_PUSH帧中的请求标头（参阅{{frame-duplicate-push}}），然后包含在推送流中，最终实现这些约定。
 
-Server push is only enabled on a connection when a client sends a MAX_PUSH_ID
-frame (see {{frame-max-push-id}}). A server cannot use server push until it
-receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to
-control the number of pushes that a server can promise. A server SHOULD use Push
-IDs sequentially, starting at 0. A client MUST treat receipt of a push stream
-with a Push ID that is greater than the maximum Push ID as a connection error of
-type HTTP_LIMIT_EXCEEDED.
+仅当客户端发送MAX_PUSH_ID帧时才会在连接上启用服务器推送（请参阅{{frame-max-push-id}}）。
+服务器在收到MAX_PUSH_ID帧之前无法使用服务器推送。
+客户端发送额外的MAX_PUSH_ID帧以控制服务器可以承诺的推送次数。
+服务器**应该**按顺序使用推送ID，从0开始。
+客户端**必须**将推送ID值大于最大推送ID的推送流的接收视为HTTP_LIMIT_EXCEEDED类型的连接错误。
 
-The header of the request message is carried by a PUSH_PROMISE frame (see
-{{frame-push-promise}}) on the request stream which generated the push. This
-allows the server push to be associated with a client request. Ordering of a
-PUSH_PROMISE in relation to certain parts of the response is important (see
-Section 8.2.1 of {{!RFC7540}}).  Promised requests MUST conform to the
-requirements in Section 8.2 of {{!RFC7540}}.
+请求消息的头部由生成推送的请求流上的PUSH_PROMISE帧（参见{{frame-push-promise}}）承载。
+这允许服务器推送与客户端请求相关联。
+与响应的某些部分相关的PUSH_PROMISE的排序很重要（参见{{!RFC7540}}的8.2.1）。
+承诺的请求**必须**符合{{!RFC7540}}第8.2节中的要求。
 
-The same server push can be associated with additional client requests using a
-DUPLICATE_PUSH frame (see {{frame-duplicate-push}}).  Ordering of a
-DUPLICATE_PUSH in relation to certain parts of the response is similarly
-important.  Due to reordering, DUPLICATE_PUSH frames can arrive before the
-corresponding PUSH_PROMISE frame, in which case the request headers of the push
-would not be immediately available.  Clients which receive a DUPLICATE_PUSH
-frame for an as-yet-unknown Push ID can either delay generating new requests for
-content referenced following the DUPLICATE_PUSH frame until the request headers
-become available, or can initiate requests for discovered resources and cancel
-the requests if the requested resource is already being pushed.
+可以使用DUPLICATE_PUSH帧将相同的服务器推送与其他客户端请求相关联（参阅{{frame-duplicate-push}}）。  
+与响应的某些部分相关的DUPLICATE_PUSH的排序同样重要。
+由于重新排序，DUPLICATE_PUSH帧可以在相应的PUSH_PROMISE帧之前到达，在这种情况下，推送的请求头不会立即可用。
+接收到尚未知的推送ID的DUPLICATE_PUSH帧的客户端可以延迟生成对DUPLICATE_PUSH帧之后引用的内容的新请求，直到请求头可用，或者可以发起对已发现资源的请求并在请求的资源已经被推送时取消请求。
 
-When a server later fulfills a promise, the server push response is conveyed on
-a push stream (see {{push-streams}}). The push stream identifies the Push ID of
-the promise that it fulfills, then contains a response to the promised request
-using the same format described for responses in {{request-response}}.
+当服务器稍后履行约定时，服务器推送响应将在推送流上传送（参阅{{push-streams}}）。
+推送流标识其履行的约定的推送ID，然后使用与{{request-response}}中的响应描述的相同格式包含对约定请求的响应。
 
-If a promised server push is not needed by the client, the client SHOULD send a
-CANCEL_PUSH frame. If the push stream is already open or opens after sending the
-CANCEL_PUSH frame, a QUIC STOP_SENDING frame with an appropriate error code can
-also be used (e.g., HTTP_PUSH_REFUSED, HTTP_PUSH_ALREADY_IN_CACHE; see
-{{errors}}). This asks the server not to transfer additional data and indicates
-that it will be discarded upon receipt.
+如果客户端不需要承诺的服务器推送，客户端**应该**发送一个CANCEL_PUSH帧。
+如果推送流已经打开或在发送CANCEL_PUSH帧之后打开，则还可以使用具有适当错误代码的QUIC STOP_SENDING帧（例如，HTTP_PUSH_REFUSED，HTTP_PUSH_ALREADY_IN_CACHE;参见{{errors}}）。
+这要求服务器不要传输其他数据并指示它将在收到时被丢弃。
 
-# Connection Closure
+# 连接结束(Connection Closure)
 
-Once established, an HTTP/3 connection can be used for many requests and
-responses over time until the connection is closed.  Connection closure can
-happen in any of several different ways.
+一旦建立，HTTP / 3连接可以用于许多请求和响应，直到连接关闭。
+连接结束可以以几种不同的方式发生。
 
-## Idle Connections
+## 闲置连接(Idle Connections)
 
-Each QUIC endpoint declares an idle timeout during the handshake.  If the
-connection remains idle (no packets received) for longer than this duration, the
-peer will assume that the connection has been closed.  HTTP/3 implementations
-will need to open a new connection for new requests if the existing connection
-has been idle for longer than the server's advertised idle timeout, and SHOULD
-do so if approaching the idle timeout.
+每个QUIC端点在握手期间声明空闲超时。
+如果连接保持空闲（没有收到数据包）超过此持续时间，则对等体将认为连接已关闭。
+如果现有连接的空闲时间超过服务器的通告空闲超时时间，HTTP / 3实现将需要为新请求打开新连接，并且如果接近空闲超时**应该**这样做。
 
-HTTP clients are expected to request that the transport keep connections open
-while there are responses outstanding for requests or server pushes, as
-described in Section 19.2 of {{QUIC-TRANSPORT}}. If the client is not expecting
-a response from the server, allowing an idle connection to time out is preferred
-over expending effort maintaining a connection that might not be needed.  A
-gateway MAY maintain connections in anticipation of need rather than incur the
-latency cost of connection establishment to servers. Servers SHOULD NOT actively
-keep connections open.
+如{{QUIC-TRANSPORT}}的第19.2节所述，HTTP客户端应该请求传输保持连接打开，同时对请求或服务器推送有未完成的响应。
+如果客户端不期望来自服务器的响应，则允许空闲连接超时是优先选择上的，而不是花费维持可能不需要的连接的资源。
+网关**可能**在预期需要时保持连接，因而不会产生到服务器的连接建立的延迟成本。
+服务器**不应该**主动保持连接打开。
 
 ## 连接关闭（Connection Shutdown）
 
