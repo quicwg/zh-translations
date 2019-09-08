@@ -2933,137 +2933,91 @@ ACK帧（见{{processing-and-ack}}和{{frame-ack}}）。
 同时1-RTT包的编号空间计数加2。
 
 
-### ECN Verification {#ecn-verification}
+### ECN校验(ECN Verification) {#ecn-verification}
 
-Each endpoint independently verifies and enables use of ECN by setting the IP
-header ECN codepoint to ECN Capable Transport (ECT) for the path from it to the
-other peer. Even if not setting ECN codepoints on packets it transmits, the
-endpoint SHOULD provide feedback about ECN markings received (if accessible).
+每个终端通过将 IP 报头 ECN 代码点设置为从其到对端的路径的 ECN 能力传输(ECT)，
+独立地验证并激活 ECN 的使用。
+即使不在其发送的数据包上设置 ECN 代码点，终端也**应该**提供关于接收到的 ECN 标记的反馈(如果可访问的话)。
 
-To verify both that a path supports ECN and the peer can provide ECN feedback,
-an endpoint sets the ECT(0) codepoint in the IP header of all outgoing
-packets {{!RFC8311}}.
+为了验证路径是否支持 ECN 以及对端是否可以提供 ECN 反馈，终端在所有传出数据包{{!RFC8311}}的 IP 报头中设置ECT(0)代码点。
 
-If an ECT codepoint set in the IP header is not corrupted by a network device,
-then a received packet contains either the codepoint sent by the peer or the
-Congestion Experienced (CE) codepoint set by a network device that is
-experiencing congestion.
+如果 IP 报头中设置的 ECT 代码点未被网络设备损坏，
+则接收到的数据包包含对端设备发送的代码点或经历拥塞的网络设备设置的拥塞经历(Congestion Experienced CE)代码点。
 
-If a QUIC packet sent with an ECT codepoint is newly acknowledged by the peer in
-an ACK frame without ECN feedback, the endpoint stops setting ECT codepoints in
-subsequent IP packets, with the expectation that either the network path or the
-peer no longer supports ECN.
+如果与 ECT 代码点一起发送的 QUIC 数据包在没有 ECN 反馈的 ACK 帧中由对端新确认，
+则终端停止在后续 IP 数据包中设置 ECT 代码点，期望网络路径或对端不再支持 ECN。
 
-Network devices that corrupt or apply non-standard ECN markings might result in
-reduced throughput or other undesirable side-effects.  To reduce this risk, an
-endpoint uses the following steps to verify the counts it receives in an ACK
-frame.
+破坏或应用非标准 ECN 标记的网络设备可能会导致吞吐量降低或其他不希望的副作用。
+为了降低这种风险，终端使用以下步骤来验证它在 ACK 帧中收到的计数。
 
-* The total increase in ECT(0), ECT(1), and CE counts MUST be no smaller than
-  the total number of QUIC packets sent with an ECT codepoint that are newly
-  acknowledged in this ACK frame.  This step detects any network remarking from
-  ECT(0), ECT(1), or CE codepoints to Not-ECT.
+* ECT(0)、ECT(1)和 CE 计数的总增加不能小于与此 ACK 帧中新确认的 ECT 代码点一起发送的 QUIC 数据包的总数。
+  此步骤检测来自 ECT(0)、ECT(1)或 CE 代码点指向非 ECT 的任何网络标记。
 
-* Any increase in either ECT(0) or ECT(1) counts, plus any increase in the CE
-  count, MUST be no smaller than the number of packets sent with the
-  corresponding ECT codepoint that are newly acknowledged in this ACK frame.
-  This step detects any erroneous network remarking from ECT(0) to ECT(1) (or
-  vice versa).
+* ECT(0) 或 ECT(1)计数的任何增加，以及 CE 计数的任何增加，都必须不小于与此 ACK 帧中新确认的相应 ECT 代码点一起发送的数据包数量。
+  此步骤检测从 ECT(0) 到 ECT(1) 的任何错误网络标记(反之亦然)。
 
-An endpoint could miss acknowledgements for a packet when ACK frames are lost.
-It is therefore possible for the total increase in ECT(0), ECT(1), and CE counts
-to be greater than the number of packets acknowledged in an ACK frame.  When
-this happens, and if verification succeeds, the local reference counts MUST be
-increased to match the counts in the ACK frame.
+当 ACK 帧丢失时，终端可能会错过对数据包的确认。
+因此，ECT(0)、ECT(1) 和 CE 计数的总增加可能大于 ACK 帧中确认的分组数量。
+发生这种情况时，如果验证成功，则**必须**增加本地参考计数以匹配 ACK 帧中的计数。
 
-Processing counts out of order can result in verification failure.  An endpoint
-SHOULD NOT perform this verification if the ACK frame is received in a packet
-with packet number lower than a previously received ACK frame.  Verifying based
-on ACK frames that arrive out of order can result in disabling ECN
-unnecessarily.
+乱序处理计数可能会导致验证失败。
+如果在分组编号低于先前接收的 ACK 帧的分组中接收到 ACK 帧，则端点不应执行此验证。
+基于乱序到达的 ACK 帧进行验证可能会导致不必要地禁用 ECN。
 
-Upon successful verification, an endpoint continues to set ECT codepoints in
-subsequent packets with the expectation that the path is ECN-capable.
+验证成功后，终端继续在后续数据包中设置 ECT 代码点，期望路径支持 ECN。
 
-If verification fails, then the endpoint ceases setting ECT codepoints in
-subsequent IP packets with the expectation that either the network path or the
-peer does not support ECN.
+如果验证失败，则终端停止在后续 IP 数据包中设置 ECT 代码点，期望网络路径或对端不支持 ECN。
 
-If an endpoint sets ECT codepoints on outgoing IP packets and encounters a
-retransmission timeout due to the absence of acknowledgments from the peer (see
-{{QUIC-RECOVERY}}), or if an endpoint has reason to believe that an element on
-the network path might be corrupting ECN codepoints, the endpoint MAY cease
-setting ECT codepoints in subsequent packets.  Doing so allows the connection to
-be resilient to network elements that corrupt ECN codepoints in the IP header or
-drop packets with ECT or CE codepoints in the IP header.
+如果终端在传出的 IP 数据包上设置 ECT 代码点，并且由于没有来自对端的确认而遇到重传超时(参见{{QUIC-RECOVERY}})，
+或终端如果有理由相信网络路径上的元素可能正在破坏 ECN 代码点，则可以停止在后续数据包中设置 ECT 代码点。
+这样做允许连接对破坏 IP 报头中的 ECN 代码点或丢弃 IP 报头中具有 ECT 或 CE 代码点的数据包的网络元素具有适应能力。
 
 
-# Packet Size {#packet-size}
+# 包大小(Packet Size) {#packet-size}
 
-The QUIC packet size includes the QUIC header and protected payload, but not the
-UDP or IP header.
+QUIC 数据包大小包括 QUIC 报头和受保护的有效载荷，但不包括 UDP 或 IP 报头。
 
-Clients MUST ensure they send the first Initial packet in a single IP packet.
-Similarly, the first Initial packet sent after receiving a Retry packet MUST be
-sent in a single IP packet.
+客户端**必须**确保发送单个 IP 数据包中的第一个初始数据包。
+同样，在接收重试数据包后发送的第一个初始数据包**必须**在单个 IP 数据包中发送。
 
-The payload of a UDP datagram carrying the first Initial packet MUST be expanded
-to at least 1200 bytes, by adding PADDING frames to the Initial packet and/or by
-combining the Initial packet with a 0-RTT packet (see {{packet-coalesce}}).
-Sending a UDP datagram of this size ensures that the network path supports a
-reasonable Maximum Transmission Unit (MTU), and helps reduce the amplitude of
-amplification attacks caused by server responses toward an unverified client
-address, see {{address-validation}}.
+携带第一个初始包的 UDP 数据报的有效载荷必须通过向初始包添加填充帧和
+/或通过将初始包与 0-RTT 包组合(参见{{packet-coalesce}})来扩展到至少1200字节。
+发送此大小的 UDP 数据报可确保网络路径支持合理的最大传输单元(MTU)，
+并有助于降低服务器对未经验证的客户端地址的响应所导致的放大攻击的幅度，参见{{address-validation}}。
 
-The datagram containing the first Initial packet from a client MAY exceed 1200
-bytes if the client believes that the Path Maximum Transmission Unit (PMTU)
-supports the size that it chooses.
+如果客户端认为路径最大传输单元(PMTU)支持其选择的大小，则包含来自客户端的第一个初始数据包的数据报可能超过1200字节。
 
-A server MAY send a CONNECTION_CLOSE frame with error code PROTOCOL_VIOLATION in
-response to the first Initial packet it receives from a client if the UDP
-datagram is smaller than 1200 bytes. It MUST NOT send any other frame type in
-response, or otherwise behave as if any part of the offending packet was
-processed as valid.
+如果 UDP 数据报小于1200字节，则响应于它从客户端接收到的第一个初始包，
+服务器可以发送错误代码为 PROTOCOL_VIOLATION 的 CONNECTION_CLOSE 帧。
+它**禁止**发送任何其他帧类型作为响应，或以其他方式表现为似乎有违规数据包的任何部分被处理为有效。
 
-The server MUST also limit the number of bytes it sends before validating the
-address of the client, see {{address-validation}}.
+在验证客户端地址之前，服务器还必须限制其发送的字节数，请参见{{address-validation}}。
 
 
-## Path Maximum Transmission Unit (PMTU)
+## 路径最大传输单元(Path Maximum Transmission Unit) (PMTU)
 
-The PMTU is the maximum size of the entire IP packet including the IP header,
-UDP header, and UDP payload.  The UDP payload includes the QUIC packet header,
-protected payload, and any authentication fields. The PMTU can depend upon the
-current path characteristics.  Therefore, the current largest UDP payload an
-implementation will send is referred to as the QUIC maximum packet size.
+PMTU 是整个 IP 数据包的最大大小，包括 IP 报头、UDP 报头和 UDP 有效负载。
+UDP 有效负载包括 QUIC 数据包头、受保护的有效负载和任何身份验证字段。
+PMTU 可以依赖于当前路径特性。
+因此，实现将发送的当前最大 UDP 有效负载称为 QUIC最大包大小(QUIC Maximum Packet Size)。
 
-QUIC depends on a PMTU of at least 1280 bytes. This is the IPv6 minimum size
-{{?RFC8200}} and is also supported by most modern IPv4 networks.  All QUIC
-packets (except for PMTU probe packets) SHOULD be sized to fit within the
-maximum packet size to avoid the packet being fragmented or dropped
-{{?RFC8085}}.
+QUIC 依赖于至少1280字节的PMTU。
+这是 IPv6 最小大小{{?RFC8200}}，大多数现代 IPv4 网络也支持这一点。
+应将所有 QUIC 数据包(PMTU探测数据包除外)的大小调整为适合最大数据包大小，以避免数据包被分段或丢弃{{?RFC8085}}。
 
-An endpoint SHOULD use Datagram Packetization Layer PMTU Discovery
-({{!DPLPMTUD=I-D.ietf-tsvwg-datagram-plpmtud}}) or implement Path MTU Discovery
-(PMTUD) {{!RFC1191}} {{!RFC8201}} to determine whether the path to a destination
-will support a desired message size without fragmentation.
+终端**应该**使用数据报包化层 PMTU 发现({{!DPLPMTUD=I-D.ietf-tsvwg-datagram-plpmtud}})或
+实现路径 MUT发现(PMTUD){{!RFC1191}} {{!RFC8201}}，以判定到目的地的路径是否支持所需的消息大小而不会出现分段。
 
-In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP packets
-larger than 1280 bytes. Assuming the minimum IP header size, this results in a
-QUIC maximum packet size of 1232 bytes for IPv6 and 1252 bytes for IPv4. A QUIC
-implementation MAY be more conservative in computing the QUIC maximum packet
-size to allow for unknown tunnel overheads or IP header options/extensions.
+在没有这些机制的情况下，QUIC 终端**不应该**发送大于1280字节的 IP 数据包。
+假设最小 IP 报头大小，这将导致 IPv6 的 QUIC 最大数据包大小为1232字节，IPv4 的最大数据包大小为1252字节。
+QUIC 实现在计算 QUIC 最大分组大小时可能更为保守，以允许未知的隧道开销或 IP 报头选项/扩展。
 
-Each pair of local and remote addresses could have a different PMTU.  QUIC
-implementations that implement any kind of PMTU discovery therefore SHOULD
-maintain a maximum packet size for each combination of local and remote IP
-addresses.
+每对本地和远程地址可以具有不同的 PMTU。
+因此，实施任何类型的 PMTU 发现的 QUIC 实现**应该**为每个本地和远程 IP 地址组合保持最大数据包大小。
 
-If a QUIC endpoint determines that the PMTU between any pair of local and remote
-IP addresses has fallen below the size needed to support the smallest allowed
-maximum packet size, it MUST immediately cease sending QUIC packets, except for
-PMTU probe packets, on the affected path.  An endpoint MAY terminate the
-connection if an alternative path cannot be found.
+如果 QUIC 终端确定任何一对本地和远程 IP 地址之间的 PMTU 已降至支持允许的最小最大数据包大小所需的大小以下，
+则它**必须**立即停止在受影响路径上发送 QUIC 数据包(PMTU 探测数据包除外)。
+如果找不到替代路径，则终端**可以**终止连接。
 
 
 ## ICMP 包太大消息(ICMP Packet Too Big Messages) {#icmp-pmtud}
