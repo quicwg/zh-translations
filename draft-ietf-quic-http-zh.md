@@ -256,56 +256,64 @@ of {{!RFC7540}}).
 The considerations discussed in Section 9.1 of {{?RFC7540}} also apply to the
 management of HTTP/3 connections.
 
-# Stream Mapping and Usage {#stream-mapping}
+# 流的映射和用法 {#stream-mapping}
 
-A QUIC stream provides reliable in-order delivery of bytes, but makes no
-guarantees about order of delivery with regard to bytes on other streams. On the
-wire, data is framed into QUIC STREAM frames, but this framing is invisible to
-the HTTP framing layer. The transport layer buffers and orders received QUIC
-STREAM frames, exposing the data contained within as a reliable byte stream to
-the application. Although QUIC permits out-of-order delivery within a stream
-HTTP/3 does not make use of this feature.
+QUIC流提供可靠的有序字节交付，但对于其他流上的字节不保证交付顺序。
+在线路上，数据被封装到QUIC STREAM帧中，但是这种封装成帧操作对于HTTP封装成帧层是不可见的。
+传输层对接收到的QUIC STREAM帧进行缓冲和排序，将其中包含的数据作为可靠的字节流传递给应用程序。
+虽然QUIC允许流中的字节无序交付，但是HTTP/3没有利用这一特性。
 
-QUIC streams can be either unidirectional, carrying data only from initiator to
-receiver, or bidirectional.  Streams can be initiated by either the client or
-the server.  For more detail on QUIC streams, see Section 2 of
-{{QUIC-TRANSPORT}}.
+QUIC流可以是单向的，
+仅将数据从发起方传送到接收方，
+也可以是双向的。
+流可以由客户端或服务器发起。
+有关QUIC 流的更多详细信息，
+请参阅{{QUIC-TRANSPORT}}的第2节。
 
-When HTTP headers and data are sent over QUIC, the QUIC layer handles most of
-the stream management.  HTTP does not need to do any separate multiplexing when
-using QUIC - data sent over a QUIC stream always maps to a particular HTTP
-transaction or connection context.
+当HTTP报头和数据通过QUIC发送时，QUIC层控制大部分流的管理。
+使用QUIC时，HTTP不需要进行任何单独的多路复用-通过QUIC流发送的数据总是映射到特定的HTTP事务或连接上下文。
 
-## Bidirectional Streams
+## 双向流
 
-All client-initiated bidirectional streams are used for HTTP requests and
-responses.  A bidirectional stream ensures that the response can be readily
-correlated with the request. This means that the client's first request occurs
-on QUIC stream 0, with subsequent requests on stream 4, 8, and so on. In order
-to permit these streams to open, an HTTP/3 client SHOULD send non-zero values
-for the QUIC transport parameters `initial_max_stream_data_bidi_local`. An
-HTTP/3 server SHOULD send non-zero values for the QUIC transport parameters
-`initial_max_stream_data_bidi_remote` and `initial_max_bidi_streams`. It is
-recommended that `initial_max_bidi_streams` be no smaller than 100, so as to not
-unnecessarily limit parallelism.
+所有客户端启动的双向流都是
+用于HTTP请求和响应。
+双向流确保响应可以
+轻易地与请求相关联。
+这意味着客户端的第一个请求
+存在QUIC流0上，
+随后的请求存在在流4、8上，
+依此类推。
+为了允许打开这些流，HTTP/3客户端**应该**
+发送非零的QUIC传输参数`initial_max_stream_data_bidi_local`。
+HTTP/3服务器**应该**发送非零的
+QUIC传输参数
+`Initial_max_stream_data_bidi_remote`和
+`Initial_max_bidi_Streams`。
+建议`initial_max_bidi_streams`不小于100，
+以免不必要地限制并行性。
 
-These streams carry frames related to the request/response (see
-{{request-response}}). When a stream terminates cleanly, if the last frame on
-the stream was truncated, this MUST be treated as a connection error (see
-HTTP_MALFORMED_FRAME in {{http-error-codes}}).  Streams which terminate abruptly
-may be reset at any point in the frame.
+这些流携带与请求/响应相关的帧(请参见。
+{{request-response}})。
+当流完全终止时，如果流上的最后一帧被截断，
+则必须将其视为连接错误
+(参见{{http-error-codes}}中的HTTP_MALFORMED_FRAME)。
+突然终止的流可以在帧中的任何点被重置。
 
-HTTP/3 does not use server-initiated bidirectional streams; clients MUST omit or
-specify a value of zero for the QUIC transport parameter
-`initial_max_bidi_streams`.
+HTTP/3不使用服务器启动的双向流；
+客户端**必须**省略QUIC传输参数
+`initial_max_bidi_streams`或
+指定零值。
 
 
-## Unidirectional Streams
 
-Unidirectional streams, in either direction, are used for a range of purposes.
-The purpose is indicated by a stream type, which is sent as a variable-length
-integer at the start of the stream. The format and structure of data that
-follows this integer is determined by the stream type.
+## 单向流 {#unidirectional-streams}
+
+单向流，无论在哪个方向发起，
+都用于一系列目的。
+目的由流类型指示，流类型在流的
+开始处作为可变长度整数发送。
+这个整数后面的数据的格式和
+结构由流类型决定。
 
 ~~~~~~~~~~ drawing
  0                   1                   2                   3
@@ -316,59 +324,83 @@ follows this integer is determined by the stream type.
 ~~~~~~~~~~
 {: #fig-stream-header title="Unidirectional Stream Header"}
 
-Some stream types are reserved ({{stream-grease}}).  Two stream types are
-defined in this document: control streams ({{control-streams}}) and push streams
-({{push-streams}}).  Other stream types can be defined by extensions to HTTP/3;
-see {{extensions}} for more details.
+某些流类型是协议保留的({{stream-grease}})。
+本文定义了两种流类型：
+控制流({{control-streams}})和
+推流({{push-streams}})。
+其他流类型可以通过对HTTP/3的扩展来定义；
+有关详细信息，请参阅{{extensions}} 。
 
-Both clients and servers SHOULD send a value of three or greater for the QUIC
-transport parameter `initial_max_uni_streams`.
+客户端和服务器都**应该**发送3或
+更大的QUIC传输参数
+`initial_max_uni_streams`
+值。
 
-If the stream header indicates a stream type which is not supported by the
-recipient, the remainder of the stream cannot be consumed as the semantics are
-unknown. Recipients of unknown stream types MAY trigger a QUIC STOP_SENDING
-frame with an error code of HTTP_UNKNOWN_STREAM_TYPE, but MUST NOT consider such
-streams to be an error of any kind.
+如果流标头指示了接收方不支持的流类型，
+则流的其余部分不能使用语义未知的类型。
+未知流类型的接收者**可能**触发
+QUIC STOP_SENDING帧，
+错误代码为HTTP_UNKNOWN_STREAM_TYPE，
+但**禁止**将此类流视为任何类型的错误。
 
-Implementations MAY send stream types before knowing whether the peer supports
-them.  However, stream types which could modify the state or semantics of
-existing protocol components, including QPACK or other extensions, MUST NOT be
-sent until the peer is known to support them.
+协议的实现**可能**在
+知道对端是否支持流类型
+之前发送流类型。
+然而，可以修改现有协议的组件
+(包括QPACK或其他扩展)的状态或
+语义的流类型在已知对端
+支持它们之前禁止发送。
 
-A sender can close or reset a unidirectional stream unless otherwise specified.
-A receiver MUST tolerate unidirectional streams being closed or reset prior to
-the reception of the unidirectional stream header.
+除非另有说明，
+否则发送方可以关闭或
+重置单向流。
+在接收单向流头之前，
+接收器**必须**容忍单向流
+被关闭或重置。
 
-###  Control Streams
+###  控制流 {#control-streams}
 
-A control stream is indicated by a stream type of `0x00`.  Data on this stream
-consists of HTTP/3 frames, as defined in {{frames}}.
+控制流由流类型“0x00”表示。
+此流上的数据由HTTP/3帧组成，如{{frames}}中所定义。
 
-Each side MUST initiate a single control stream at the beginning of the
-connection and send its SETTINGS frame as the first frame on this stream.  If
-the first frame of the control stream is any other frame type, this MUST be
-treated as a connection error of type HTTP_MISSING_SETTINGS. Only one control
-stream per peer is permitted; receipt of a second stream which claims to be a
-control stream MUST be treated as a connection error of type
-HTTP_WRONG_STREAM_COUNT.  The sender MUST NOT close the control stream.  If the
-control stream is closed at any point, this MUST be treated as a connection
-error of type HTTP_CLOSED_CRITICAL_STREAM.
+每一端**必须**在连接开始时启动单个控制流，
+并将其设置帧作为该流上的第一帧发送。
+如果控制流的第一帧是任何其他帧类型，
+则必须将其视为HTTP_MISSING_SETTINGS类型的连接错误。
+每个对端只允许一个控制流；
+接收到声称是控制流的第二个流**必须**被视为
+HTTP_WROR_STREAM_COUNT类型的连接错误。
+发送方**禁止**关闭控制流。
+如果控制流在任何时候关闭，
+则必须将其视为
+HTTP_CLOSED_KIRITAL_STREAM类型的
+连接错误。
 
-A pair of unidirectional streams is used rather than a single bidirectional
-stream.  This allows either peer to send data as soon they are able.  Depending
-on whether 0-RTT is enabled on the connection, either client or server might be
-able to send stream data first after the cryptographic handshake completes.
+使用一对单向流而不是单个双向流。
+这允许任何一个对端在
+他们能够发送数据时
+立即发送数据。
+根据连接上是否启用0-RTT，
+客户端或服务器可能能够在
+加密握手完成后
+首先发送流数据。
 
-### Push Streams
+### 推送流 {#push-streams}
 
-A push stream is indicated by a stream type of `0x01`, followed by the Push ID
-of the promise that it fulfills, encoded as a variable-length integer. The
-remaining data on this stream consists of HTTP/3 frames, as defined in
-{{frames}}, and fulfills a promised server push.  Server push and Push IDs are
-described in {{server-push}}.
+推流由流类型“0x01”表示，
+后跟它实现的承诺的推流ID，
+编码为可变长度整数。
+此流上的剩余数据由{{frames}}中
+定义的HTTP/3帧组成，
+并履行承诺的服务器推送。
+服务器推流和推送流ID在
+{{server-push}}中描述。
 
-Only servers can push; if a server receives a client-initiated push stream, this
-MUST be treated as a stream error of type HTTP_WRONG_STREAM_DIRECTION.
+只有服务器可以主动推送；
+如果服务器接收到客户端发起的推流，
+则必须将其视为
+HTTP_WROR_STREAM_DIRECTION类型的
+流错误。
 
 ~~~~~~~~~~ drawing
  0                   1                   2                   3
@@ -381,28 +413,35 @@ MUST be treated as a stream error of type HTTP_WRONG_STREAM_DIRECTION.
 ~~~~~~~~~~
 {: #fig-push-stream-header title="Push Stream Header"}
 
-Each Push ID MUST only be used once in a push stream header. If a push stream
-header includes a Push ID that was used in another push stream header, the
-client MUST treat this as a connection error of type HTTP_DUPLICATE_PUSH.
+每个推流ID**必须**只能
+在推流报头中使用一次。
+如果推流标头包括在
+另一个推流标头中使用的推送ID，
+则客户端必须将其视为
+HTTP_DIPLICATE_PUSH类型的
+连接错误。
 
-### Reserved Stream Types {#stream-grease}
+### 保留流类型 {#stream-grease}
 
-Stream types of the format `0x1f * N + 0x21` for integer values of N are
-reserved to exercise the requirement that unknown types be ignored. These
-streams have no semantics, and can be sent when application-layer padding is
-desired. They MAY also be sent on connections where no data is currently being
-transferred. Endpoints MUST NOT consider these streams to have any meaning upon
-receipt.
+为N的整数值保留格式为
+`0x1f*N+0x21`的流类型，
+以执行忽略未知类型的要求。
+这些流没有语义，
+可以在需要应用层填充时发送。
+它们也可以在当前没有传输数据的连接上发送。
+端点**禁止**认为这些流在接收时具有任何意义。
 
-The payload and length of the stream are selected in any manner the
-implementation chooses.
+协议的实现以任何方式来决定流的有效负载和长度。
 
 
 # HTTP帧层(HTTP Framing Layer) {#http-framing-layer}
 
 
-HTTP帧在QUIC流上传输，如{{stream-mapping}}所述。HTTP/3定义了三种流类型：控制流、请求流和推送流。
-本节介绍HTTP/3帧格式及其允许的流类型；有关概述，请参见{{stream-frame-mapping}}。{{h2-frames}}
+HTTP帧在QUIC流上传输，如{{stream-mapping}}所述。
+HTTP/3定义了三种流类型：控制流、请求流和推送流。
+本节介绍HTTP/3帧格式及其允许的流类型；有关概述，
+请参见{{stream-frame-mapping}}。
+{{h2-frames}}
 提供了HTTP/2和HTTP/3帧的比较。
 
 | 帧             | 控制流         | 请求流          | 推送流      | 章节                     |
@@ -418,7 +457,9 @@ HTTP帧在QUIC流上传输，如{{stream-mapping}}所述。HTTP/3定义了三种
 | DUPLICATE_PUSH | No             | Yes            | No          | {{frame-duplicate-push}} |
 {: #stream-frame-mapping title="HTTP/3帧和流类型概述"}
 
-某些帧只能作为特定流类型的第一帧出现；这些帧在{{stream-frame-mapping}}中用(1)表示。
+某些帧只能作为特定流类型的
+第一帧出现；这些帧
+在{{stream-frame-mapping}}中用(1)表示。
 相关章节提供了具体指导。
 
 ## 帧布局(Frame Layout)
