@@ -3979,7 +3979,7 @@ preferred_address (0x000d):
      opaque ipv6Address[16];
      uint16 ipv6Port;
      opaque connectionId<0..18>;
-     opaque statelessResetToken[16];
+     opaque statelessesetToken[16];
    } PreferredAddress;
 ~~~
 {: #fig-preferred-address title="首选地址格式(Preferred Address format)"}
@@ -3997,135 +3997,109 @@ MAX_STREAM_DATA帧（{{frame-max-stream-data}}）。
 TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
 
-# Frame Types and Formats {#frame-formats}
+# 帧类型和格式(Frame Types and Formats) {#frame-formats}
 
-As described in {{frames}}, packets contain one or more frames. This section
-describes the format and semantics of the core QUIC frame types.
+如 {{frames}}所述，数据包包含一个或多个帧。本节描述核心QUIC帧类型的格式和语义。
 
+## 填充帧（PADDING Frame） {#frame-padding}
 
-## PADDING Frame {#frame-padding}
+填充帧(类型=0x00)没有语义值。填充帧可以用来增加包的大小。
+填充可用于将初始客户端包增加到所需的最小大小，或为受保护的包提供流量分析保护。
 
-The PADDING frame (type=0x00) has no semantic value.  PADDING frames can be used
-to increase the size of a packet.  Padding can be used to increase an initial
-client packet to the minimum required size, or to provide protection against
-traffic analysis for protected packets.
+填充帧没有内容。也就是说，填充帧由一个字节组成，该字节将帧标识为填充帧。
 
-A PADDING frame has no content.  That is, a PADDING frame consists of the single
-byte that identifies the frame as a PADDING frame.
+## PING帧 （PING Frame） {#frame-ping}
 
+终端可以使用PING帧(类型=0x01)来验证它们的对端是否仍然是活动状态，
+或者检查对端的可达性。PING帧不包含其他字段。
 
-## PING Frame {#frame-ping}
+PING帧的接收者只需要确认包含该帧的包。
 
-Endpoints can use PING frames (type=0x01) to verify that their peers are still
-alive or to check reachability to the peer. The PING frame contains no
-additional fields.
+当应用程序或应用程序协议希望防止连接超时时，可以使用PING帧保持连接处于活动状态。
+应用程序协议**应该**提供关于建议生成PING的条件的指导。
+此指南**应当**指示预期发送PING的是客户机还是服务器。
+如果两个终端都发送PING帧而不进行协调，则会产生过多的数据包，并且性能很差。
 
-The receiver of a PING frame simply needs to acknowledge the packet containing
-this frame.
-
-The PING frame can be used to keep a connection alive when an application or
-application protocol wishes to prevent the connection from timing out. An
-application protocol SHOULD provide guidance about the conditions under which
-generating a PING is recommended.  This guidance SHOULD indicate whether it is
-the client or the server that is expected to send the PING.  Having both
-endpoints send PING frames without coordination can produce an excessive number
-of packets and poor performance.
-
-A connection will time out if no packets are sent or received for a period
-longer than the time specified in the idle_timeout transport parameter (see
-{{termination}}).  However, state in middleboxes might time out earlier than
-that.  Though REQ-5 in {{?RFC4787}} recommends a 2 minute timeout interval,
-experience shows that sending packets every 15 to 30 seconds is necessary to
-prevent the majority of middleboxes from losing state for UDP flows.
+如果没有发送或接收数据包的时间超过idle_timeout传输参数中指定的时间
+(参见{{termination}})，连接将超时。
+然而，在中间件中的状态可能会比这更早超时。
+虽然{{?RFC4787}}中的REQ-5建议2分钟超时间隔，但经验表明，
+每15到30秒发送包是必要的，以防止UDP流的大多数中间件丢失状态。
 
 
-## ACK Frames {#frame-ack}
+## ACK帧 （ACK Frames） {#frame-ack}
 
-Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets
-they have received and processed. The ACK frame contains one or more ACK Ranges.
-ACK Ranges identify acknowledged packets. If the frame type is 0x03, ACK frames
-also contain the sum of QUIC packets with associated ECN marks received on the
-connection up until this point.  QUIC implementations MUST properly handle both
-types and, if they have enabled ECN for packets they send, they SHOULD use the
-information in the ECN section to manage their congestion state.
+接收者发送ACK帧(类型为0x02和0x03)来通知发送者他们已经接收和处理了数据包。
+ACK帧包含一个或多个ACK Ranges。ACK Ranges标识已确认的数据包。
+如果帧类型是0x03, ACK帧还包含到目前为止在连接上接收到的带有相关ECN标记的QUIC包的和。
+QUIC实现**必须**正确地处理这两种类型，如果它们为发送的包启用了ECN，
+则**应该**使用ECN部分中的信息来管理它们的拥塞状态。
 
-QUIC acknowledgements are irrevocable.  Once acknowledged, a packet remains
-acknowledged, even if it does not appear in a future ACK frame.  This is unlike
-TCP SACKs ({{?RFC2018}}).
+QUIC确认是不可撤销的。一旦确认，包就保持是确认的状态，即使它没有出现在未来的ACK帧。
+这与TCP SACKs不同({{?RFC2018}})。
 
-It is expected that a sender will reuse the same packet number across different
-packet number spaces.  ACK frames only acknowledge the packet numbers that were
-transmitted by the sender in the same packet number space of the packet that the
-ACK was received in.
+预计发送方将在不同的包号空间中重用相同的包号。
+ACK帧只确认发送方在接收ACK的包的相同包号空间中传输的包号。
 
-Version Negotiation and Retry packets cannot be acknowledged because they do not
-contain a packet number.  Rather than relying on ACK frames, these packets are
-implicitly acknowledged by the next Initial packet sent by the client.
+无法确认版本协商和重试包，因为它们不包含包号。
+这些包不是依赖于ACK帧，而是由客户机发送的下一个初始包隐式地确认。
 
-An ACK frame is as follows:
+ACK帧如下:
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Largest Acknowledged (i)                ...
+|             最长确认位      Largest Acknowledged (i)          ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          ACK Delay (i)                      ...
+|             ACK 延迟      ACK Delay (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       ACK Range Count (i)                   ...
+|             ACK Range 计数         ACK Range Count (i)       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       First ACK Range (i)                   ...
+|             首个ACK Range         First ACK Range (i)        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          ACK Ranges (*)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          [ECN Counts]                       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #ack-format title="ACK Frame Format"}
+{: #ack-format title="ACK 帧格式"}
 
-ACK frames contain the following fields:
+ACK帧包含以下字段：
 
 Largest Acknowledged:
 
-: A variable-length integer representing the largest packet number the peer is
-  acknowledging; this is usually the largest packet number that the peer has
-  received prior to generating the ACK frame.  Unlike the packet number in the
-  QUIC long or short header, the value in an ACK frame is not truncated.
+: 一个可变长度的整数，表示对端正在识别的最大包号;
+  这通常是对端在生成ACK帧之前接收到的最大数据包号。
+  与QUIC长报头或短报头中的包号不同，ACK帧中的值不会被截断。
 
 ACK Delay:
 
-: A variable-length integer including the time in microseconds that the largest
-  acknowledged packet, as indicated in the Largest Acknowledged field, was
-  received by this peer to when this ACK was sent.  The value of the ACK Delay
-  field is scaled by multiplying the encoded value by 2 to the power of the
-  value of the `ack_delay_exponent` transport parameter set by the sender of the
-  ACK frame.  The `ack_delay_exponent` defaults to 3, or a multiplier of 8 (see
-  {{transport-parameter-definitions}}).  Scaling in this fashion allows for a
-  larger range of values with a shorter encoding at the cost of lower
-  resolution.
+: 一个可变长度的整数，包括发送此ACK时该对端接收到的最大已确认包的时间
+  (如最大已确认字段中所示)(以微秒为单位)。
+  ACK延迟字段的值通过将编码值乘以2的幂次乘以ACK帧
+  的发送方设置的ack_delay_exponent传输参数的值来缩放。
+  ack_delay_exponent默认值为3，或者乘数为8(参见{{transport-parameter-definitions}})。
+  这种方式的缩放允许以较低的分辨率为代价，以更短的编码实现更大范围的值。
 
 ACK Range Count:
 
-: A variable-length integer specifying the number of Gap and ACK Range fields in
-  the frame.
+: 一个可变长度整数，指定帧中间隔和ACK范围字段的数量。
 
 First ACK Range:
 
-: A variable-length integer indicating the number of contiguous packets
-  preceding the Largest Acknowledged that are being acknowledged.  The First ACK
-  Range is encoded as an ACK Range (see {{ack-ranges}}) starting from the
-  Largest Acknowledged.  That is, the smallest packet acknowledged in the
-  range is determined by subtracting the First ACK Range value from the Largest
-  Acknowledged.
+: 一种变长整数，指示正在被确认的最大已确认包之前的连续数据包的数量。
+  第一个ACK范围被编码为一个ACK范围(参见{{ack-ranges}})，从最大的已知范围开始。
+  也就是说，范围内最小的确认包是由最大的确认包减去第一个ACK范围值来确定的。
 
 ACK Ranges:
 
-: Contains additional ranges of packets which are alternately not
-  acknowledged (Gap) and acknowledged (ACK Range), see {{ack-ranges}}.
+: 包含其他范围的数据包，
+  这些数据包交替不被确认(Gap)和确认(ACK范围)，参见{{ack-ranges}}。
 
 ECN Counts:
 
-: The three ECN Counts, see {{ack-ecn-counts}}.
+: 三个ECN计数, 见 {{ack-ecn-counts}}.
 
 
 ### ACK范围(ACK Ranges) {#ack-ranges}
