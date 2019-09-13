@@ -178,7 +178,7 @@ QUIC 验证所有的报头和加密大部分他交换的数据，
 文档中常用的术语在下方描述。
 
 |术语 | 解释 |
-|:---- |: ----|
+|:---- |:----|
 |QUIC | 此文档所描述的传输协议。QUIC是一个名字，不是一个首字母缩写。|
 |QUIC 包 | 在一个 UDP 报文中可封装的 QUIC 最小单元。多个 QUIC 包可以被封装在单个 UDP 报文中。|
 |终端 | 可以通过生成，接收，处理 QUIC 包参与 QUIC 连接生成的实体。在 QUIC 中仅有两种类型的终端，客户端与服务端。|
@@ -1386,7 +1386,7 @@ initial_max_stream_data_bidi_remote，或者initial_max_streams_uni
 可以根据{{iana-transport-parameters}}中的规则注册新的传输参数。
 
 
-#地址验证(Address Validation) {#address-validation}
+# 地址验证(Address Validation) {#address-validation}
 
 QUIC使用地址验证来避免被用于流量放大攻击。
 在这样的攻击中，带有伪装成受害者源地址信息
@@ -1401,7 +1401,7 @@ QUIC使用地址验证来避免被用于流量放大攻击。
 和连接迁移期间 (see {{migrate-validate}})执行。
 
 
-##连接建立过程中的地址验证(Address Validation During Connection Establishment) {#validate-handshake}
+## 连接建立过程中的地址验证(Address Validation During Connection Establishment) {#validate-handshake}
 
 连接建立隐式地为两个端点提供地址验证。
 具体地说，就是通过接收由握手密钥保护的数据包来
