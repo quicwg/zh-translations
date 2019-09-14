@@ -3979,7 +3979,7 @@ preferred_address (0x000d):
      opaque ipv6Address[16];
      uint16 ipv6Port;
      opaque connectionId<0..18>;
-     opaque statelessesetToken[16];
+     opaque statelessResetToken[16];
    } PreferredAddress;
 ~~~
 {: #fig-preferred-address title="首选地址格式(Preferred Address format)"}
@@ -4003,10 +4003,10 @@ TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
 ## 填充帧（PADDING Frame） {#frame-padding}
 
-填充帧(类型=0x00)没有语义值。填充帧可以用来增加包的大小。
-填充可用于将初始客户端包增加到所需的最小大小，或为受保护的包提供流量分析保护。
+PADDING帧(类型=0x00)没有语义值。PADDING帧可以用来增加包的大小。
+PADDING帧可用于将初始客户端包增加到所需的最小大小，或为受保护的包提供流量分析保护。
 
-填充帧没有内容。也就是说，填充帧由一个字节组成，该字节将帧标识为填充帧。
+PADDING帧没有内容。也就是说，PADDING帧由一个字节组成，该字节将帧标识为PADDING帧。
 
 ## PING帧 （PING Frame） {#frame-ping}
 
@@ -4030,7 +4030,7 @@ PING帧的接收者只需要确认包含该帧的包。
 ## ACK帧 （ACK Frames） {#frame-ack}
 
 接收者发送ACK帧(类型为0x02和0x03)来通知发送者他们已经接收和处理了数据包。
-ACK帧包含一个或多个ACK Ranges。ACK Ranges标识已确认的数据包。
+ACK帧包含一个或多个ACK范围。ACK范围标识已确认的数据包。
 如果帧类型是0x03, ACK帧还包含到目前为止在连接上接收到的带有相关ECN标记的QUIC包的和。
 QUIC实现**必须**正确地处理这两种类型，如果它们为发送的包启用了ECN，
 则**应该**使用ECN部分中的信息来管理它们的拥塞状态。
@@ -4054,9 +4054,9 @@ ACK帧如下:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |             ACK 延迟      ACK Delay (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|             ACK Range 计数         ACK Range Count (i)       ...
+|             ACK范围 计数         ACK Range Count (i)       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|             首个ACK Range         First ACK Range (i)        ...
+|             首个ACK范围         First ACK Range (i)        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          ACK Ranges (*)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
