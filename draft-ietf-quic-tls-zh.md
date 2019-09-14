@@ -1018,11 +1018,11 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
  一旦建立了1-RTT密钥并且正在使用短头部，就可以更新密钥。
  短头部中的KEY_PHASE位用于指示是否已发生密钥更新。
   KEY_PHASE位初始设置为0，然后在每次密钥更新时反转。
-  
+
  KEY_PHASE位允许接收者检测密钥内容的变化，而不必接收触
  发变化的第一个数据包。注意到已更改的KEY_PHASE位的终端
  可以更新密钥并解密包含已更改位的数据包。
-  
+
  此机制替换了TLS KeyUpdate消息。端点**禁止**发送TLS KeyUpdate
  消息。终端**必须**将TLS KeyUpdate消息的接收视为类型0x10a的连接
  错误，相当于unexpected_message的fatal级别TLS警报（参见{{tls-errors}}）。
@@ -1053,7 +1053,7 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 保护密钥，除非在短时间的连续帧和重要分组重排序中存在多个密钥更新
 
 ~~~
-   初始端　　　　　　　　　   　　              响应端  
+   初始端　　　　　　　　　   　　              响应端
 
 @M QUIC Frames
                New Keys -> @N

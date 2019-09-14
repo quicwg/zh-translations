@@ -1068,7 +1068,9 @@ HTTP/3 使用的优先级规则与{{!RFC7540}}章节5.3 中描述的方案类似
 HTTP / 3服务器推送类似于HTTP / 2 {{!RFC7540}}中描述的，但使用不同的机制。
 
 每个服务器推送都由唯一的推送ID标识。
-此推送ID用于单个PUSH_PROMISE帧（参阅{{frame-push-promise}}），其中包含可能包含在一个或多个DUPLICATE_PUSH帧中的请求标头（参阅{{frame-duplicate-push}}），然后包含在推送流中，最终实现这些约定。
+此推送ID用于单个PUSH_PROMISE帧（参阅{{frame-push-promise}}），
+其中包含可能包含在一个或多个DUPLICATE_PUSH帧中的请求标头
+（参阅{{frame-duplicate-push}}），然后包含在推送流中，最终实现这些约定。
 
 仅当客户端发送MAX_PUSH_ID帧时才会在连接上启用服务器推送（请参阅{{frame-max-push-id}}）。
 服务器在收到MAX_PUSH_ID帧之前无法使用服务器推送。
@@ -1081,16 +1083,20 @@ HTTP / 3服务器推送类似于HTTP / 2 {{!RFC7540}}中描述的，但使用不
 与响应的某些部分相关的PUSH_PROMISE的排序很重要（参见{{!RFC7540}}的8.2.1）。
 承诺的请求**必须**符合{{!RFC7540}}第8.2节中的要求。
 
-可以使用DUPLICATE_PUSH帧将相同的服务器推送与其他客户端请求相关联（参阅{{frame-duplicate-push}}）。  
+可以使用DUPLICATE_PUSH帧将相同的服务器推送与其他客户端请求相关联（参阅{{frame-duplicate-push}}）。
 与响应的某些部分相关的DUPLICATE_PUSH的排序同样重要。
 由于重新排序，DUPLICATE_PUSH帧可以在相应的PUSH_PROMISE帧之前到达，在这种情况下，推送的请求头不会立即可用。
-接收到尚未知的推送ID的DUPLICATE_PUSH帧的客户端可以延迟生成对DUPLICATE_PUSH帧之后引用的内容的新请求，直到请求头可用，或者可以发起对已发现资源的请求并在请求的资源已经被推送时取消请求。
+接收到尚未知的推送ID的DUPLICATE_PUSH帧的客户端可以延迟生
+成对DUPLICATE_PUSH帧之后引用的内容的新请求，直到请求头可用，或者可以发
+起对已发现资源的请求并在请求的资源已经被推送时取消请求。
 
 当服务器稍后履行约定时，服务器推送响应将在推送流上传送（参阅{{push-streams}}）。
 推送流标识其履行的约定的推送ID，然后使用与{{request-response}}中的响应描述的相同格式包含对约定请求的响应。
 
 如果客户端不需要承诺的服务器推送，客户端**应该**发送一个CANCEL_PUSH帧。
-如果推送流已经打开或在发送CANCEL_PUSH帧之后打开，则还可以使用具有适当错误代码的QUIC STOP_SENDING帧（例如，HTTP_PUSH_REFUSED，HTTP_PUSH_ALREADY_IN_CACHE;参见{{errors}}）。
+如果推送流已经打开或在发送CANCEL_PUSH帧之后打开，则还可以使用
+具有适当错误代码的QUIC STOP_SENDING帧
+（例如，HTTP_PUSH_REFUSED，HTTP_PUSH_ALREADY_IN_CACHE;参见{{errors}}）。
 这要求服务器不要传输其他数据并指示它将在收到时被丢弃。
 
 # 连接结束(Connection Closure)
