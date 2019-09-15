@@ -992,16 +992,23 @@ HTTP/3 使用的优先级规则与{{!RFC7540}}章节5.3 中描述的方案类似
 和流一样，占位符也有与其关联的优先级。
 
 
-### 优先树维护(Priority Tree Maintenance)
+### Priority Tree Maintenance
 
-因为根客户端在关注并保留的树的任何持久性结构中使用占位符，所以服务器可以从优先级树中积极地修剪非活动区域。
-为了确定优先级，当相应的流已经关闭至少两个往返间隔（使用服务器上可用的任何合理估计时间）时，树中的节点被认为是“非活动的”。
-此延迟有助于缓解服务器已修剪的客户端中仍处于活动状态并用作流依赖性的节点之间的竞争。
+Because placeholders will be used to "root" any persistent structure of the tree
+which the client cares about retaining, servers can aggressively prune inactive
+regions from the priority tree. For prioritization purposes, a node in the tree
+is considered "inactive" when the corresponding stream has been closed for at
+least two round-trip times (using any reasonable estimate available on the
+server).  This delay helps mitigate race conditions where the server has pruned
+a node the client believed was still active and used as a Stream Dependency.
 
-具体来说，服务器**可能**随时：
+Specifically, the server MAY at any time:
 
-- 识别并丢弃仅包含非活动节点的树的分支（即只有非活动节点作为叶子的节点，以及这些叶子节点本身）
-- 识别并压缩仅包含非活动节点的树的内部区域，适当地分配权重
+- Identify and discard branches of the tree containing only inactive nodes
+  (i.e. a node with only other inactive nodes as descendants, along with those
+  descendants)
+- Identify and condense interior regions of the tree containing only inactive
+  nodes, allocating weight appropriately
 
 ~~~~~~~~~~  drawing
     x                x                 x
