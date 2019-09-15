@@ -84,177 +84,137 @@ code and issues list for this draft can be found at
 --- middle
 
 
-# Introduction
+# 介绍(Introduction)
 
-HTTP semantics are used for a broad range of services on the Internet. These
-semantics have commonly been used with two different TCP mappings, HTTP/1.1 and
-HTTP/2.  HTTP/2 introduced a framing and multiplexing layer to improve latency
-without modifying the transport layer.  However, TCP's lack of visibility into
-parallel requests in both mappings limited the possible performance gains.
+HTTP语义用于Internet上的广泛服务。这些语义通常用于两个不同的TCP映射
+HTTP/1.1和HTTP/2。HTTP/2引入了一个分帧和多路复用层，在不修改传输层
+的情况下改善了延迟。然而，TCP在两个映射中都无法看到并行请求，这限制
+了可能的性能提升。
 
-The QUIC transport protocol incorporates stream multiplexing and per-stream flow
-control, similar to that provided by the HTTP/2 framing layer. By providing
-reliability at the stream level and congestion control across the entire
-connection, it has the capability to improve the performance of HTTP compared to
-a TCP mapping.  QUIC also incorporates TLS 1.3 at the transport layer, offering
-comparable security to running TLS over TCP, but with improved connection setup
-latency (unless TCP Fast Open {{?RFC7413}}} is used).
+QUIC传输协议结合了流复用和每流流控制，与HTTP/2帧层提供的类似。通过
+在流级别提供可靠性和跨整个连接的拥塞控制，与TCP映射相比，它能够提高
+HTTP的性能。QUIC还在传输层集成了TLS 1.3，提供了与在TCP上运行TLS相当
+的安全性，但具有改善的连接设置延迟（除非使用TCP快速打开{{?RFC7413}}}）。
 
-This document defines a mapping of HTTP semantics over the QUIC transport
-protocol, drawing heavily on the design of HTTP/2. This document identifies
-HTTP/2 features that are subsumed by QUIC, and describes how the other features
-can be implemented atop QUIC.
+本文档定义了HTTP语义在QUIC传输协议上的映射，大量借鉴了HTTP/2的设计。
+本文档确定了QUIC所包含的HTTP/2特性，并描述了如何在QUIC上实现其他特性。
 
-QUIC is described in {{QUIC-TRANSPORT}}.  For a full description of HTTP/2, see
-{{!RFC7540}}.
+QUIC在{{QUIC-TRANSPORT}}中描述。HTTP/2详细描，请参见{{!RFC7540}}。
 
 
-## Notational Conventions
+## 符号约定（Notational Conventions）
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+关键词 **"必须(MUST)”， "禁止(MUST NOT)"， "必需(REQUIRED)"，
+"应当(SHALL)"， "应当不(SHALL NOT)"， "应该(SHOULD)"，
+"不应该(SHOULD NOT)"， "推荐(RECOMMENDED)"，
+"不推荐(NOT RECOMMENDED)"， "可以(MAY)"， "可选(OPTIONAL)"**
+在这篇文档中将会如 BCP 14 {{!RFC2119}} {{!RFC8174}} 中描述的，
+当且仅当他们如此例子显示的以加粗的形式出现时。
 
-Field definitions are given in Augmented Backus-Naur Form (ABNF), as defined in
-{{!RFC5234}}.
+字段定义以扩展的巴科斯范式(ABNF)给出，如{{!RFC5234}}中所定义。
 
-This document uses the variable-length integer encoding from
-{{QUIC-TRANSPORT}}.
+此文档使用{{QUIC-TRANSPORT}}中的可变长度整数编码。
 
-Protocol elements called "frames" exist in both this document and
-{{QUIC-TRANSPORT}}. Where frames from {{QUIC-TRANSPORT}} are referenced, the
-frame name will be prefaced with "QUIC."  For example, "QUIC CONNECTION_CLOSE
-frames."  References without this preface refer to frames defined in {{frames}}.
+此文档和{{QUIC-TRANSPORT}}中都存在名为“frames”的协议元素。如果
+引用{{QUIC-TRANSPORT}}中的帧，则帧名称将以“QUIC”开头。例如，
+“QUIC CONNECTION_CLOSE frames”。没有此前言的引用将引用{{frames}}
+中定义的帧。
 
 
-# Connection Setup and Management
+# 连接设置和管理（Connection Setup and Management）
 
-## Draft Version Identification
+## 草稿版本标识（Draft Version Identification）
 
 > **RFC Editor's Note:**  Please remove this section prior to publication of a
 > final version of this document.
 
-HTTP/3 uses the token "h3" to identify itself in ALPN and Alt-Svc.  Only
-implementations of the final, published RFC can identify themselves as "h3".
-Until such an RFC exists, implementations MUST NOT identify themselves using
-this string.
+HTTP/3使用标记“h3”在ALPN和Alt-Svc中标识自身。只有最终发布的RFC的实现
+才能将自己标识为“h3”。在这样的RFC存在之前，实现**禁止**使用此字符串标识自己。
 
-Implementations of draft versions of the protocol MUST add the string "-" and
-the corresponding draft number to the identifier. For example,
-draft-ietf-quic-http-01 is identified using the string "h3-01".
+协议草案版本的实现**必须**将字符串“-”和相应的草案编号添加到标识符中。例如，
+draft-ietf-quic-http-01使用字符串“h3-01”标识。
 
-Non-compatible experiments that are based on these draft versions MUST append
-the string "-" and an experiment name to the identifier. For example, an
-experimental implementation based on draft-ietf-quic-http-09 which reserves an
-extra stream for unsolicited transmission of 1980s pop music might identify
-itself as "h3-09-rickroll". Note that any label MUST conform to the "token"
-syntax defined in Section 3.2.6 of [RFC7230]. Experimenters are encouraged to
-coordinate their experiments on the quic@ietf.org mailing list.
+基于这些草案版本的不兼容实验必须将字符串“-”和实验名称附加到标识符。例如，
+基于draft-ietf-quic-http-09的实验实现可以将其自身标识为“h3-09-rickroll”，
+该草案为1980年代流行音乐的主动传输保留额外的流。请注意，任何标签都**必须**
+符合[RFC7230]第3.2.6节中定义的“标记”语法。鼓励实验者在quic@ietf.org邮件
+列表上协调他们的实验。
 
-## Discovering an HTTP/3 Endpoint
+## 发现HTTP/3端点（Discovering an HTTP/3 Endpoint）
 
-An HTTP origin advertises the availability of an equivalent HTTP/3 endpoint via
-the Alt-Svc HTTP response header field or the HTTP/2 ALTSVC frame
-({{!ALTSVC=RFC7838}}), using the ALPN token defined in
-{{connection-establishment}}.
+HTTP源使用{{connection-establishment}}中定义的ALPN令牌，通过Alt-Svc HTTP响应头字段或
+HTTP/2 ALTSVC帧({{!ALTSVC=RFC7838}})通告对等HTTP/3端点的可用性。
 
-For example, an origin could indicate in an HTTP response that HTTP/3 was
-available on UDP port 50781 at the same hostname by including the following
-header field:
+例如，源可以通过包括以下报头字段在HTTP响应中指示HTTP/3在同一主机名处的 UDP端口50781上可用：
 
-~~~ example
+~~~ 例子
 Alt-Svc: h3=":50781"
 ~~~
 
-On receipt of an Alt-Svc record indicating HTTP/3 support, a client MAY attempt
-to establish a QUIC connection to the indicated host and port and, if
-successful, send HTTP requests using the mapping described in this document.
+在接收到指示HTTP/3支持的Alt-Svc记录时，客户端可能会尝试建立与所指示的主机
+和端口的QUIC连接，如果成功，则使用本文档中描述的映射发送HTTP请求。
 
-Connectivity problems (e.g. firewall blocking UDP) can result in QUIC connection
-establishment failure, in which case the client SHOULD continue using the
-existing connection or try another alternative endpoint offered by the origin.
+连接问题(例如防火墙阻止UDP)可能会导致QUIC连接建立失败，在这种情况下，客户端**应该**
+继续使用现有连接或尝试来源提供的另一个替代端。
 
-Servers MAY serve HTTP/3 on any UDP port, since an alternative always includes
-an explicit port.
+服务器可以在任何UDP端口上提供HTTP/3服务，因为备选方案总是包括显式端口。
 
-### QUIC Version Hints {#alt-svc-version-hint}
+### QUIC版本提示（QUIC Version Hints） {#alt-svc-version-hint}
 
-This document defines the "quic" parameter for Alt-Svc, which MAY be used to
-provide version-negotiation hints to HTTP/3 clients. QUIC versions are four-byte
-sequences with no additional constraints on format. Leading zeros SHOULD be
-omitted for brevity.
+本文档定义了Alt-Svc的“quic”参数，该参数**可以**用于向HTTP/3客户端提供版本协商提示。
+QUIC版本是四个字节的序列，对格式没有额外的限制。为简洁起见，应省略前导零。
 
-Syntax:
+语法:
 
 ~~~ abnf
 quic = DQUOTE version-number [ "," version-number ] * DQUOTE
 version-number = 1*8HEXDIG; hex-encoded QUIC version
 ~~~
 
-Where multiple versions are listed, the order of the values reflects the
-server's preference (with the first value being the most preferred version).
-Reserved versions MAY be listed, but unreserved versions which are not supported
-by the alternative SHOULD NOT be present in the list. Origins MAY omit supported
-versions for any reason.
+在列出多个版本的情况下，值的顺序反映服务器的首选项(第一个值是最首选的版本)。
+**可以**列出保留版本，但替代方案不支持的未保留版本不应出现在列表中。出于某些原因，
+源**可能**会忽略支持的版本。
 
-Clients MUST ignore any included versions which they do not support.  The "quic"
-parameter MUST NOT occur more than once; clients SHOULD process only the first
-occurrence.
+客户端**必须**忽略其不支持的任何包含版本。“quic”参数**禁止**出现多次；客户端
+**应该**只处理第一次出现的情况。
 
-For example, suppose a server supported both version 0x00000001 and the version
-rendered in ASCII as "Q034".  If it also opted to include the reserved version
-(from Section 15 of {{QUIC-TRANSPORT}}) 0x1abadaba, it could specify the
-following header field:
+例如，假设服务器同时支持版本0x00000001和在ASCII中呈现为“Q034”的版本。如果它还
+选择包括保留版本(来自{{QUIC-TRANSPORT}}的第15节)0x1abadaba，它可以指定以下报头字段：
 
-~~~ example
+~~~ example例子
 Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 ~~~
 
-A client acting on this header field would drop the reserved version (not
-supported), then attempt to connect to the alternative using the first version
-in the list which it does support, if any.
+对此报头字段进行操作的客户端将丢弃保留版本(不受支持)，然后尝试使用列表中它支持
+的第一个版本(如果有的话)连接到替代版本。
 
-## Connection Establishment {#connection-establishment}
+## 连接建立（Connection Establishment） {#connection-establishment}
 
-HTTP/3 relies on QUIC as the underlying transport.  The QUIC version being used
-MUST use TLS version 1.3 or greater as its handshake protocol.  HTTP/3 clients
-MUST indicate the target domain name during the TLS handshake. This may be done
-using the Server Name Indication (SNI) {{!RFC6066}} extension to TLS or using
-some other mechanism.
+HTTP/3依赖QUIC作为底层传输。所使用的QUIC版本必须使用TLS 1.3版或更高版本作为其
+握手协议。HTTP/3客户端必须在TLS握手期间指明目标域名。这可以使用TLS的服务器名称
+指示(SNI){{!RFC6066}}扩展或使用某些其他机制来完成。
 
-QUIC connections are established as described in {{QUIC-TRANSPORT}}. During
-connection establishment, HTTP/3 support is indicated by selecting the ALPN
-token "h3" in the TLS handshake.  Support for other application-layer protocols
-MAY be offered in the same handshake.
+按照{{QUIC-TRANSPORT}}中的说明建立QUIC连接。在连接建立期间，通过在TLS握手中选择
+ALPN令牌“h3”来指示HTTP/3支持。可以在相同的握手中提供对其他应用层协议的支持。
 
-While connection-level options pertaining to the core QUIC protocol are set in
-the initial crypto handshake, HTTP/3-specific settings are conveyed in the
-SETTINGS frame. After the QUIC connection is established, a SETTINGS frame
-({{frame-settings}}) MUST be sent by each endpoint as the initial frame of their
-respective HTTP control stream (see {{control-streams}}).
+虽然与核心QUIC协议有关的连接级选项在初始加密握手中设置，但特定于HTTP/3的设置在
+SETTINGS帧中传递。建立QUIC连接后，每个端**必须**发送SETTINGS帧({{frame-settings}})
+作为其各自HTTP控制流的初始帧(请参阅{{control-streams}})。
 
-## Connection Reuse
+## 连接重用（Connection Reuse）
 
-Once a connection exists to a server endpoint, this connection MAY be reused for
-requests with multiple different URI authority components.  The client MAY send
-any requests for which the client considers the server authoritative.
+一旦存在到服务器端点的连接，就**可以**将此连接重用于具有多个不同URI授权组件的请求。
+客户端**可以**发送客户端认为服务器具有可信性的任何请求。
 
-An authoritative HTTP/3 endpoint is typically discovered because the client has
-received an Alt-Svc record from the request's origin which nominates the
-endpoint as a valid HTTP Alternative Service for that origin.  As required by
-{{RFC7838}}, clients MUST check that the nominated server can present a valid
-certificate for the origin before considering it authoritative. Clients MUST NOT
-assume that an HTTP/3 endpoint is authoritative for other origins without an
-explicit signal.
+通常会发现权威HTTP/3端点，因为客户端已从请求源收到Alt-Svc记录，该记录将端点指定为
+该源的有效HTTP替代服务。根据{{RFC7838}}的要求，客户端**必须**先检查指定服务器是否
+可以提供来源的有效证书，然后才能认为其具有可信性。客户端**禁止**假设HTTP/3端点在
+没有显式信号的情况下对其他来源具有可信性。
 
-A server that does not wish clients to reuse connections for a particular origin
-can indicate that it is not authoritative for a request by sending a 421
-(Misdirected Request) status code in response to the request (see Section 9.1.2
-of {{!RFC7540}}).
+不希望客户端重新使用特定来源的连接的服务器可以通过发送421(误导请求)状态代码响应请求
+来指示其对请求不具有可信性(参见{{!RFC7540}}的第9.1.2节)。
 
-The considerations discussed in Section 9.1 of {{?RFC7540}} also apply to the
-management of HTTP/3 connections.
+{{?RFC7540}}的第9.1节中讨论的注意事项也适用于HTTP/3连接的管理。
 
 # Stream Mapping and Usage {#stream-mapping}
 
