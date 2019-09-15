@@ -257,10 +257,17 @@ QUIC允许同时操作任意数量的流，
 不按顺序使用的流ID将导致该类型的所有具有较
 低编号的流ID的流也被开启。
 
+第一个客户端打开的双向的流id为１
+
+
 ## 收发数据(Sending and Receiving Data)
+
+STREAM帧（第19.8节）封装了应用程序发送的数据。
+终端使用STREAM帧中的Stream ID和Offset字段
+按顺序放置数据。
 终端**必须**能将流数据转换有序字节流传递给应用程序。
 这要求终端能接收并缓冲所有
-无序数据直到受申明的流量控制限制。
+无序数据直到受声明的流量控制限制。
 
 QUIC本身没有对无序传输的流数据做出具体限制。
 但是在实际的协议实现中，
@@ -272,17 +279,26 @@ offset的数据，此时之前收到的数据可以被丢弃。
 否则终端**可以**将同一流中有相同offset但内容
 不同的该次接收视为PROTOCOL_VIOLATION类型的连接错误。
 
+流是一种有序的字节流抽象，没有其他
+QUIC可见的结构。当数据传输，因丢包而重传，或者送达到
+应用层的接受者的时候，STREAM帧边界不会被保留
+
 终端**禁止**在任何未确认通信双方已建立流量
 控制的流中发送数据。流量控制将在第4节中详细描述。
 
 
 ## 流的优先级(Stream Prioritization)
 
-QUIC的实现**应该**提供方法，
-用于应用程序指示流的相对优先级。
-在决定哪些流专用于某种资源时，
-该实现**应该**使用应用程序提供的信息。
+如果分配给流的资源优先级正确，流的多路复用可以对应用性能
+产生重大影响。
 
+QUIC不提供交换优先级信息的帧。 相反，
+它依赖于从使用QUIC的应用程序中获取优先级信息 。
+
+QUIC实现**应该**提供给应用程序可以
+表示流的相对优先级的方式。实现**应该**使用
+应用提供的信息来决定为哪个
+流分配资源，
 
 # 流状态(stream-states)
 
@@ -405,7 +421,7 @@ MAX_STREAM_DATA帧。
 一个终端 **可能** 会将RESET_STREAM做为流发送的第一个帧；
 这导致流发送部分打开并立刻进入“Reset Sent”状态。
 
-一旦一个包含RESET_STREAM的包被，
+一旦一个包含RESET_STREAM的包被确认，
 流发送部分进入被称为“Reset Recvd”的最终状态。
 
 
@@ -415,8 +431,8 @@ MAX_STREAM_DATA帧。
 。流接收部分的状态只反映了部分对端发送时的状态。
 流的接收部分不会跟踪发送部分无法观察的状态，
 例如 ‘Ready’（准备）状态。
-相反，流的接收部分会跟踪交付给应用
-的数据，其中一部分是发送方无法观察到的。
+相反，流的接收部分会跟踪传递给应用的数据送达状态，
+其中一部分是发送方无法观察到的。
 
 ~~~
        o
@@ -456,7 +472,7 @@ MAX_STREAM_DATA帧。
 由对端（客户端的类型是1和3，服务端的类型是0和2）
 发起的流的接收部分在接收到该流的第一个 STREAM，
 STREAM_DATA_BLOCKED,或RESET_STREAM时完成创建。
-对于由对端发起的双向传输流，在确认接收到由流
+对于由对端发起的双向传输流，接收到由流
 的发送部分发出的MAX_STREAM_DATA或STOP_SENDING帧
 时也会创建接收部分。
 流的接收部分初始状态是“Recv”(接收)。
@@ -473,7 +489,7 @@ STOP_SENDING帧时打开一条双向传输流。
 接收到未开启的流的STOP_SENDING帧表明远程对端
 不再希望在这个流上接收数据。
 如果包被丢失或被重排，
-任何帧都可能在STREAM或者STREAM_DATA_BLOCKED帧前抵达终端。
+两种帧都可能在STREAM或者STREAM_DATA_BLOCKED帧前抵达终端。
 
 在创建一个流前，
 所有更低编号的同类型流都**必须**创建完毕。
@@ -492,10 +508,11 @@ STOP_SENDING帧时打开一条双向传输流。
 在这个状态下，终端不再需要发送MAX_STREAM_DATA帧，
 只接收任何重传的流数据。
 
+
 一旦收到流的所有数据，流的接收部分就进入
 “Data Recvd”（数据已接收）状态。
-这可能在接收到会引起状态过渡到
-“Size Known”（大小已知）的STREAM帧时发生。
+这可能是因为接收到相同的STREAM帧，导致“Size Known”
+（大小已知)的转换
 在这个状态下，终端拥有所有的流数据。
 从这个流接收到的 STREAM或STREAM_DATA_BLOCKED 帧都可能被丢弃。
 
@@ -528,9 +545,8 @@ RESET_STREAM信号可能被抑制或者扣留。
 
 ## 允许的帧类型(Permitted Frame Types)
 
-流的发送者只发送三种帧类型，
-这三种帧类型会影响发送者和接收者的流状态：分别为
-STREAM ({{frame-stream}})，
+流的发送者只发送三种会影响发送者和接收者的流状态
+的帧类型：分别为STREAM ({{frame-stream}})，
 STREAM_DATA_BLOCKED
 ， RESET_STREAM({{frame-reset-stream}})。
 
@@ -538,7 +554,7 @@ STREAM_DATA_BLOCKED
 或者 "Reset Recvd") 发送上面的三种帧类型。
 发送者**禁止**在发送一个RESET_STREAM后
 发送STREAM或者STREAM_DATA_BLOCKED。
-这指的是在终止状态和重置发送状态。
+这指的是在终止状态和"重置发送(Reset Sent)"状态。
 接收者可以在任何状态下接收任何这三种帧类型，
 这是因为带着它们的包存在延迟抵达的可能性。
 
@@ -602,7 +618,7 @@ STOP_SENDING是没有意义的，
 ，但这不是传入的数据将被忽略的保证。
 
 发送STOP_SENDING后收到的STREAM
-仍计入连接和流量控制，即使这些帧在接收时将被丢弃。
+仍计入连接和流的流量控制，即使这些帧在接收时将被丢弃。
 
 一个STOP_SENDING请求接收端发送RESET_STREAM帧。
 如果流处于就绪或发送状态，
@@ -616,9 +632,9 @@ STOP_SENDING是没有意义的，
 发送STOP_SENDING帧的终端**可以**忽略它接收的
 任何RESET_STREAM帧中携带的错误代码。
 
-如果在已经处于“已发送数据”状态的流上接收到STOP_SENDING
-帧，则希望停止在该流上重传先前发送的STREAM帧的终端
-**必须**首先发送RESET_STREAM帧。
+如果在已经处于“已发送数据(Data Sent)”状态的流上
+接收到STOP_SENDING帧，则希望停止在该流上重传先前
+发送的STREAM帧的终端**必须**首先发送RESET_STREAM帧。
 
 STOP_SENDING 应该仅针对未被对方重置的流发送。
 STOP_SENDING对于“Recv”或“Size Known”状态的流最有用。
@@ -654,7 +670,7 @@ QUIC终端控制其对端可以发起的最大累计数据流数,
 在CRYPTO帧中发送的数据不像流数据那样受到流控制。
 QUIC依赖于密码协议实现来避免数据的过度缓冲，
 请参见{{QUIC-TLS}}。
-该实现应该提供一个到QUIC的接口，
+该实现应该为QUIC提供一个接口，
 告诉它的缓冲限制，以便在多个层上不会有过多的缓冲。
 
 
@@ -665,10 +681,10 @@ QUIC采用类似于HTTP/2{{?HTTP2}}中的基于信用的流量控制方案，
 接收方设定它准备在给定流上和整个连接上接收的字节数，
 这也是QUIC中的两种数据流控制：
 
-* 流控制，通过限制在任何流上发送的数据量，
+* 流的流量控制，通过限制在任何流上发送的数据量，
 防止单个流占用连接的整个接收缓冲区。
 
-* 连接流控制，通过限制所有流在STREAM帧中发送的
+* 连接的流量控制，通过限制所有流在STREAM帧中发送的
 流数据的总字节数，
 防止接收方用于连接的缓冲区容量被发送端消耗殆尽。
 
@@ -2372,7 +2388,7 @@ CONNECTION_CLOSE帧发出信号({{frame-connection-close}})。即使错误只影
 也**可能**以这种方式关闭连接。
 
 应用协议可以使用CONNECTION_CLOSE帧的特定于应用的变体发送特定于应用的协议错误信号。特
-定于传输的错误，包括本文档中描述的所有错误，都带有CONNECTION_CLOSE框架的特定于QUIC的
+定于传输的错误，包括本文档中描述的所有错误，都带有CONNECTION_CLOSE帧的特定于QUIC的
 变体。
 
 可以在丢失的数据包中发送CONNECTION_CLOSE帧。如果终端在终止的连接上接收到更多的数据包
@@ -2539,7 +2555,7 @@ Packet Number字段包含一个Packet Number，它用来在应用数据包保护
 在{{packet-encoding}}中进行说明。
 
 
-## 框架和框架类型（Frames and Frame Types） {#frames}
+## 帧和帧类型（Frames and Frame Types） {#frames}
 
 如{{packet-frames}}中所示,
 移除包保护后QUIC包的负载通常由帧序列组成。
@@ -3920,136 +3936,126 @@ MAX_STREAM_DATA帧（{{frame-max-stream-data}}）。
 TRANSPORT_PARAMETER_ERROR类型的连接错误。
 
 
-# Frame Types and Formats {#frame-formats}
+# 帧类型和格式 {#frame-formats}
 
-As described in {{frames}}, packets contain one or more frames. This section
-describes the format and semantics of the core QUIC frame types.
-
-
-## PADDING Frame {#frame-padding}
-
-The PADDING frame (type=0x00) has no semantic value.  PADDING frames can be used
-to increase the size of a packet.  Padding can be used to increase an initial
-client packet to the minimum required size, or to provide protection against
-traffic analysis for protected packets.
-
-A PADDING frame has no content.  That is, a PADDING frame consists of the single
-byte that identifies the frame as a PADDING frame.
+如第{{frames}}所述，数据包包含一个或多个帧。
+本节介绍核心QUIC帧类型的格式和语义。
 
 
-## PING Frame {#frame-ping}
+## PADDING帧 {#frame-padding}
 
-Endpoints can use PING frames (type=0x01) to verify that their peers are still
-alive or to check reachability to the peer. The PING frame contains no
-additional fields.
-
-The receiver of a PING frame simply needs to acknowledge the packet containing
-this frame.
-
-The PING frame can be used to keep a connection alive when an application or
-application protocol wishes to prevent the connection from timing out. An
-application protocol SHOULD provide guidance about the conditions under which
-generating a PING is recommended.  This guidance SHOULD indicate whether it is
-the client or the server that is expected to send the PING.  Having both
-endpoints send PING frames without coordination can produce an excessive number
-of packets and poor performance.
-
-A connection will time out if no packets are sent or received for a period
-longer than the time specified in the idle_timeout transport parameter (see
-{{termination}}).  However, state in middleboxes might time out earlier than
-that.  Though REQ-5 in {{?RFC4787}} recommends a 2 minute timeout interval,
-experience shows that sending packets every 15 to 30 seconds is necessary to
-prevent the majority of middleboxes from losing state for UDP flows.
+PADDING帧（类型= 0x00）没有语义值。
+ PADDING帧可用于增加数据包的大小。
+ 填充可用于将初始客户端数据包增加到所需的最小大小，
+ 或者提供针对受保护数据包的流量分析的保护。
+ PADDING框架没有内容。也就是说，
+ PADDING帧由单个字节组成，该字节将帧标识为PADDING帧
 
 
-## ACK Frames {#frame-ack}
+## PING帧 {#frame-ping}
 
-Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets
-they have received and processed. The ACK frame contains one or more ACK Ranges.
-ACK Ranges identify acknowledged packets. If the frame type is 0x03, ACK frames
-also contain the sum of QUIC packets with associated ECN marks received on the
-connection up until this point.  QUIC implementations MUST properly handle both
-types and, if they have enabled ECN for packets they send, they SHOULD use the
-information in the ECN section to manage their congestion state.
+终端可以使用PING帧（类型= 0x01）来验证其对等端是
+否仍处于活动状态或检查对等端的可达性。 PING帧不包含
+其他字段。
 
-QUIC acknowledgements are irrevocable.  Once acknowledged, a packet remains
-acknowledged, even if it does not appear in a future ACK frame.  This is unlike
-TCP SACKs ({{?RFC2018}}).
+PING帧的接收者只需要确认数据包中包含该帧。
 
-It is expected that a sender will reuse the same packet number across different
-packet number spaces.  ACK frames only acknowledge the packet numbers that were
-transmitted by the sender in the same packet number space of the packet that the
-ACK was received in.
+当应用程序或应用程序协议希望防止连接超时时，PING帧
+可用于保持连接活动。应用程序协议**应该**为建议生成PING帧的状
+况提供指引。指引应该表明预期发送PING帧的是客户
+端还是服务器。让两个端点在没有协商的情况下发送PING
+帧会产生过多的数据包和性能不佳。
 
-Version Negotiation and Retry packets cannot be acknowledged because they do not
-contain a packet number.  Rather than relying on ACK frames, these packets are
-implicitly acknowledged by the next Initial packet sent by the client.
+如果没有发送或接收数据包的时间超过idle_timeout传输
+参数中指定的时间，则连接将超时（参见{{termination}}）。但是，
+中间设备中的状态可能会比这更早。虽然{{?RFC4787}}中的REQ-5建
+议2分钟的超时间隔，但经验表明，每隔15到30秒发送数据包是
+必要的，以防止大多数中间设备丢失UDP流状态。
 
-An ACK frame is as follows:
+
+## ACK帧 {#frame-ack}
+
+接收方发送ACK帧（类型0x02和0x03）以通知发送方已
+收到和处理数据包。 ACK帧包含一个或多个ACK范围。
+ACK范围标识已确认的数据包。如果帧类型是0x03，则ACK帧
+还包含QUIC数据包的总和，以及在此时连接上收到的相关ECN
+标记。 QUIC实现**必须**正确处理这两种类型，如果它们为它们
+发送的数据包启用了ECN，它们应该使用ECN部分中的信息来
+管理它们的拥塞状态。
+
+
+QUIC的确认是不可撤销的。一旦确认，即使未在未
+来的ACK帧中出现，数据包仍保持被确认的状态。
+这与TCP SACK（{{?RFC2018}}）不同。
+
+预计发送方将在不同的包号空间中重用相同的包号。
+ ACK帧仅确认发送方在接收到ACK的数据包的相同
+数据包编号空间中发送的数据包编号。
+
+版本协商和重试数据包无法确认，因为它们不包
+含数据包编号。这些数据包不是依赖于ACK帧，
+而是由客户端发送的下一个初始数据包隐式确认。
+
+ACK帧如下：
 
 ~~~
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Largest Acknowledged (i)                ...
+|                  最大的确认(i)                              ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          ACK Delay (i)                      ...
+|                  ACK延迟           (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       ACK Range Count (i)                   ...
+|                 ACK范围计数           (i)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       First ACK Range (i)                   ...
+|                第一个ACK范围          (i)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          ACK Ranges (*)                     ...
+|                 确认范围            (*)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          [ECN Counts]                       ...
+|                          [ECN 计数]                         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #ack-format title="ACK Frame Format"}
+{: #ack-format title="ACK帧格式"}
 
-ACK frames contain the following fields:
+ACK帧包含以下字段：
 
-Largest Acknowledged:
+最大的已确认：
+一个可变长度的整数，表示对端确认的最大包号;这通常
+是对端在生成ACK帧之前已经接收到的最大包号。与QUIC
+长或短报头中的包号不同，ACK帧中的值不会被截断。
 
-: A variable-length integer representing the largest packet number the peer is
-  acknowledging; this is usually the largest packet number that the peer has
-  received prior to generating the ACK frame.  Unlike the packet number in the
-  QUIC long or short header, the value in an ACK frame is not truncated.
+ACK延迟：
+  可变长度整数，包括此ACK发送时对端收到的最大
+　已确认包（如最大确认
+　字段中所示）的微秒时间
+  ACK延迟的值
+  通过将编码值乘以2的'ack_delay_exponent'次幂
+  来放大，`ack_delay_exponent`传输参数的值
+  由ACK帧发送者设置。 `ack_delay_exponent`默认为
+　3，或乘数为8（见{{transport-parameter-definitions}}）
+　。这种方式允许以较低的代价的较短的编码表示较
+　大范围的值。
 
-ACK Delay:
+ACK范围计数：
 
-: A variable-length integer including the time in microseconds that the largest
-  acknowledged packet, as indicated in the Largest Acknowledged field, was
-  received by this peer to when this ACK was sent.  The value of the ACK Delay
-  field is scaled by multiplying the encoded value by 2 to the power of the
-  value of the `ack_delay_exponent` transport parameter set by the sender of the
-  ACK frame.  The `ack_delay_exponent` defaults to 3, or a multiplier of 8 (see
-  {{transport-parameter-definitions}}).  Scaling in this fashion allows for a
-  larger range of values with a shorter encoding at the cost of lower
-  resolution.
+：一个可变长度整数，在帧中指定Gap和ACK Range字段
+的数量
 
-ACK Range Count:
+第一个ACK范围：
 
-: A variable-length integer specifying the number of Gap and ACK Range fields in
-  the frame.
+：一个可变长度的整数，表示在最大的已确认之前
+　被确认的连续数据包的数量。
+  第一个ACK范围编码为从最大确认开始ACK范围
+　（参见{{ack-ranges}}）。也就是说，通过从最大
+　确认中减去第一ACK范围值来确定在该范围内最小的
+　已确认包。
 
-First ACK Range:
+确认范围：
+：包含其他未确认（Gap）和已确认（ACK范围）范围的数据包,
+ 请参阅{{ack-ranges}}。
 
-: A variable-length integer indicating the number of contiguous packets
-  preceding the Largest Acknowledged that are being acknowledged.  The First ACK
-  Range is encoded as an ACK Range (see {{ack-ranges}}) starting from the
-  Largest Acknowledged.  That is, the smallest packet acknowledged in the
-  range is determined by subtracting the First ACK Range value from the Largest
-  Acknowledged.
-
-ACK Ranges:
-
-: Contains additional ranges of packets which are alternately not
-  acknowledged (Gap) and acknowledged (ACK Range), see {{ack-ranges}}.
-
-ECN Counts:
-
-: The three ECN Counts, see {{ack-ecn-counts}}.
-
+ECN计数：
+：三个ECN计数，请参阅{{ack-ecn-counts}}。
 
 ### ACK范围(ACK Ranges) {#ack-ranges}
 

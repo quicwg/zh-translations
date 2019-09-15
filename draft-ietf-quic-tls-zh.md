@@ -1014,56 +1014,46 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 并等待接受ClientHello。
 
 
-# Key Update
+# 密钥更新 {#key-update}
+ 一旦建立了1-RTT密钥并且正在使用短头部，就可以更新密钥。
+ 短头部中的KEY_PHASE位用于指示是否已发生密钥更新。
+  KEY_PHASE位初始设置为0，然后在每次密钥更新时反转。
 
-Once the 1-RTT keys are established and the short header is in use, it is
-possible to update the keys. The KEY_PHASE bit in the short header is used to
-indicate whether key updates have occurred. The KEY_PHASE bit is initially set
-to 0 and then inverted with each key update.
+ KEY_PHASE位允许接收者检测密钥内容的变化，而不必接收触
+ 发变化的第一个数据包。注意到已更改的KEY_PHASE位的终端
+ 可以更新密钥并解密包含已更改位的数据包。
 
-The KEY_PHASE bit allows a recipient to detect a change in keying material
-without necessarily needing to receive the first packet that triggered the
-change.  An endpoint that notices a changed KEY_PHASE bit can update keys and
-decrypt the packet that contains the changed bit.
+ 此机制替换了TLS KeyUpdate消息。端点**禁止**发送TLS KeyUpdate
+ 消息。终端**必须**将TLS KeyUpdate消息的接收视为类型0x10a的连接
+ 错误，相当于unexpected_message的fatal级别TLS警报（参见{{tls-errors}}）。
 
-This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a
-TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate
-message as a connection error of type 0x10a, equivalent to a fatal TLS alert of
-unexpected_message (see {{tls-errors}}).
+　
+终端**禁止**一次启动多个密钥更新。终端在收到并成功解密具有匹配KEY_PHASE的数据包之前，不能使用新密钥。
 
-An endpoint MUST NOT initiate more than one key update at a time.  A new key
-cannot be used until the endpoint has received and successfully decrypted a
-packet with a matching KEY_PHASE.
+当KEY_PHASE位与预期不匹配时，接收端检测到密钥更新。它使用TLS提供的KDF
+函数创建一个新密钥（参见TLS13]的第7.2节）和相应的读密钥和IV。头部
+保护密钥不会被更新。
 
-A receiving endpoint detects an update when the KEY_PHASE bit does not match
-what it is expecting.  It creates a new secret (see Section 7.2 of {{!TLS13}})
-and the corresponding read key and IV using the KDF function provided by TLS.
-The header protection key is not updated.
+如果可以使用更新的密钥和IV对数据包进行解密和身份验证，则还会更新
+终端用于数据包保护的密钥。然后，终端发送的下一个数据包将使用新密钥。
 
-If the packet can be decrypted and authenticated using the updated key and IV,
-then the keys the endpoint uses for packet protection are also updated.  The
-next packet sent by the endpoint will then use the new keys.
+终端在检测到其对等方已更新密钥时并不总是需要发送数据包。
+它发送的下一个数据包将只使用新密钥。如果终端在发送具有
+更新密钥的任何数据包之前检测到第二次更新，则表示其对端
+已更新密钥两次而不等待相互更新。终端**必须**将连续密钥更新
+视为致命错误并中止连接。
 
-An endpoint does not always need to send packets when it detects that its peer
-has updated keys.  The next packet that it sends will simply use the new keys.
-If an endpoint detects a second update before it has sent any packets with
-updated keys, it indicates that its peer has updated keys twice without awaiting
-a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal
-error and abort the connection.
+端点**应该**保留旧密钥的时间不超过探测超时的三倍（PTO，
+参见{{QUIC-RECOVERY}}）。在此期间之后，旧密钥及其相应的
+密钥**应该**被丢弃。保留密钥允许终端处理使用旧密钥发送并在
+网络中延迟的数据包。具有较高数据包编号的数据包始终使用更新的密
+钥，并且**禁止**使用旧密钥进行解密。
 
-An endpoint SHOULD retain old keys for a period of no more than three times the
-Probe Timeout (PTO, see {{QUIC-RECOVERY}}).  After this period, old keys and
-their corresponding secrets SHOULD be discarded.  Retaining keys allow endpoints
-to process packets that were sent with old keys and delayed in the network.
-Packets with higher packet numbers always use the updated keys and MUST NOT be
-decrypted with old keys.
-
-This ensures that once the handshake is complete, packets with the same
-KEY_PHASE will have the same packet protection keys, unless there are multiple
-key updates in a short time frame succession and significant packet reordering.
+这确保了一旦握手完成，具有相同KEY_PHASE的包体将具有相同的分组
+保护密钥，除非在短时间的连续帧和重要分组重排序中存在多个密钥更新
 
 ~~~
-   Initiating Peer                    Responding Peer
+   初始端　　　　　　　　　   　　              响应端
 
 @M QUIC Frames
                New Keys -> @N
@@ -1074,16 +1064,16 @@ key updates in a short time frame succession and significant packet reordering.
                                           QUIC Frames @N
                       <--------
 ~~~
-{: #ex-key-update title="Key Update"}
+{: #ex-key-update title="密钥更新"}
 
-A packet that triggers a key update could arrive after successfully processing a
-packet with a higher packet number.  This is only possible if there is a key
-compromise and an attack, or if the peer is incorrectly reverting to use of old
-keys.  Because the latter cannot be differentiated from an attack, an endpoint
-MUST immediately terminate the connection if it detects this condition.
+触发密钥更新的数据包可能在成功处理具有更高数据包编号
+的数据包后到达。只有在存在密钥泄露和攻击时，或者如果
+对端错误地恢复使用旧密钥，这才有可能。因为后者无法
+与攻击分开来，所以如果终端检测到这种情况，它必须立
+即终止连接。
 
-In deciding when to update keys, endpoints MUST NOT exceed the limits for use of
-specific keys, as described in Section 5.5 of {{!TLS13}}.
+在决定何时更新密钥时，终端**禁止**超过使用特定密钥的限制，
+如{{!TLS13}}的第5.5节所述。
 
 
 # 初始消息的安全性(Security of Initial Messages)
