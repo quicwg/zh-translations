@@ -295,14 +295,14 @@ QUIC传输参数
 这些流携带与请求/响应相关的帧(请参见。
 {{request-response}})。
 当流完全终止时，如果流上的最后一帧被截断，
-则必须将其视为连接错误
+则**必须**将其视为连接错误
 (参见{{http-error-codes}}中的HTTP_MALFORMED_FRAME)。
 突然终止的流可以在帧中的任何点被重置。
 
 HTTP/3不使用服务器启动的双向流；
 客户端**必须**省略QUIC传输参数
 `initial_max_bidi_streams`或
-指定零值。
+指定该值为零。
 
 
 
@@ -366,13 +366,13 @@ QUIC STOP_SENDING帧，
 每一端**必须**在连接开始时启动单个控制流，
 并将其设置帧作为该流上的第一帧发送。
 如果控制流的第一帧是任何其他帧类型，
-则必须将其视为HTTP_MISSING_SETTINGS类型的连接错误。
+则**必须**将其视为HTTP_MISSING_SETTINGS类型的连接错误。
 每个对端只允许一个控制流；
 接收到声称是控制流的第二个流**必须**被视为
 HTTP_WROR_STREAM_COUNT类型的连接错误。
 发送方**禁止**关闭控制流。
 如果控制流在任何时候关闭，
-则必须将其视为
+则**必须**将其视为
 HTTP_CLOSED_KIRITAL_STREAM类型的
 连接错误。
 
@@ -388,7 +388,7 @@ HTTP_CLOSED_KIRITAL_STREAM类型的
 ### 推送流 {#push-streams}
 
 推流由流类型“0x01”表示，
-后跟它实现的承诺的推流ID，
+后跟它实现的约定的推流ID，
 编码为可变长度整数。
 此流上的剩余数据由{{frames}}中
 定义的HTTP/3帧组成，
@@ -398,7 +398,7 @@ HTTP_CLOSED_KIRITAL_STREAM类型的
 
 只有服务器可以主动推送；
 如果服务器接收到客户端发起的推流，
-则必须将其视为
+则**必须**将其视为
 HTTP_WROR_STREAM_DIRECTION类型的
 流错误。
 
