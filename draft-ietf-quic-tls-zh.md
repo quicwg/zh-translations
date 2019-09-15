@@ -1014,7 +1014,7 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 并等待接受ClientHello。
 
 
-# 密钥更新
+# 密钥更新 {#key-update}
  一旦建立了1-RTT密钥并且正在使用短头部，就可以更新密钥。
  短头部中的KEY_PHASE位用于指示是否已发生密钥更新。
   KEY_PHASE位初始设置为0，然后在每次密钥更新时反转。
