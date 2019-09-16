@@ -59,81 +59,84 @@ informative:
 
 --- abstract
 
-This document defines the properties of the QUIC transport protocol that are
-expected to remain unchanged over time as new versions of the protocol are
-developed.
+这篇文档描述了 QUIC 传输协议的一些特性，这些特性
+预计会在以后的新版本协议中
+保持不变。
 
 
 --- note_Note_to_Readers
 
-Discussion of this draft takes place on the QUIC working group mailing list
-(quic@ietf.org), which is archived at
+关于次草案的相关讨论在QUIC工作组邮件列表（quic@ietf.org）
+中进行，邮件列表的归档存放在
 <https://mailarchive.ietf.org/arch/search/?email_list=quic>.
 
-Working Group information can be found at <https://github.com/quicwg>; source
-code and issues list for this draft can be found at
+工作组的信息可以在<https://github.com/quicwg>中找到，此文档的
+源代码和问题列表在
 <https://github.com/quicwg/base-drafts/labels/-invariants>.
 
 
 --- middle
 
-# Introduction
+# 简介（Introduction）
 
-In addition to providing secure, multiplexed transport, QUIC {{QUIC-TRANSPORT}}
-includes the ability to negotiate a version.  This allows the protocol to change
-over time in response to new requirements.  Many characteristics of the protocol
-will change between versions.
+为了提供安全的，多路复用的传输 QUIC {{QUIC-TRANSPORT}} 包含
+版本协商的能力。这允许协议随着时间的推移可以改变以
+应对新的需求。这个协议的很多特性会随版本
+而改变。
 
-This document describes the subset of QUIC that is intended to remain stable as
-new versions are developed and deployed.  All of these invariants are
-IP-version-independent.
+这篇文档描述了 QUIC 的一个子集，此子集在新版本的
+开发和部署当中保持不变。所有的这些不变性
+都和IP版本无关。
 
-The primary goal of this document is to ensure that it is possible to deploy new
-versions of QUIC.  By documenting the properties that can't change, this
-document aims to preserve the ability to change any other aspect of the
-protocol.  Thus, unless specifically described in this document, any aspect of
-the protocol can change between different versions.
+此文档的主要目标在于保证部署新
+版本的 QUIC 是可能的。本文档通过记录不可变特性的方式，
+来确保更改协议其他部分
+的能力。因此，除了本文档中提到的部分，协议
+的任何部分都能因版本不同而不同。
 
-{{bad-assumptions}} is a non-exhaustive list of some incorrect assumptions that
-might be made based on knowledge of QUIC version 1; these do not apply to every
-version of QUIC.
-
-
-# Conventions and Definitions
-
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
-"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
-document are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
-
-This document uses terms and notational conventions from {{QUIC-TRANSPORT}}.
+在 {{bad-assumptions}} 当中列举了一些错误的假设，这些
+假设可能基于第一版的 QUIC，但他们并不适用于所有
+版本的 QUIC。
 
 
-# An Extremely Abstract Description of QUIC
+# 约定和定义（Conventions and Definitions）
 
-QUIC is a connection-oriented protocol between two endpoints.  Those endpoints
-exchange UDP datagrams.  These UDP datagrams contain QUIC packets.  QUIC
-endpoints use QUIC packets to establish a QUIC connection, which is shared
-protocol state between those endpoints.
+关键词 “必须(MUST)”，“禁止(MUST NOT)”，“必需(REQUIRED)”，“应当(SHALL)”，
+“应当不(SHALL NOT)”，“应该(SHOULD)”，“不应该(SHOULD NOT)”，“推荐(RECOMMENDED)”，
+“不推荐(NOT RECOMMENDED)”，“可以(MAY)”，“可选(OPTIONAL)” 在这篇文档中
+将会如 BCP 14 {{!RFC2119}}{{!RFC8174}} 中描述的，
+当且仅当他们如此例子显示的以加粗的形式出现时。
 
-
-# QUIC Packet Headers
-
-A QUIC packet is the content of the UDP datagrams exchanged by QUIC endpoints.
-This document describes the contents of those datagrams.
-
-QUIC defines two types of packet header: long and short.  Packets with long
-headers are identified by the most significant bit of the first byte being set;
-packets with a short header have that bit cleared.
-
-Aside from the values described here, the payload of QUIC packets is
-version-specific and of arbitrary length.
+此文档使用 {{QUIC-TRANSPORT}} 当中描述的术语和符号约定。
 
 
-## Long Header
+# 对 QUIC 极其抽象的描述（An Extremely Abstract Description of QUIC）
 
-Long headers take the form described in {{fig-long}}.  Bits that have
-version-specific semantics are marked with an X.
+QUIC 是一个以连接为导向的端到端协议。端之间
+交换 UDP 数据报。被传输的 UDP 数据报包含 QUIC 数据包。QUIC 终端
+使用 QUIC 数据包来建立 QUIC 连接，在这些终端之间协议状态
+是共享的。 *共享协议状态？，他这个which很迷，感觉要制定packet或connection但很别扭*
+*which在的话应该理解成xxx是xxx的方法，但这里这样翻译不太对*
+*核心是弄不清这句话是个定义性的，还是解释性的，目前翻译成了定义性的*
+
+
+# QUIC 数据包头（QUIC Packet Headers）
+
+QUIC 数据包是在 QUIC 终端之间交换的 UDP 数据报的内容。
+此文档描述这些数据报的内容。
+
+QUIC 定义了两种包头：长包头和短包头。第一个字节
+的最高有效位被设置意味着它是一个长包头包；
+否则为短包头包。
+
+除了此处描述的值，QUIC 的负载部分是
+版本特定的，并且长度不固定。
+
+
+## 长包头（Long Header）
+
+长包头的格式在 {{fig-long}} 当中描述。具有版本特定
+含义的位以 X 标记。
 
 ~~~
  0                   1                   2                   3
@@ -152,36 +155,36 @@ version-specific semantics are marked with an X.
 |X X X X X X X X X X X X X X X X X X X X X X X X X X X X X X  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #fig-long title="QUIC Long Header"}
+{: #fig-long title="QUIC 长包头"}
 
-A QUIC packet with a long header has the high bit of the first byte set to 1.
-All other bits in that byte are version specific.
+拥有长包头的 QUIC 数据包，其第一个字节的首位会被设置为1。
+此字节的其他位是版本特定的。
 
-The next four bytes include a 32-bit Version field (see {{version}}).
+接下来的4字节包含一个32位的版本字段（参见 {{version}}）。
 
-The next byte contains the length in bytes of the two Connection IDs (see
-{{connection-id}}) that follow.  Each length is encoded as a 4-bit unsigned
-integer.  The length of the Destination Connection ID (DCIL) occupies the high
-bits of the byte and the length of the Source Connection ID (SCIL) occupies the
-low bits of the byte.  An encoded length of 0 indicates that the connection ID
-is also 0 bytes in length.  Non-zero encoded lengths are increased by 3 to get
-the full length of the connection ID; the final value is therefore either 0 or
-between 4 and 18 bytes in length (inclusive).  For example, an byte with the
-value 0xe0 describes a 17 byte Destination Connection ID and a zero byte Source
-Connection ID.
+接下来的一位描述之后的两个连接 ID 的
+字节数（参见 {{connection-id}}）。每个长度都被编码位4位
+无符号整数。此字节的高4位位目标连接 ID 的长度（DCIL），低
+4位位源连接 ID 的长度（SCIL）。
+如果长度为0，则代表着连接 ID 也
+位0字节长。非0的数字需要被加上3
+以得到最终的连接 ID 长度；因此最终的长度
+会是0或者4到18位之间的数（包括18）。例如，0xe0这个
+字节代表着17个字节的目标连接 ID 和0字节的
+源 ID。
 
-The connection ID lengths are followed by two connection IDs.  The connection
-ID associated with the recipient of the packet (the Destination Connection ID)
-is followed by the connection ID associated with the sender of the packet (the
-Source Connection ID).
+连接 ID 长度字段之后紧接着是两个连接 ID。与数据包接收者
+关联的连接 ID（目标连接 ID）首先出现，接着是于数据包发送
+者关联的 ID（
+源连接 ID）。
 
-The remainder of the packet contains version-specific content.
+数据包剩下的部分是版本特定的内容。
 
 
-## Short Header
+## 短包头（Short Header）
 
-Short headers take the form described in {{fig-short}}.  Bits that have
-version-specific semantics are marked with an X.
+短包头的格式在 {{fig-short}} 当中描述。具有版本特定
+含义的位以 X 标记。
 
 ~~~~~
  0                   1                   2                   3
@@ -194,55 +197,55 @@ version-specific semantics are marked with an X.
 |X X X X X X X X X X X X X X X X X X X X X X X X X X X X X X  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~~~
-{: #fig-short title="QUIC Short Header"}
+{: #fig-short title="QUIC 短包头"}
 
-A QUIC packet with a short header has the high bit of the first byte set to 0.
+短包头的 QUIC 数据包，其第一字节的首位被设置为0。
 
-A QUIC packet with a short header includes a Destination Connection ID.  The
-short header does not include the Connection ID Lengths, Source Connection ID,
-or Version fields.
+短包头的 QUIC 数据包包含一个目标连接 ID。短包头
+不包含连接 ID 长度字段，源连接 ID 字段，以及
+版本字段。
 
-The remainder of the packet has version-specific semantics.
-
-
-## Connection ID
-
-A connection ID is an opaque field of arbitrary length.
-
-The primary function of a connection ID is to ensure that changes in addressing
-at lower protocol layers (UDP, IP, and below) don't cause packets for a QUIC
-connection to be delivered to the wrong endpoint.  The connection ID is used by
-endpoints and the intermediaries that support them to ensure that each QUIC
-packet can be delivered to the correct instance of an endpoint.  At the
-endpoint, the connection ID is used to identify which QUIC connection the packet
-is intended for.
-
-The connection ID is chosen by each endpoint using version-specific methods.
-Packets for the same QUIC connection might use different connection ID values.
+数据包剩下的部分的语意为版本特定的。
 
 
-## Version
+## 连接ID（Connection ID）
 
-QUIC versions are identified with a 32-bit integer, encoded in network byte
-order.  Version 0 is reserved for version negotiation (see
-{{version-negotiation}}).  All other version numbers are potentially valid.
+连接 ID 是一个有任意长度的不透明字段。
 
-The properties described in this document apply to all versions of QUIC. A
-protocol that does not conform to the properties described in this document is
-not QUIC.  Future documents might describe additional properties which apply to
-a specific QUIC version, or to a range of QUIC versions.
+连接 ID 的主要作用是保证在底层协议（UDP，IP，或更底层）
+的寻址方式改变时，QUIC 数据包不会
+被传送到错误的终端。终端和支持的媒介
+会使用连接 ID 来确保每个 QUIC 包
+都能被分发到正确的终端。在终端，连接 ID 被
+用来区分数据包是来自于
+那个 QUIC 连接的。
 
-# Version Negotiation {#version-negotiation}
+连接 ID 是每个终端使用版本特定的方法选择的。
+来自同一个 QUIC 连接的数据包可能使用不同的连接 ID 值。
 
-A QUIC endpoint that receives a packet with a long header and a version it
-either does not understand or does not support might send a Version Negotiation
-packet in response.  Packets with a short header do not trigger version
-negotiation.
 
-A Version Negotiation packet sets the high bit of the first byte, and thus it
-conforms with the format of a packet with a long header as defined in
-{{long-header}}.  A Version Negotiation packet is identifiable as such by the
-Version field, which is set to 0x00000000.
+## 版本（Version）
+
+QUIC 使用32为整数来标记版本，该整数以网络序
+编码。版本0是为版本协商预留的（参见 {{version-negotiation}}）。
+任何其他值都可被用作版本号。
+
+此文档描述的特性适用于所有版本的 QUIC。不符合
+此文档中描述的特性的协议
+不是 QUIC。今后的文档可能描述特定
+版本 QUIC 的额外特性，或对一定版本 QUIC 适用的特性。
+
+# 版本协商（Version Negotiation） {#version-negotiation}
+
+当一个 QUIC 终端收到一个长包头的包，并且此包使用的
+协议版本它不支持，则可能在响应当中
+发送版本协商包。短包头包不会触发
+版本协商。
+
+版本协商包的第一个字节的首位会被设置，因此
+它符合在 {{long-header}} 当中定义的长包头数据包
+格式。版本协商包的版本号字段会被
+设置为0x00000000，可以以此来判断是否为版本协商包。
 
 ~~~
  0                   1                   2                   3
@@ -267,64 +270,64 @@ Version field, which is set to 0x00000000.
 |                   [Supported Version N (32)]                  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ~~~
-{: #version-negotiation-format title="Version Negotiation Packet"}
+{: #version-negotiation-format title="版本协商包"}
 
 
-The Version Negotiation packet contains a list of Supported Version fields, each
-identifying a version that the endpoint sending the packet supports.  The
-Supported Version fields follow the Version field.  A Version Negotiation packet
-contains no other fields.  An endpoint MUST ignore a packet that contains no
-Supported Version fields, or a truncated Supported Version.
+版本协商包包含一连串支持的版本字段，每一个字段
+都代表一个被发送此包的终端所支持的版本。受
+支持版本字段是紧接着版本字段的。版本协商包
+不包含其他的额外字段。终端**必须**忽略
+那些没有支持版本字段或支持版本字段被截断的包。
 
-Version Negotiation packets do not use integrity or confidentiality protection.
-A specific QUIC version might authenticate the packet as part of its connection
-establishment process.
+版本协商包不实用完整性保护和加密保护。
+特定版本的 QUIC 可能会在连接建立的过程中
+对数据包进行认证。
 
-An endpoint MUST include the value from the Source Connection ID field of the
-packet it receives in the Destination Connection ID field.  The value for Source
-Connection ID MUST be copied from the Destination Connection ID of the received
-packet, which is initially randomly selected by a client.  Echoing both
-connection IDs gives clients some assurance that the server received the packet
-and that the Version Negotiation packet was not generated by an off-path
-attacker.
+终端**必须**将其收到的数据包的源连接 ID 字段的值
+包含近目标连接 ID 字段。源连接 ID 字段必须是从
+收到的包的目标连接 ID 字段复制过来的，此 ID 最初
+由客户端随机选择。通过回显两个
+连接 ID 的方式，可以确切的告诉客户端服务器收到了数据包
+并且版本协商包不是由路径外攻击者
+生成的。
 
-An endpoint that receives a Version Negotiation packet might change the version
-that it decides to use for subsequent packets.  The conditions under which an
-endpoint changes QUIC version will depend on the version of QUIC that it
-chooses.
+收到版本协商包的终端可能将后续数据包
+使用的协议版本变更为自己选择的版本。终端
+更改 QUIC 版本需要满足的条件是取决于它
+所选择的 QUIC 版本的。
 
-See {{QUIC-TRANSPORT}} for a more thorough description of how an endpoint that
-supports QUIC version 1 generates and consumes a Version Negotiation packet.
-
-
-# Security and Privacy Considerations
-
-It is possible that middleboxes could use traits of a specific version of QUIC
-and assume that when other versions of QUIC exhibit similar traits the same
-underlying semantic is being expressed.  There are potentially many such traits
-(see {{bad-assumptions}}).  Some effort has been made to either eliminate or
-obscure some observable traits in QUIC version 1, but many of these remain.
-Other QUIC versions might make different design decisions and so exhibit
-different traits.
-
-The QUIC version number does not appear in all QUIC packets, which means that
-reliably extracting information from a flow based on version-specific traits
-requires that middleboxes retain state for every connection ID they see.
-
-The Version Negotiation packet described in this document is not
-integrity-protected; it only has modest protection against insertion by off-path
-attackers.  QUIC versions MUST define a mechanism that authenticates the values
-it contains.
+想要了解支持 QUIC 版本1的终端是如何生成和使用
+版本协商包的，请参考 {{QUIC-TRANSPORT}}。
 
 
-# IANA Considerations
+# 安全和隐私注意事项（Security and Privacy Considerations）
 
-This document makes no request of IANA.
+中间设备可能会用到某些版本的 QUIC 协议所特有的特性，
+并假设其他版本的 QUIC 表现出相同的特征时，具有相同
+的语意。这种特性可能会很多（参见 {{bad-assumptions}}）。
+已经在消除或掩盖 QUIC 版本1的可观察特性方面做了
+很多工作，但仍然还有很多。
+其他版本的 QUIC 可能出于不同的设计考虑表现出
+不同的特性。
+
+QUIC 的版本号并不会存在于所有的数据包当中，这意味着
+中间设备想要基于特定版本的特性从流中可靠的提取信息时，
+需要保留每个连接 ID 的状态。
+
+此文档当中描述的版本协商包是没有
+完整性保护的；它仅有用来防止路径外攻击者插入版本协商包的简单保护。 *即仅有防止路径外攻击者*
+*在流当中插入版本协商包，不是应对所有路径外攻击者的攻击。*
+每个 QUIC 版本都**必须**定义对版本协商包中的值进行认证的机制。
+
+
+# IANA 注意事项（IANA Considerations）
+
+本文档没有 IANA 相关的事项。
 
 
 --- back
 
-# Incorrect Assumptions {#bad-assumptions}
+# 不正确的假设（Incorrect Assumptions） {#bad-assumptions}
 
 There are several traits of QUIC version 1 {{QUIC-TRANSPORT}} that are not
 protected from observation, but are nonetheless considered to be changeable when
