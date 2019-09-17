@@ -334,45 +334,43 @@ QUIC 版本1 {{QUIC-TRANSPORT}} 当中有很多特性是观察者可见的，
 视为可变的。
 
 本章节列举了一些基于版本1的 QUIC 可能会得出的
-错误假设。
-This section lists a sampling of incorrect assumptions that might be made based
-on knowledge of QUIC version 1.  Some of these statements are not even true for
-QUIC version 1.  This is not an exhaustive list, it is intended to be
-illustrative only.
+错误假设。有些假设甚至在版本1的 QUIC 当中也是
+错的。此列表并不没有穷尽所有的问题，它只是
+举一些例子。
 
-The following statements are NOT guaranteed to be true for every QUIC version:
+下列描述在所有版本的 QUIC 当中都**不**正确：
 
-* QUIC uses TLS {{QUIC-TLS}} and some TLS messages are visible on the wire
+* QUIC 使用 TLS {{QUIC-TLS}} 并且一些TLS信息在路径上是可见的
 
-* QUIC long headers are only exchanged during connection establishment
+* 长包头 QUIC 包只会在连接建立的过程中被使用
 
-* Every flow on a given 5-tuple will include a connection establishment phase
+* 在一个给定的5元组重的所有连接都会有连接建立过程
 
-* The first packets exchanged on a flow use the long header
+* 流当中第一个被交换的包使用长包头
 
-* QUIC forbids acknowledgments of packets that only contain ACK frames,
-  therefore the last packet before a long period of quiescence might be assumed
-  to contain an acknowledgment
+* QUIC 禁止确认仅包含 ACK 帧的数据包，因此可以
+  假定在长时间静默之前的最后一个数据包
+  包含确认。
 
-* QUIC uses an AEAD (AEAD_AES_128_GCM {{?RFC5116}}) to protect the packets it
-  exchanges during connection establishment
+* QUIC 在连接建立的时候使用 AEAD（AEAD_AES_128_GCM {{?RFC5116}}）
+  来保护数据包。
 
-* QUIC packet numbers appear after the Version field
+* QUIC 数据包编号紧接着版本字段。
 
-* QUIC packet numbers increase by one for every packet sent
+* QUIC 数据包编号每发送一个数据包就增加1。
 
-* QUIC has a minimum size for the first handshake packet sent by a client
+* QUIC 规定了客户端发送的第一个我手包的最小大小
 
-* QUIC stipulates that a client speaks first
+* QUIC 规定由客户端发起会话
 
-* A QUIC Version Negotiation packet is only sent by a server
+* 只有服务器会发送 QUIC 版本协商包
 
-* A QUIC connection ID changes infrequently
+* QUIC 的连接 ID 不经常变化
 
-* QUIC endpoints change the version they speak if they are sent a Version
-  Negotiation packet
+* QUIC 终端会在发送版本协商包之后改变其使用的
+  协议版本。
 
-* The version field in a QUIC long header is the same in both directions
+* QUIC 长包头中的版本字段在两个方向上是一样的
 
-* Only one connection at a time is established between any pair of QUIC
-  endpoints
+* 一对终端之间一次只会建立
+  一个 QUIC 连接
