@@ -329,10 +329,12 @@ QUIC 的版本号并不会存在于所有的数据包当中，这意味着
 
 # 不正确的假设（Incorrect Assumptions） {#bad-assumptions}
 
-There are several traits of QUIC version 1 {{QUIC-TRANSPORT}} that are not
-protected from observation, but are nonetheless considered to be changeable when
-a new version is deployed.
+QUIC 版本1 {{QUIC-TRANSPORT}} 当中有很多特性是观察者可见的，
+但在部署新版本的时候仍应被
+视为可变的。
 
+本章节列举了一些基于版本1的 QUIC 可能会得出的
+错误假设。
 This section lists a sampling of incorrect assumptions that might be made based
 on knowledge of QUIC version 1.  Some of these statements are not even true for
 QUIC version 1.  This is not an exhaustive list, it is intended to be
