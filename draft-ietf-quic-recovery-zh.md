@@ -207,16 +207,15 @@ QUIC supports many ACK ranges, opposed to TCP's 3 SACK ranges.  In high loss
 environments, this speeds recovery, reduces spurious retransmits, and ensures
 forward progress without relying on timeouts.
 
-### 延迟ACK的显式修正
+### 延迟ACK的显式矫正
 
-QUIC ACK 显式编码了发送和接收时刻间的
-延迟。这允许ACK的接收器针对
-接收方延迟进行调节，
-特别指当估测路径RTT时的延迟ack计时器。
-该机制还允许接收器测量和报告OS内核接收包时的
-延迟，这对于在用户空间中处理接收的分组之前
-存在有可能引起诸如上下文切换等待时间之类的
-延迟的接收器相当有用。
+QUIC 将从接收端收到包到发出 ACK 之间的
+延迟显式的编码在 ACK 包中。这样 ACK 包的
+接收者（译注：即发包方）可以在估计 RTT 的时候调整
+接收方延迟，尤其是延迟 ACK 的定时器。这项机制还允许接收者
+测量及报告从 OS 内核接收到数据包开始的延迟，
+这在一个可能导致延迟的接收着中很有用，例如
+在一个在用户空间的 QUIC 接收者在处理接收到的包之前的上下文切换延迟。
 
 # 生成确认
 
