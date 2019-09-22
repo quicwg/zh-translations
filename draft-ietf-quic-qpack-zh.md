@@ -720,24 +720,22 @@ Increment字段编码为6位前缀整数。
 编码器无法从该指令推断出已接收到对动态表的任何更新。
 
 
-## Header Block Instructions
+## 头部块的指令(Header Block Instructions)
 
-HTTP/3 endpoints convert header lists to headers blocks and exchange them inside
-HEADERS and PUSH_PROMISE frames. A decoder interprets header block instructions
-in order to construct a header list. These instructions reference the static
-table, or dynamic table in a particular state without modifying it.
+HTTP/3 端会将头部列表转换为头部块，并在HEADERS和PUSH_PROMISE帧
+内交换它们。解码器解释头部指令以便构造头部列表。
+这些指令引用静态列表或在不修改的情况下引用特定状态的动态列表。
 
-This section specifies the following header block instructions.
+本节指定以下头部块指令。
 
-### Header Block Prefix {#header-prefix}
+### 头部块前缀(Header Block Prefix) {#header-prefix}
 
-Each header block is prefixed with two integers.  The Required Insert Count is
-encoded as an integer with an 8-bit prefix after the encoding described in
-{{ric}}).  The Base is encoded as sign-and-modulus integer, using a single sign
-bit and a value with a 7-bit prefix (see {{base}}).
-
-These two values are followed by instructions for compressed headers.  The
-entire block is expected to be framed by the using protocol.
+每个标题块都以两个整数为前缀。必须插入计数（RIC）被编码为一个紧接着
+{{ric}}中描述的编码之后的有着8位前缀的整数。
+The Base 被编码为可直接取模的有符号整数，利用一个符号位和
+有7位前缀的值（请参阅{{base}}）。
+这两个值后面是压缩头部的指令，整个块会被使用的协议
+分帧．
 
 ~~~~~~~~~~  drawing
   0   1   2   3   4   5   6   7
@@ -749,16 +747,15 @@ entire block is expected to be framed by the using protocol.
 |      Compressed Headers     ...
 +-------------------------------+
 ~~~~~~~~~~
-{:#fig-base-index title="Frame Payload"}
+{:#fig-base-index title="帧载荷"}
 
 
-#### Required Insert Count {#ric}
+#### 必需的插入计数(Required Insert Count) {#ric}
 
-Required Insert Count identifies the state of the dynamic table needed to
-process the header block.  Blocking decoders use the Required Insert Count to
-determine when it is safe to process the rest of the block.
+必需的插入计数(ric)标识处理头部块所需的动态表的状态。
+块解码器使用必需的插入计数来确定何时可以安全地处理块的其余部分。
 
-The encoder transforms the Required Insert Count as follows before encoding:
+编码器在编码之前对必需的插入计数(RIC)转换如下：
 
 ~~~
    if ReqInsertCount == 0:
@@ -767,26 +764,25 @@ The encoder transforms the Required Insert Count as follows before encoding:
       EncInsertCount = (ReqInsertCount mod (2 * MaxEntries)) + 1
 ~~~
 
-Here `MaxEntries` is the maximum number of entries that the dynamic table can
-have.  The smallest entry has empty name and value strings and has the size of
-32.   Hence `MaxEntries` is calculated as
+
+这里`MaxEntries`是动态表可以拥有的最大条目数。
+最小的条目具有空名称和值字符串，大小为32.因此`MaxEntries`计算为
 
 ~~~
    MaxEntries = floor( MaxTableCapacity / 32 )
 ~~~
 
-`MaxTableCapacity` is the maximum capacity of the dynamic table as specified by
-the decoder (see {{maximum-dynamic-table-capacity}}).
+`MaxTableCapacity`是解码器指定的动态表的最大容量,见
+{{maximum-dynamic-table-capacity}}.
 
-This encoding limits the length of the prefix on long-lived connections.
+此编码限制了长期连接上的前缀长度。
 
-The decoder can reconstruct the Required Insert Count using an algorithm such as
-the following.  If the decoder encounters a value of EncodedInsertCount that
-could not have been produced by a conformant encoder, it MUST treat this as a
-stream error of type `HTTP_QPACK_DECOMPRESSION_FAILED`.
+解码器可以使用诸如以下的算法重建所需的插入计数。如果解码器
+遇到无法由符合编码器生成的EncodedInsertCount值，则**必须**将其视为
+`HTTP_QPACK_DECOMPRESSION_FAILED`类型的流错误。
 
-TotalNumberOfInserts is the total number of inserts into the decoder's dynamic
-table.
+TotalNumberOfInserts是解码器动态表中插入的总数。
+
 
 ~~~
    FullRange = 2 * MaxEntries
@@ -810,20 +806,18 @@ table.
          ReqInsertCount -= FullRange
 ~~~
 
-For example, if the dynamic table is 100 bytes, then the Required Insert Count
-will be encoded modulo 6.  If a decoder has received 10 inserts, then an encoded
-value of 3 indicates that the Required Insert Count is 9 for the header block.
 
-#### Base {#base}
+例如，如果动态表是100个字节，则必需的插入计数将以模6编码。
+如果解码器已接收10个插入，则编码值3表示头部块的必需插入计数为9。
 
-The `Base` is used to resolve references in the dynamic table as described in
-{{relative-indexing}}.
+#### 基数(Base) {#base}
 
-To save space, the Base is encoded relative to the Insert Count using a one-bit
-sign and the `Delta Base` value.  A sign bit of 0 indicates that the Base is
-greater than or equal to the value of the Insert Count; the value of Delta Base
-is added to the Insert Count to determine the value of the Base.  A sign bit of
-1 indicates that the Base is less than the Insert Count.  That is:
+`Base`用于解析动态表中的引用，见{{relative-indexing}}.
+
+为了节省空间，Base使用一位符号和相对于插入计数的改变量`Delta Base`值进行编
+码。符号位为0表示Base大于或等于Insert Count的值;将Delta Base的值
+添加到Insert Count以确定Base的值。符号位为1表示Base小于插入计数。
+即：
 
 ~~~
    if S == 0:
@@ -832,33 +826,28 @@ is added to the Insert Count to determine the value of the Base.  A sign bit of
       Base = ReqInsertCount - DeltaBase - 1
 ~~~
 
-A single-pass encoder determines the Base before encoding a header block.  If
-the encoder inserted entries in the dynamic table while encoding the header
-block, Required Insert Count will be greater than the Base, so the encoded
-difference is negative and the sign bit is set to 1.  If the header block did
-not reference the most recent entry in the table and did not insert any new
-entries, the Base will be greater than the Required Insert Count, so the delta
-will be positive and the sign bit is set to 0.
-
-An encoder that produces table updates before encoding a header block might set
-Required Insert Count and the Base to the same value.  In such case, both the
-sign bit and the Delta Base will be set to zero.
-
-A header block that does not reference the dynamic table can use any value for
-the Base; setting Delta Base to zero is the most efficient encoding.
-
-For example, with an Required Insert Count of 9, a decoder receives a S bit of 1
-and a Delta Base of 2.  This sets the Base to 6 and enables post-base indexing
-for three entries.  In this example, a regular index of 1 refers to the 5th
-entry that was added to the table; a post-base index of 1 refers to the 8th
-entry.
+单通道编码器在编码头部块之前确定Base。如果编码器在编码头部块
+时在动态表中插入条目，则必需插入计数将大于基数，因此编码的差值为负数，
+符号位设置为1.如果头部块未引用在表中的最新条目输入并且未插入任何
+新条目，Base将大于Required Insert Count，因此delta将为正且符号
+位设置为0。
 
 
-### Indexed Header Field
+在编码头部块之前产生表更新的编码器可能会将Required Insert Count
+和Base设置为相同的值。在这种情况下，符号位和Delta Base都将设置为零。
 
-An indexed header field representation identifies an entry in either the static
-table or the dynamic table and causes that header field to be added to the
-decoded header list, as described in Section 3.2 of [RFC7541].
+不引用动态表的头部块可以设置Base为任何值;
+将Delta Base设置为零是最有效的编码。
+
+例如，如果所需插入计数为9，则解码器接收S位为1且Delta Base为2.
+这将Base设置为6并为三个条目启用后基索引。在此示例中，
+常规索引1表示添加到表中的第5个条目;后基索引为1指的是第8个条目。
+
+
+### 被索引的标题字段(Indexed Header Field)
+
+被索引标题字段占位符标识静态表或动态表中的条目，并使该标题字段被添
+加到解码的标题列表中，如[RFC7541]的第3.2节中所述
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -866,23 +855,19 @@ decoded header list, as described in Section 3.2 of [RFC7541].
 | 1 | S |      Index (6+)       |
 +---+---+-----------------------+
 ~~~~~~~~~~
-{: title="Indexed Header Field"}
+{: title="被索引标题字段"}
 
-If the entry is in the static table, or in the dynamic table with an absolute
-index less than the Base, this representation starts with the '1' 1-bit pattern,
-followed by the `S` bit indicating whether the reference is into the static
-(S=1) or dynamic (S=0) table. Finally, the relative index of the matching header
-field is represented as an integer with a 6-bit prefix (see Section 5.1 of
-[RFC7541]).
+如果条目在静态表中，或者在绝对索引小于Base的动态表中,
+则该表示以1位数字`1`开始的形式，后跟S位表明引用是否进入静态（ S = 1）
+或动态（S = 0）表。最后，匹配头字段的相对索引表示为具有6位前缀
+的整数（参见[RFC7541]的第5.1节）。
 
 
-### Indexed Header Field With Post-Base Index
+### 带有后基索引的索引标题字段(Indexed Header Field With Post-Base Index)
 
-If the entry is in the dynamic table with an absolute index greater than or
-equal to the Base, the representation starts with the '0001' 4-bit pattern,
-followed by the post-base index (see {{post-base}}) of the matching header
-field, represented as an integer with a 4-bit prefix (see Section 5.1 of
-[RFC7541]).
+如果条目在绝对索引大于或等于Base的动态表中，
+表现为'0001'4位模式开始，后跟匹配的后基索引（参见{{post-base}})
+的头部字段，表示为具有4位前缀的整数（参见[RFC7541]的第5.1节）。
 
 ~~~~~~~~~~ drawing
   0   1   2   3   4   5   6   7
@@ -890,7 +875,7 @@ field, represented as an integer with a 4-bit prefix (see Section 5.1 of
 | 0 | 0 | 0 | 1 |  Index (4+)   |
 +---+---+---+---+---------------+
 ~~~~~~~~~~
-{: title="Indexed Header Field with Post-Base Index"}
+{: title="带有后基索引的头部索引字段"}
 
 
 ### 具有名称引用的文本标头字段(Literal Header Field With Name Reference)
