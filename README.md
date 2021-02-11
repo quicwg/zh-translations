@@ -2,10 +2,12 @@
 
 这是 IETF-QUIC-Working-Group 相关文档的翻译所使用的仓库。
 
-翻译将会基于 IETF-QUIC-draft version 18 的文档并在翻译完成后尽可能的跟进新的版本。
+翻译将基于最新的 IETF-QUIC-draft 版本, 并跟进将在近期推出的 RFC 完成。
+
+翻译提供当前正在翻译的部分预览，同时提供此前完成的 version 18 的完整翻译内容。 
 
 ## 在线预览
-点击以下链接在线预览。
+点击以下链接在线预览V18版本翻译。
 
 [QUIC 传输协议 draft-ietf-quic-transport-zh](http://docs.wxclimb.top/draft-ietf-quic-transport-zh.html)
 

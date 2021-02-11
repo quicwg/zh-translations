@@ -12,4 +12,3 @@ pulls.json
 lib
 .targets.mk
 *.upload
-.DS_Store
