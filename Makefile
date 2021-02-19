@@ -27,3 +27,9 @@ endif
 
 show-next:
 	@echo $(drafts_next)
+
+ifneq ($(PYTHON),)
+unescape::
+	@$(PYTHON) ./.unescape.py $(addsuffix .html,$(drafts))
+	@$(PYTHON) ./.unescape.py $(addsuffix .txt,$(drafts))
+endif

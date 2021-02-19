@@ -96,14 +96,10 @@ informative:
 
 --- abstract
 
-This document defines the core of the QUIC transport protocol.  QUIC provides
-applications with flow-controlled streams for structured communication,
-low-latency connection establishment, and network path migration. QUIC includes
-security measures that ensure confidentiality, integrity, and availability in a
-range of deployment circumstances.  Accompanying documents describe the
-integration of TLS for key negotiation, loss detection, and an exemplary
-congestion control algorithm.
-
+本文档定义了 QUIC 传输协议的核心。 QUIC 为应用程序提供了流量控制的流，
+用于结构化通信，低延迟的链接建立，以及网络路径迁移。
+QUIC 包含安全策略，用以确保在一系列部署环境中的机密性，完整性和可用性。
+所附文档描述了用于秘钥协商的 TLS 的完整性，丢包检测以及一个样例流量控制的算法。
 
 --- note_DO_NOT_DEPLOY_THIS_VERSION_OF_QUIC
 
