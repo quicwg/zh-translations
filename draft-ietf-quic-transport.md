@@ -157,49 +157,41 @@ QUIC 连接并不严格与单个网络路径绑定。
 
 ## Document Structure
 
-This document describes the core QUIC protocol and is structured as follows:
+本文档描述了 QUIC 协议的核心部分，并由以下结构组织：
 
-* Streams are the basic service abstraction that QUIC provides.
-  - {{streams}} describes core concepts related to streams,
-  - {{stream-states}} provides a reference model for stream states, and
-  - {{flow-control}} outlines the operation of flow control.
+* 流是 QUIC 提供的基础服务抽象。
+  - {{streams}} 描述了关于流的核心概念
+  - {{stream-states}} 提供了流状态的参考模型
+  - {{flow-control}} 概述了流量控制的操作
 
-* Connections are the context in which QUIC endpoints communicate.
-  - {{connections}} describes core concepts related to connections,
-  - {{version-negotiation}} describes version negotiation,
-  - {{handshake}} details the process for establishing connections,
-  - {{address-validation}} describes address validation and critical denial of
-    service mitigations,
-  - {{migration}} describes how endpoints migrate a connection to a new
-    network path,
-  - {{termination}} lists the options for terminating an open connection, and
-  - {{error-handling}} provides guidance for stream and connection error
-    handling.
+* 连接是 QUIC 终端之间交流的上下文环境。
+  - {{connections}} 描述了关于连接的核心概念
+  - {{version-negotiation}} 描述了版本协商
+  - {{handshake}} 详细介绍了连接建立的过程
+  - {{address-validation}} 描述了地址校验和服务降级的拒绝机制
+  - {{migration}} 描述了终端是如何把一个连接迁移到一个新的网络路径
+  - {{termination}} 列举了中断一个打开的连接的可选项l
+  - {{error-handling}} 提供了流和连接错误处理的指引
 
-* Packets and frames are the basic unit used by QUIC to communicate.
-  - {{packets-frames}} describes concepts related to packets and frames,
-  - {{packetization}} defines models for the transmission, retransmission, and
-    acknowledgment of data, and
-  - {{datagram-size}} specifies rules for managing the size of datagrams
-    carrying QUIC packets.
+* 包和帧是 QUIC 传输的基础单元。
+  - {{packets-frames}} 描述了和包与帧相关的概念
+  - {{packetization}} 定义了数据的传输、重传以及确认模型
+  - {{datagram-size}} 规定了管理承载 QUIC 数据包的数据报的大小的规则
 
-* Finally, encoding details of QUIC protocol elements are described in:
-  - {{versions}} (Versions),
-  - {{integer-encoding}} (Integer Encoding),
-  - {{packet-formats}} (Packet Headers),
-  - {{transport-parameter-encoding}} (Transport Parameters),
-  - {{frame-formats}} (Frames), and
-  - {{error-codes}} (Errors).
+* 最后，QUIC 协议组成元素的编码描述于：
+  - {{versions}} (版本)
+  - {{integer-encoding}} (整数编码)
+  - {{packet-formats}} (包头部)
+  - {{transport-parameter-encoding}} (传输参数)
+  - {{frame-formats}} (帧)
+  - {{error-codes}} (错误)
 
-Accompanying documents describe QUIC's loss detection and congestion control
-{{QUIC-RECOVERY}}, and the use of TLS and other cryptographic mechanisms
-{{QUIC-TLS}}.
+随文档附带了描述 QUIC 的丢失检测和拥塞控制{{QUIC-RECOVERY}}，以及 TLS 和其他加密机制的使用{{QUIC-TLS}}的内容。
 
-This document defines QUIC version 1, which conforms to the protocol invariants
-in {{QUIC-INVARIANTS}}.
+本文档定义了 QUIC 版本 1，它遵守协议不变量{{QUIC-INVARIANTS}}。
 
-To refer to QUIC version 1, cite this document.  References to the limited
-set of version-independent properties of QUIC can cite {{QUIC-INVARIANTS}}.
+要参考 QUIC 版本1，请引用本文档。
+引用 QUIC 的与版本无关的有限属性集可以引用{{QUIC-INVARIANTS}}。
 
 
 ## Terms and Definitions
