@@ -97,14 +97,15 @@ informative:
 --- abstract
 
 本文档定义了 QUIC 传输协议的核心。 QUIC 为应用程序提供了流量控制的流，
-用于结构化通信，低延迟的链接建立，以及网络路径迁移。
+用于结构化通信，低延迟的连接建立，以及网络路径迁移。
 QUIC 包含安全策略，用以确保在一系列部署环境中的机密性，完整性和可用性。
 所附文档描述了用于秘钥协商的 TLS 的完整性，丢包检测以及一个样例流量控制的算法。
 
 --- note_DO_NOT_DEPLOY_THIS_VERSION_OF_QUIC
 
-DO NOT DEPLOY THIS VERSION OF QUIC UNTIL IT IS IN AN RFC. This version is still
-a work in progress. For trial deployments, please use earlier versions.
+请勿使用此版本的 QUIC 直到它成为正式的 RFC 。
+此版本仍在开发中。
+为了实验性的开发使用，请使用更早的版本。
 
 --- note_Note_to_Readers
 
@@ -120,52 +121,38 @@ code and issues list for this draft can be found at
 
 # Overview
 
-QUIC is a secure general-purpose transport protocol. This
-document defines version 1 of QUIC, which conforms to the version-independent
-properties of QUIC defined in {{QUIC-INVARIANTS}}.
+QUIC 是一个安全的通用传输协议。
+本文档定义了 QUIC 的第一个版本，这个版本符合 {{QUIC-INVARIANTS}} 中定义的版本无关属性。
 
-QUIC is a connection-oriented protocol that creates a stateful interaction
-between a client and server.
+QUIC 是一种面向连接的协议，它在客户端和服务器之间创建有状态的交互。
 
-The QUIC handshake combines negotiation of cryptographic and transport
-parameters. QUIC integrates the TLS ({{TLS13}}) handshake, although using a
-customized framing for protecting packets. The integration of TLS and QUIC is
-described in more detail in {{QUIC-TLS}}. The handshake is structured to permit
-the exchange of application data as soon as possible. This includes an option
-for clients to send data immediately (0-RTT), which requires some form of prior
-communication or configuration to enable.
+QUIC 的握手结合了加密和传输参数的协商。
+QUIC 集成了 TLS({{TLS13}}) 握手，但也可使用自定义成帧来保护数据包。
+{{QUIC-TLS}} 更详细地介绍了 TLS 与 QUIC 的集成。
+握手设计上允许尽快交换应用层数据。
+这包括一个让客户端立即发送数据(0-RTT)的选项，这需要事先进行某种形式的通信或配置才能启用。
 
-Endpoints communicate in QUIC by exchanging QUIC packets. Most packets contain
-frames, which carry control information and application data between endpoints.
-QUIC authenticates the entirety of each packet and encrypts as much of each
-packet as is practical. QUIC packets are carried in UDP datagrams
-({{!UDP=RFC0768}}) to better facilitate deployment in existing systems and
-networks.
+终端间通过交换 QUIC 数据包在 QUIC 协议中通信。
+大多数数据包都包含帧，这些帧在终端之间传输控制信息和应用层数据。
+QUIC 协议对每个数据包的进行完整性校验，并在实际情况下对每个数据包进行尽可能的加密。
+QUIC 数据包携带在 UDP 数据报({{!UDP=RFC0768}})中传输，以更好地兼容在现有系统和网络中的传输部署。
 
-Application protocols exchange information over a QUIC connection via streams,
-which are ordered sequences of bytes. Two types of stream can be created:
-bidirectional streams, which allow both endpoints to send data; and
-unidirectional streams, which allow a single endpoint to send data. A
-credit-based scheme is used to limit stream creation and to bound the amount of
-data that can be sent.
+应用程序协议通过流在 QUIC 连接上交换信息，流是有序的字节序列。
+可以创建两种类型的流：双向流，允许两端发送数据；单向流，允许单端发送数据。
+基于积分的方案用于限制流创建和限制可以发送的数据量。
 
-QUIC provides the necessary feedback to implement reliable delivery and
-congestion control. An algorithm for detecting and recovering from loss of
-data is described in {{QUIC-RECOVERY}}. QUIC depends on congestion control
-to avoid network congestion. An exemplary congestion control algorithm is
-also described in {{QUIC-RECOVERY}}.
+QUIC 提供必要的反馈来实现可靠的交付和拥塞控制。
+{{QUIC-RECOVERY}}中介绍了检测数据丢失并从中恢复的算法。
+QUIC 依靠拥塞控制来避免网络拥塞。
+{{QUIC-RECOVERY}}中还描述了示例性拥塞控制算法。
 
-QUIC connections are not strictly bound to a single network path. Connection
-migration uses connection identifiers to allow connections to transfer to a new
-network path. Only clients are able to migrate in this version of QUIC. This
-design also allows connections to continue after changes in network topology or
-address mappings, such as might be caused by NAT rebinding.
+QUIC 连接并不严格与单个网络路径绑定。
+连接迁移使用连接标识符来允许连接传输到新的网络路径。
+只有客户端才能在此版本的 QUIC 中迁移。
+此设计还允许连接在网络拓扑或地址映射上发生更改(例如由NAT重新绑定引起)后继续使用。
 
-Once established, multiple options are provided for connection termination.
-Applications can manage a graceful shutdown, endpoints can negotiate a timeout
-period, errors can cause immediate connection teardown, and a stateless
-mechanism provides for termination of connections after one endpoint has lost
-state.
+一旦连接建立，就为连接终端提供了多种可选机制。
+应用程序可以管理正常关闭，终端可以一个协商超时时间，错误也可能导致立即断开连接，并提供了在一个终端丢失状态后终止连接的无状态的断开机制。
 
 
 ## Document Structure
