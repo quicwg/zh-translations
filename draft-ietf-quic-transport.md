@@ -198,69 +198,62 @@ QUIC 连接并不严格与单个网络路径绑定。
 
 {::boilerplate bcp14}
 
-Commonly used terms in the document are described below.
+此文档中通用的属于描述于下文。
 
 QUIC:
 
-: The transport protocol described by this document. QUIC is a name, not an
-  acronym.
+: 此文档描述的传输协议。 QUIC 是一个名字，不是一个缩写。
 
-Endpoint:
+Endpoint 终端:
 
-: An entity that can participate in a QUIC connection by generating, receiving,
-  and processing QUIC packets. There are only two types of endpoint in QUIC:
-  client and server.
+: 可以参与一个 QUIC 连接中生成，接受与处理 QUIC 数据包的实体。
+QUIC 中仅有两种终端：客服端与服务端。
 
-Client:
+Client 客户端:
 
-: The endpoint that initiates a QUIC connection.
+: 开始建立一个 QUIC 连接的终端。
 
-Server:
+Server 服务端:
 
-: The endpoint that accepts a QUIC connection.
+: 接受一个 QUIC 连接的终端。
 
-QUIC packet:
+QUIC packet QUIC 数据包:
 
-: A complete processable unit of QUIC that can be encapsulated in a UDP
-  datagram.  One or more QUIC packets can be encapsulated in a single UDP
-  datagram.
+: 可以封装在 UDP 数据报中的完整的 QUIC 可处理单元。
+一个或多个 QUIC 数据包可以封装在单个UDP数据报中。
 
-Ack-eliciting Packet:
+Ack-eliciting Packet 引导 ACK 数据包:
 
-: A QUIC packet that contains frames other than ACK, PADDING, and
-  CONNECTION_CLOSE. These cause a recipient to send an acknowledgment; see
-  {{sending-acknowledgments}}.
+: 包含 ACK、PADDING 和 CONNECTION_CLOSE 以外的帧的 QUIC 数据包。
+这些数据包会导致收信端发送确认；详见{{sending-acknowledgments}}。
 
-Frame:
+Frame 帧:
 
-: A unit of structured protocol information.  There are multiple frame types,
-  each of which carries different information.  Frames are contained in QUIC
-  packets.
+: 一种结构化协议信息单元。
+有多种帧类型，每种类型都承载不同的信息。
+帧包含在 QUIC 数据包中。
 
-Address:
+Address 地址:
 
-: When used without qualification, the tuple of IP version, IP address, and UDP
-  port number that represents one end of a network path.
+: 除特别指出，代表网络路径一端的IP版本、IP地址和UDP端口号的元组。
 
-Connection ID:
+Connection ID 连接 ID:
 
-: An identifier that is used to identify a QUIC connection at an endpoint.
-  Each endpoint selects one or more Connection IDs for its peer to include in
-  packets sent towards the endpoint.  This value is opaque to the peer.
+: 用于标识终端处的 QUIC 连接的标识符。
+每个终端为其对端选择一个或多个连接ID以携带在发送到该终端的数据包中。
+该值对于对端是不透明的。
 
-Stream:
+Stream 流:
 
-: A unidirectional or bidirectional channel of ordered bytes within a QUIC
-  connection. A QUIC connection can carry multiple simultaneous streams.
+: QUIC 连接中有序字节的单向或双向通道。
+一个 QUIC 连接可以同时承载多个流。
 
-Application:
+Application 应用:
 
-: An entity that uses QUIC to send and receive data.
+: 使用 QUIC 收发数据的实体。
 
-This document uses the terms "QUIC packets", "UDP datagrams", and "IP packets"
-to refer to the units of the respective protocols. That is, one or more QUIC
-packets can be encapsulated in a UDP datagram, which is in turn encapsulated in
-an IP packet.
+本文档使用"QUIC 数据包"，"UDP 数据报"，"IP 数据包"来指代对应协议中的数据单元。
+也就是说，一个或多个 QUIC 数据包可以封装在UDP数据报中，而UDP数据报又封装在IP数据包中。
 
 
 ## Notational Conventions {#notation}
