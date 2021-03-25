@@ -313,53 +313,48 @@ Example Structure {
 {: #fig-ex-format title="Example Format"}
 
 在该文中引用单比特的字段时，可以通过使用携带设置了字段值的字段的字节的值来标明该字段的位置。
-例如，值 0x80 可用于引用字节的最高有效位中的单比特字段，例如{{fig-ex-format}}中的单比特字段。
+例如，值 0x80 可用于引用字节的最高有效位中的单比特字段
+(意思是0x80即二进制1000000表示8位中的第1位)，
+例如{{fig-ex-format}}中的单比特字段。
 
 
 
 # Streams {#streams}
 
-Streams in QUIC provide a lightweight, ordered byte-stream abstraction to an
-application. Streams can be unidirectional or bidirectional.
+QUIC 中的流为应用程序提供了轻量级的有序字节流抽象。
+流可以是单向的，也可以是双向的。
 
-Streams can be created by sending data. Other processes associated with stream
-management - ending, cancelling, and managing flow control - are all designed to
-impose minimal overheads. For instance, a single STREAM frame ({{frame-stream}})
-can open, carry data for, and close a stream. Streams can also be long-lived and
-can last the entire duration of a connection.
+可以通过发送数据来创建流。
+管理流相关的其他流程(结束、取消和流控制管理)都旨在施加最小的开销。
+例如单个 STREAM 帧({{frame-stream}})可以打开、携带数据和关闭流。
+流也可以是长寿命的，并且可以持续连接的整个生命周期。
 
-Streams can be created by either endpoint, can concurrently send data
-interleaved with other streams, and can be cancelled. QUIC does not provide any
-means of ensuring ordering between bytes on different streams.
+流可以由任一终端创建，可以并发发送与其他流穿插的数据，并且可以取消。
+QUIC 不提供任何方法来确保不同流上的字节之间的排序。
 
-QUIC allows for an arbitrary number of streams to operate concurrently and for
-an arbitrary amount of data to be sent on any stream, subject to flow control
-constraints and stream limits; see {{flow-control}}.
+QUIC 允许任意数量的流同时运行，并允许在任何流上发送任意数量的数据，
+但受流控制约束和流限制的限制；详见{{flow-control}}。
 
 
 ## Stream Types and Identifiers {#stream-id}
 
-Streams can be unidirectional or bidirectional.  Unidirectional streams carry
-data in one direction: from the initiator of the stream to its peer.
-Bidirectional streams allow for data to be sent in both directions.
+流可以是单向的，也可以是双向的。
+单向流在一个方向上传输数据：从流的发起方到其对端。
+双向流允许数据在两个方向上发送。
 
-Streams are identified within a connection by a numeric value, referred to as
-the stream ID.  A stream ID is a 62-bit integer (0 to 2<sup>62</sup>-1) that is
-unique for all streams on a connection.  Stream IDs are encoded as
-variable-length integers; see {{integer-encoding}}.  A QUIC endpoint MUST NOT
-reuse a stream ID within a connection.
+流在连接中由称为流 ID 的数值标识。
+流 ID 是一个62位整数(0到2<sup>62</sup>-1)，对于连接上的所有流都是唯一的。
+流 ID 编码为可变长度的整数；详见{{integer-encoding}}。
+QUIC 终端禁止(MUST NOT)在连接中重用流 ID。
 
-The least significant bit (0x1) of the stream ID identifies the initiator of the
-stream.  Client-initiated streams have even-numbered stream IDs (with the bit
-set to 0), and server-initiated streams have odd-numbered stream IDs (with the
-bit set to 1).
+流 ID 的最低有效位(0x1)标识流的发起方。
+客户端发起的流具有偶数编号的流ID(该位设置为0)，
+服务器发起的流具有奇数编号的流ID(该位设置为1)。
 
-The second least significant bit (0x2) of the stream ID distinguishes between
-bidirectional streams (with the bit set to 0) and unidirectional streams (with
-the bit set to 1).
+流 ID 的第二个最低有效位(0x2)区分双向流(该位设置为0)和单向流(该位设置为1)。
 
-The two least significant bits from a stream ID therefore identify a stream as
-one of four types, as summarized in {{stream-id-types}}.
+因此，流 ID 中的两个最低有效位将流标识为四种类型中的一种，
+如{{stream-id-types}}中所总结的。
 
 | Bits | Stream Type                      |
 |:-----|:---------------------------------|
@@ -369,40 +364,33 @@ one of four types, as summarized in {{stream-id-types}}.
 | 0x3  | Server-Initiated, Unidirectional |
 {: #stream-id-types title="Stream ID Types"}
 
-The stream space for each type begins at the minimum value (0x0 through 0x3
-respectively); successive streams of each type are created with numerically
-increasing stream IDs.  A stream ID that is used out of order results in all
-streams of that type with lower-numbered stream IDs also being opened.
+每种类型的流空间从最小值(分别为0x0到0x3)开始；
+每种类型的连续流都是用数字递增的流ID创建的。
+乱序使用的流ID会导致该类型的所有编号较低的流ID的流也被打开。
 
 
 ## Sending and Receiving Data
 
-STREAM frames ({{frame-stream}}) encapsulate data sent by an application. An
-endpoint uses the Stream ID and Offset fields in STREAM frames to place data in
-order.
+STREAM 帧({{frame-stream}})封装应用发送的数据。
+终端使用 STREAM 帧中的流ID和偏移量字段来按顺序放置数据。
 
-Endpoints MUST be able to deliver stream data to an application as an ordered
-byte-stream.  Delivering an ordered byte-stream requires that an endpoint buffer
-any data that is received out of order, up to the advertised flow control limit.
+终端必须(MUST)能够将流数据以有序字节流的形式交付给应用程序。
+传送有序字节流需要终端缓冲任何乱序接收的数据，直到被流控制限制通告。
 
-QUIC makes no specific allowances for delivery of stream data out of
-order. However, implementations MAY choose to offer the ability to deliver data
-out of order to a receiving application.
+对于无序传输流数据，QUIC 没有特别的规定。
+实现上可以(MAY)选择提供对接收应用程序无序传递数据的能力。
 
-An endpoint could receive data for a stream at the same stream offset multiple
-times.  Data that has already been received can be discarded.  The data at a
-given offset MUST NOT change if it is sent multiple times; an endpoint MAY treat
-receipt of different data at the same offset within a stream as a connection
-error of type PROTOCOL_VIOLATION.
+终端可以在同一流偏移量处多次接收流的数据。
+已经接收过的数据再次受到可以丢弃处理。
+如果多次发送给定偏移量处的数据，则该数据禁止(MUST NOT)更改；
+终端可能(MAY)会将在流中相同偏移量处接收不同数据视为
+类型为PROTOCOL_VALUATION的连接错误。
 
-Streams are an ordered byte-stream abstraction with no other structure visible
-to QUIC.  STREAM frame boundaries are not expected to be preserved when
-data is transmitted, retransmitted after packet loss, or delivered to the
-application at a receiver.
+流是有序的字节流抽象，QUIC看不到其他结构。
+在传输、丢失后重传或被递送到接收者处的应用的过程中STREAM 帧的边界不会被保留。
 
-An endpoint MUST NOT send data on any stream without ensuring that it is within
-the flow control limits set by its peer.  Flow control is described in detail in
-{{flow-control}}.
+终端在未确保对端设置的流控制限制内的情况下，禁止(MUST NOT)在任何流上发送数据。
+有关流量控制的详细说明，请参阅{{flow-control}}。
 
 
 ## Stream Prioritization {#stream-prioritization}
