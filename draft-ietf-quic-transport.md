@@ -258,51 +258,44 @@ Application 应用:
 
 ## Notational Conventions {#notation}
 
-Packet and frame diagrams in this document use a custom format. The purpose of
-this format is to summarize, not define, protocol elements. Prose defines the
-complete semantics and details of structures.
+本文档中的数据包示意图和帧示意图使用自定义格式。
+此格式的目的是汇总而不是定义协议元素。
+下文定义了结构的完整语义和细节。
 
-Complex fields are named and then followed by a list of fields surrounded by a
-pair of matching braces. Each field in this list is separated by commas.
+复杂字段的命名后，紧接着一对匹配的大括号包围的字段列表。
+此列表中的每个字段都用逗号分隔。
 
-Individual fields include length information, plus indications about fixed
-value, optionality, or repetitions. Individual fields use the following
-notational conventions, with all lengths in bits:
+各个字段包括长度信息，以及是固定值、可选值还是重复值的标识。
+各个字段使用以下记号约定，所有长度均以位为单位：
 
 x (A):
-: Indicates that x is A bits long
+: 表示 x 有 A 比特长
 
 x (i):
-: Indicates that x holds an integer value using the variable-length encoding in
-{{integer-encoding}}
+: 表示 x 的值使用{{integer-encoding}}中定义的变长整数编码保存的整数值
 
 x (A..B):
-: Indicates that x can be any length from A to B; A can be omitted to indicate
-  a minimum of zero bits and B can be omitted to indicate no set upper limit;
-  values in this format always end on a byte boundary
+: 表示 x 可以是从 A 到 B 的任意长度；可以省略A以表示最小零位，可以省略B以表示未设上限；
+此格式的值始终以字节边界结束
 
 x (L) = C:
-: Indicates that x has a fixed value of C with the length described by
-  L, which can use any of the three length forms above
+: 表示 x 具有固定值C，长度为L，可以使用上述三种长度形式中的任何一种
 
 x (L) = C..D:
-: Indicates that x has a value in the range from C to D, inclusive,
-  with the length described by L, as above
+: 表示 x 的值在从 C 到 D (包括C和D)的范围内，长度为 L，如上述描述一样
 
 \[x (L)\]:
-: Indicates that x is optional (and has length of L)
+: 表示 x 的值是可选项(而且长度为L)
 
 x (L) ...:
-: Indicates that zero or more instances of x are present (and that each
-  instance is length L)
+: 表示存在零或多个 x 的实例(每个示例长度为L)
 
-This document uses network byte order (that is, big endian) values.  Fields
-are placed starting from the high-order bits of each byte.
+本文档使用网络字节顺序(即大端顺序)值。
+字段从每个字节的高位开始放置。
 
-By convention, individual fields reference a complex field by using the name of
-the complex field.
+按照惯例，单个字段通过使用复杂字段的名称引用复杂字段。
 
-For example:
+示例:
 
 ~~~
 Example Structure {
@@ -319,11 +312,9 @@ Example Structure {
 ~~~
 {: #fig-ex-format title="Example Format"}
 
-When a single-bit field is referenced in prose, the position of that field can
-be clarified by using the value of the byte that carries the field with the
-field's value set. For example, the value 0x80 could be used to refer to the
-single-bit field in the most significant bit of the byte, such as One-bit Field
-in {{fig-ex-format}}.
+在该文中引用单比特的字段时，可以通过使用携带设置了字段值的字段的字节的值来标明该字段的位置。
+例如，值 0x80 可用于引用字节的最高有效位中的单比特字段，例如{{fig-ex-format}}中的单比特字段。
+
 
 
 # Streams {#streams}
